@@ -1,0 +1,115 @@
+import type { Participant } from '$lib/domain/types';
+export const participants: Participant[] = [
+	{
+		id: 'alif',
+		name: 'Alif',
+		membership: 'MEMBER',
+		rating: 1210,
+		uncertainty: 0.15,
+		status: 'PLAYING',
+		consecutiveMatches: 1,
+		opportunities: 3,
+		missedOpportunities: 0,
+		setsPlayed: 4
+	},
+	{
+		id: 'bima',
+		name: 'Bima',
+		membership: 'MEMBER',
+		rating: 1180,
+		uncertainty: 0.2,
+		status: 'PLAYING',
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 1,
+		setsPlayed: 4
+	},
+	{
+		id: 'citra',
+		name: 'Citra',
+		membership: 'MEMBER',
+		rating: 1160,
+		uncertainty: 0.2,
+		status: 'PLAYING',
+		consecutiveMatches: 1,
+		opportunities: 3,
+		missedOpportunities: 0,
+		setsPlayed: 4
+	},
+	{
+		id: 'dina',
+		name: 'Dina',
+		membership: 'MEMBER',
+		rating: 1135,
+		uncertainty: 0.25,
+		status: 'PLAYING',
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 1,
+		setsPlayed: 4
+	},
+	{
+		id: 'eka',
+		name: 'Eka',
+		membership: 'MEMBER',
+		rating: 1140,
+		uncertainty: 0.25,
+		status: 'READY',
+		readySince: new Date(Date.now() - 42 * 60000),
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 2,
+		setsPlayed: 2
+	},
+	{
+		id: 'fajar',
+		name: 'Fajar',
+		membership: 'MEMBER',
+		rating: 1195,
+		uncertainty: 0.15,
+		status: 'READY',
+		readySince: new Date(Date.now() - 28 * 60000),
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 2,
+		setsPlayed: 2
+	},
+	{
+		id: 'gita',
+		name: 'Gita',
+		membership: 'MEMBER',
+		rating: 1100,
+		uncertainty: 0.35,
+		status: 'READY',
+		readySince: new Date(Date.now() - 58 * 60000),
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 3,
+		setsPlayed: 0
+	},
+	{
+		id: 'hari',
+		name: 'Hari',
+		membership: 'GUEST',
+		rating: 1120,
+		uncertainty: 0.7,
+		status: 'READY',
+		readySince: new Date(Date.now() - 14 * 60000),
+		consecutiveMatches: 0,
+		opportunities: 1,
+		missedOpportunities: 1,
+		setsPlayed: 0
+	},
+	{
+		id: 'indra',
+		name: 'Indra',
+		membership: 'MEMBER',
+		rating: 1200,
+		uncertainty: 0.2,
+		status: 'RESTING',
+		consecutiveMatches: 0,
+		opportunities: 3,
+		missedOpportunities: 1,
+		setsPlayed: 2
+	}
+];
