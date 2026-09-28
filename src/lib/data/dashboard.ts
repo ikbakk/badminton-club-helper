@@ -116,3 +116,31 @@ export async function changeParticipantStatus(
 	});
 	if (error) throw error;
 }
+
+export type PublicSessionHistory = {
+	id: string;
+	started_at: string;
+	closed_at: string | null;
+	fee_per_person: number | null;
+	attendance: number;
+};
+
+export type PublicFundSummary = { received: number; expenses: number; balance: number };
+
+export async function getPublicSessionHistory() {
+	const { data, error } = await client()
+		.from('public_session_history')
+		.select('id,started_at,closed_at,fee_per_person,attendance')
+		.order('started_at', { ascending: false });
+	if (error) throw error;
+	return (data ?? []) as PublicSessionHistory[];
+}
+
+export async function getPublicFundSummary() {
+	const { data, error } = await client()
+		.from('public_fund_summary')
+		.select('received,expenses,balance')
+		.single();
+	if (error) throw error;
+	return data as PublicFundSummary;
+}

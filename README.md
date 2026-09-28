@@ -62,3 +62,13 @@ Critical state transitions remain transactional RPCs; the browser never performs
 The score/weight values in `src/lib/domain/rotation` and `src/lib/domain/rating` are explicit **versioned baseline simulations**, not final policy. Calibrate them with the required real-session simulations and override history before enabling them as production authority.
 
 See the numbered specification Markdown files for complete constraints and the courtside UI pack for the interaction flows.
+
+## Demo data
+
+The checked-in `supabase/seed/demo_data.sql` is idempotent and only adds sample records to a club named `PB NEWBIE`. It preserves any current LIVE session and its operator PIN.
+
+```sh
+npx supabase db query --linked --file supabase/seed/demo_data.sql
+```
+
+It creates a roster, three closed sessions with attendance, matches and completed sets, obligations, recorded payments, expenses, session events, and a representative live Set 2 court if no match is already active.

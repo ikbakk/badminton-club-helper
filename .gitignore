@@ -29,3 +29,8 @@ playwright-report
 .agents
 .opencode
 supabase/.temp
+
+# Local UI-analysis and browser automation artifacts
+.impeccable
+.playwright-cli
+output/playwright
