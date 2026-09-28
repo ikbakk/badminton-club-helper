@@ -78,12 +78,14 @@ $$;
 create or replace function public.public_fund_activity()
 returns table(id uuid, kind text, label text, amount bigint, occurred_at timestamptz)
 language sql stable security definer set search_path = '' as $$
-  select p.id, 'INCOME', 'Dana masuk', p.amount::bigint, p.received_at
-  from public.payments p
-  union all
-  select e.id, 'EXPENSE', coalesce(e.description, case e.category when 'COURT' then 'Sewa lapangan' when 'SHUTTLECOCK' then 'Kok' else 'Pengeluaran klub' end), (-e.amount)::bigint, e.occurred_at
-  from public.expenses e
-  order by occurred_at desc
+  select * from (
+    select p.id, 'INCOME'::text, 'Dana masuk'::text, p.amount::bigint, p.received_at
+    from public.payments p
+    union all
+    select e.id, 'EXPENSE'::text, coalesce(e.description, case e.category when 'COURT' then 'Sewa lapangan' when 'SHUTTLECOCK' then 'Kok' else 'Pengeluaran klub' end), (-e.amount)::bigint, e.occurred_at
+    from public.expenses e
+  ) as activity(id, kind, label, amount, occurred_at)
+  order by activity.occurred_at desc
   limit 20;
 $$;
 

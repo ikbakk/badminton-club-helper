@@ -206,7 +206,9 @@ export async function getPublicPlayerProfile(playerId: string) {
 
 export async function getPublicPlayerRecentSessions(playerId: string) {
 	return cached(`player-sessions:${playerId}`, async () => {
-		const { data, error } = await client().rpc('public_player_recent_sessions', { p_player_id: playerId });
+		const { data, error } = await client().rpc('public_player_recent_sessions', {
+			p_player_id: playerId
+		});
 		if (error) throw error;
 		return (data ?? []) as PublicPlayerSession[];
 	});
@@ -214,7 +216,9 @@ export async function getPublicPlayerRecentSessions(playerId: string) {
 
 export async function getPublicSessionMatches(sessionId: string) {
 	return cached(`session-matches:${sessionId}`, async () => {
-		const { data, error } = await client().rpc('public_session_matches', { p_session_id: sessionId });
+		const { data, error } = await client().rpc('public_session_matches', {
+			p_session_id: sessionId
+		});
 		if (error) throw error;
 		return (data ?? []) as PublicSessionMatch[];
 	});
@@ -232,11 +236,15 @@ export async function prefetchPublicSurface(route: string) {
 	const club = await getPublicClub();
 	if (route === '/players' && club) await getPublicRoster(club.id);
 	if (route === '/history') await getPublicSessionHistory();
-	if (route === '/fund') await Promise.all([getPublicFundSummary(), getPublicFundActivity().catch(() => [])]);
+	if (route === '/fund')
+		await Promise.all([getPublicFundSummary(), getPublicFundActivity().catch(() => [])]);
 }
 
 export async function prefetchPublicPlayer(playerId: string) {
-	await Promise.all([getPublicPlayerProfile(playerId).catch(() => null), getPublicPlayerRecentSessions(playerId).catch(() => [])]);
+	await Promise.all([
+		getPublicPlayerProfile(playerId).catch(() => null),
+		getPublicPlayerRecentSessions(playerId).catch(() => [])
+	]);
 }
 
 export async function prefetchPublicSession(sessionId: string) {

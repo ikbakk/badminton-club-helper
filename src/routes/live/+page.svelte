@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
@@ -26,13 +27,6 @@
 	import { supabase } from '$lib/supabase';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
-	const tabs: { id: Tab; label: string; icon: string }[] = [
-		{ id: 'live', label: 'Live', icon: '●' },
-		{ id: 'players', label: 'Pemain', icon: '♙' },
-		{ id: 'history', label: 'Riwayat', icon: '◷' },
-		{ id: 'fund', label: 'Dana', icon: '◒' }
-	];
-
 	let tab = $state<Tab>('live');
 	let email = $state('');
 	let password = $state('');
@@ -276,7 +270,7 @@
 		</header>
 
 		{#if adminLoginOpen}
-			<section class="mb-5  border border-slate-200 bg-white p-5 shadow-sm">
+			<section class="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
 				<div class="flex items-start justify-between gap-3">
 					<div>
 						<p class="text-xs font-black tracking-[0.15em] text-slate-500">ADMIN ACCESS</p>
@@ -290,7 +284,7 @@
 				</div>
 				<label class="mt-5 block text-sm font-bold"
 					>Email<input
-						class="mt-2 min-h-11 w-full  border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 						type="email"
 						bind:value={email}
 						autocomplete="email"
@@ -298,7 +292,7 @@
 					/></label
 				><label class="mt-4 block text-sm font-bold"
 					>Password<input
-						class="mt-2 min-h-11 w-full  border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 						type="password"
 						bind:value={password}
 						autocomplete="current-password"
@@ -325,7 +319,7 @@
 				</p>
 				<label class="mt-6 block text-sm font-bold"
 					>Club name<input
-						class="mt-2 min-h-12 w-full  border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
+						class="mt-2 min-h-12 w-full border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
 						bind:value={clubName}
 						placeholder="Friday Shuttle Club"
 					/></label
@@ -352,7 +346,7 @@
 				onsubstitute={substitute}
 			/>
 			{#if userEmail && club?.is_club_admin && !session}<section
-					class="mt-5  border border-slate-200 bg-white p-5 shadow-sm"
+					class="mt-5 border border-slate-200 bg-white p-5 shadow-sm"
 				>
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">CLUB ADMIN</p>
 					<h2 class="mt-1 text-xl font-black">Start tonight’s session</h2>
@@ -361,7 +355,7 @@
 					</p>
 					<label class="mt-4 block text-sm font-bold"
 						>Session PIN<input
-							class="mt-2 min-h-11 w-full  border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+							class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 							type="password"
 							inputmode="numeric"
 							bind:value={sessionPin}
@@ -385,11 +379,11 @@
 				</p>
 			</section>
 			{#if userEmail && club?.is_club_admin}<section
-					class="mt-4  border border-slate-200 bg-white p-4 shadow-sm"
+					class="mt-4 border border-slate-200 bg-white p-4 shadow-sm"
 				>
 					<label class="block text-sm font-bold"
 						>Add a member<input
-							class="mt-2 min-h-11 w-full  border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+							class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 							bind:value={playerName}
 							placeholder="Player name"
 						/></label
@@ -398,13 +392,13 @@
 						<AppButton onclick={createPlayer} disabled={!playerName.trim()}>Add member</AppButton>
 					</div>
 				</section>{/if}
-			<section class="mt-4 overflow-hidden  border border-slate-200 bg-white shadow-sm">
+			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
 				<ul class="divide-y divide-slate-100">
 					{#each userEmail ? roster : publicRoster as player (player.id)}<li
 							class="flex min-h-14 items-center gap-3 px-4 py-3"
 						>
 							<span
-								class="grid size-9 place-items-center  bg-lime-200 text-sm font-black text-lime-950"
+								class="grid size-9 place-items-center bg-lime-200 text-sm font-black text-lime-950"
 								>{player.display_name.slice(0, 1)}</span
 							><span class="font-bold">{player.display_name}</span>
 						</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
@@ -419,7 +413,7 @@
 					Closed nights remain visible to everyone. Individual payment details stay private.
 				</p>
 			</section>
-			<section class="mt-4 overflow-hidden  border border-slate-200 bg-white shadow-sm">
+			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
 				<ul class="divide-y divide-slate-100">
 					{#each publicHistory.filter((item) => item.closed_at) as item (item.id)}<li
 							class="flex items-center justify-between gap-4 px-4 py-4"
@@ -478,11 +472,45 @@
 		aria-label="Navigasi utama"
 	>
 		<div class="mx-auto grid max-w-2xl grid-cols-5 gap-1">
-			<a href="/live" data-sveltekit-preload-data="hover" aria-current="page" class="flex min-h-12 items-center justify-center bg-[#163630] px-1 text-center text-[11px] font-black text-[#fffaf0]">Live</a>
-			<a href="/players" data-sveltekit-preload-data="hover" onmouseenter={() => void prefetchPublicSurface('/players')} onfocus={() => void prefetchPublicSurface('/players')} class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]">Pemain</a>
-			<a href="/history" data-sveltekit-preload-data="hover" onmouseenter={() => void prefetchPublicSurface('/history')} onfocus={() => void prefetchPublicSurface('/history')} class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]">Riwayat</a>
-			<a href="/fund" data-sveltekit-preload-data="hover" onmouseenter={() => void prefetchPublicSurface('/fund')} onfocus={() => void prefetchPublicSurface('/fund')} class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]">Dana</a>
-			<a href="/settings" data-sveltekit-preload-data="hover" onmouseenter={() => void prefetchPublicSurface('/settings')} onfocus={() => void prefetchPublicSurface('/settings')} class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]">Atur</a>
+			<a
+				href={resolve('/live')}
+				data-sveltekit-preload-data="hover"
+				aria-current="page"
+				class="flex min-h-12 items-center justify-center bg-[#163630] px-1 text-center text-[11px] font-black text-[#fffaf0]"
+				>Live</a
+			>
+			<a
+				href={resolve('/players')}
+				data-sveltekit-preload-data="hover"
+				onmouseenter={() => void prefetchPublicSurface('/players')}
+				onfocus={() => void prefetchPublicSurface('/players')}
+				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
+				>Pemain</a
+			>
+			<a
+				href={resolve('/history')}
+				data-sveltekit-preload-data="hover"
+				onmouseenter={() => void prefetchPublicSurface('/history')}
+				onfocus={() => void prefetchPublicSurface('/history')}
+				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
+				>Riwayat</a
+			>
+			<a
+				href={resolve('/fund')}
+				data-sveltekit-preload-data="hover"
+				onmouseenter={() => void prefetchPublicSurface('/fund')}
+				onfocus={() => void prefetchPublicSurface('/fund')}
+				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
+				>Dana</a
+			>
+			<a
+				href={resolve('/settings')}
+				data-sveltekit-preload-data="hover"
+				onmouseenter={() => void prefetchPublicSurface('/settings')}
+				onfocus={() => void prefetchPublicSurface('/settings')}
+				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
+				>Atur</a
+			>
 		</div>
 	</nav>
 </main>
@@ -493,7 +521,7 @@
 		role="presentation"
 	>
 		<section
-			class="w-full max-w-md  bg-white p-6 shadow-2xl"
+			class="w-full max-w-md bg-white p-6 shadow-2xl"
 			role="document"
 			aria-labelledby="operator-title"
 		>
@@ -516,7 +544,7 @@
 			</p>
 			<label class="mt-5 block text-sm font-bold"
 				>Enter session PIN<input
-					class="mt-2 min-h-12 w-full  border border-slate-200 px-3 text-center text-lg tracking-[0.35em] outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+					class="mt-2 min-h-12 w-full border border-slate-200 px-3 text-center text-lg tracking-[0.35em] outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 					type="password"
 					inputmode="numeric"
 					autocomplete="one-time-code"
@@ -538,7 +566,7 @@
 		role="presentation"
 	>
 		<section
-			class="w-full max-w-md  bg-white p-6 shadow-2xl"
+			class="w-full max-w-md bg-white p-6 shadow-2xl"
 			role="document"
 			aria-labelledby="takeover-title"
 		>
@@ -574,7 +602,7 @@
 		role="presentation"
 	>
 		<section
-			class="w-full max-w-md  bg-white p-6 shadow-2xl"
+			class="w-full max-w-md bg-white p-6 shadow-2xl"
 			role="document"
 			aria-labelledby="player-title"
 		>
@@ -769,7 +797,7 @@
 {/if}
 
 {#if notice}<div
-		class="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-md items-center justify-between gap-3  bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-xl"
+		class="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-md items-center justify-between gap-3 bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-xl"
 	>
 		<span>{notice}</span><button
 			class="text-xl text-lime-300"

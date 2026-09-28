@@ -261,25 +261,105 @@
 {:else if isOperator && ready.length >= 4}
 	<section class="border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.08)]">
 		<div class="bg-[#e5ece5] p-5">
-			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">{ready.length} pemain siap.</h3>
+			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
+				{ready.length} pemain siap.
+			</h3>
 			<p class="mt-2 text-sm text-[#527169]">Siapkan match berikutnya saat lapangan kosong.</p>
-			<div class="mt-5"><AppButton onclick={() => (stage = 'select')}>Siapkan match</AppButton></div>
+			<div class="mt-5">
+				<AppButton onclick={() => (stage = 'select')}>Siapkan match</AppButton>
+			</div>
 		</div>
 	</section>
 {/if}
 
 {#if stage !== 'idle'}
 	<div class="fixed inset-0 z-40 flex items-end bg-[#163630]/55" role="presentation">
-		<div class="w-full border-t-4 border-[#163630] bg-[#fffaf0] shadow-[0_-12px_28px_rgba(22,54,48,0.18)]" role="dialog" aria-modal="true" aria-labelledby="prepare-match-title">
+		<div
+			class="w-full border-t-4 border-[#163630] bg-[#fffaf0] shadow-[0_-12px_28px_rgba(22,54,48,0.18)]"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="prepare-match-title"
+		>
 			<div class="mx-auto w-12 border-t-2 border-[#85a097] pt-4"></div>
 			{#if stage === 'select'}
-				<div class="border-b border-[#b9c5bb] px-5 pb-4"><div class="flex items-center justify-between gap-4"><h3 id="prepare-match-title" class="text-2xl font-black tracking-[-0.04em] text-[#163630]">Pilih 4 pemain</h3><button class="min-h-11 px-3 text-sm font-black text-[#38675b]" onclick={() => (stage = 'idle')}>Tutup</button></div><p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p></div>
-				<div class="px-5 py-4"><AnimatedList items={ready.map((player) => player.name)} selectedIndices={ready.map((player, index) => selected.includes(player.id) ? index : -1).filter((index) => index >= 0)} onItemSelect={(_item, index) => toggle(ready[index].id)} /></div>
-				<div class="flex items-center justify-between border-t border-[#b9c5bb] px-5 py-4"><span class="text-sm font-bold text-[#527169]">{selected.length} / 4 dipilih</span><AppButton disabled={selected.length !== 4} onclick={continueToTeams}>Lanjutkan</AppButton></div>
+				<div class="border-b border-[#b9c5bb] px-5 pb-4">
+					<div class="flex items-center justify-between gap-4">
+						<h3
+							id="prepare-match-title"
+							class="text-2xl font-black tracking-[-0.04em] text-[#163630]"
+						>
+							Pilih 4 pemain
+						</h3>
+						<button
+							class="min-h-11 px-3 text-sm font-black text-[#38675b]"
+							onclick={() => (stage = 'idle')}>Tutup</button
+						>
+					</div>
+					<p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p>
+				</div>
+				<div class="px-5 py-4">
+					<AnimatedList
+						items={ready.map((player) => player.name)}
+						selectedIndices={ready
+							.map((player, index) => (selected.includes(player.id) ? index : -1))
+							.filter((index) => index >= 0)}
+						onItemSelect={(_item, index) => toggle(ready[index].id)}
+					/>
+				</div>
+				<div class="flex items-center justify-between border-t border-[#b9c5bb] px-5 py-4">
+					<span class="text-sm font-bold text-[#527169]">{selected.length} / 4 dipilih</span
+					><AppButton disabled={selected.length !== 4} onclick={continueToTeams}
+						>Lanjutkan</AppButton
+					>
+				</div>
 			{:else}
-				<div class="border-b border-[#b9c5bb] px-5 pb-4"><div class="flex items-center justify-between gap-4"><button class="min-h-11 text-sm font-black text-[#38675b]" onclick={() => (stage = 'select')}>‹ Pemain</button><button class="min-h-11 px-3 text-sm font-black text-[#38675b]" onclick={() => (stage = 'idle')}>Tutup</button></div><h3 id="prepare-match-title" class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#163630]">Atur tim</h3></div>
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-5 py-6 text-center"><div><p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM A</p><p class="mt-3 whitespace-pre-line text-sm font-extrabold text-[#163630]">{selectedPlayers.slice(0, 2).map((player) => player?.name).join('\n')}</p></div><span class="font-black text-[#e2653e]">VS</span><div><p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM B</p><p class="mt-3 whitespace-pre-line text-sm font-extrabold text-[#163630]">{selectedPlayers.slice(2).map((player) => player?.name).join('\n')}</p></div></div>
-				<div class="flex flex-wrap gap-3 border-t border-[#b9c5bb] px-5 py-4"><AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton disabled={Boolean(pending)} onclick={() => { onstart(selected.slice(0, 2), selected.slice(2)); stage = 'idle'; }}>{pending || 'Mulai match'}</AppButton></div>
+				<div class="border-b border-[#b9c5bb] px-5 pb-4">
+					<div class="flex items-center justify-between gap-4">
+						<button
+							class="min-h-11 text-sm font-black text-[#38675b]"
+							onclick={() => (stage = 'select')}>‹ Pemain</button
+						><button
+							class="min-h-11 px-3 text-sm font-black text-[#38675b]"
+							onclick={() => (stage = 'idle')}>Tutup</button
+						>
+					</div>
+					<h3
+						id="prepare-match-title"
+						class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#163630]"
+					>
+						Atur tim
+					</h3>
+				</div>
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-5 py-6 text-center">
+					<div>
+						<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM A</p>
+						<p class="mt-3 text-sm font-extrabold whitespace-pre-line text-[#163630]">
+							{selectedPlayers
+								.slice(0, 2)
+								.map((player) => player?.name)
+								.join('\n')}
+						</p>
+					</div>
+					<span class="font-black text-[#e2653e]">VS</span>
+					<div>
+						<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM B</p>
+						<p class="mt-3 text-sm font-extrabold whitespace-pre-line text-[#163630]">
+							{selectedPlayers
+								.slice(2)
+								.map((player) => player?.name)
+								.join('\n')}
+						</p>
+					</div>
+				</div>
+				<div class="flex flex-wrap gap-3 border-t border-[#b9c5bb] px-5 py-4">
+					<AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton
+						disabled={Boolean(pending)}
+						onclick={() => {
+							onstart(selected.slice(0, 2), selected.slice(2));
+							stage = 'idle';
+						}}>{pending || 'Mulai match'}</AppButton
+					>
+				</div>
 			{/if}
 		</div>
 	</div>

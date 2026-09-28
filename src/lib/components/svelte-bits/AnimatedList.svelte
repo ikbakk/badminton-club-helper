@@ -5,7 +5,6 @@
 		items?: string[];
 		onItemSelect?: (item: string, index: number) => void;
 		selectedIndices?: number[];
-		showGradients?: boolean;
 		enableArrowNavigation?: boolean;
 		class?: string;
 		itemClass?: string;
@@ -16,7 +15,6 @@
 		items = [],
 		onItemSelect,
 		selectedIndices = [],
-		showGradients = false,
 		enableArrowNavigation = true,
 		class: className = '',
 		itemClass = '',
@@ -50,9 +48,18 @@
 		if (!enableArrowNavigation) return;
 		const handler = (event: KeyboardEvent) => {
 			if (!listRef?.contains(document.activeElement)) return;
-			if (event.key === 'ArrowDown') { event.preventDefault(); keyboardNav = true; selectedIndex = Math.min(selectedIndex + 1, items.length - 1); }
-			else if (event.key === 'ArrowUp') { event.preventDefault(); keyboardNav = true; selectedIndex = Math.max(selectedIndex - 1, 0); }
-			else if (event.key === 'Enter' && selectedIndex >= 0) { event.preventDefault(); choose(selectedIndex); }
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				keyboardNav = true;
+				selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+			} else if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				keyboardNav = true;
+				selectedIndex = Math.max(selectedIndex - 1, 0);
+			} else if (event.key === 'Enter' && selectedIndex >= 0) {
+				event.preventDefault();
+				choose(selectedIndex);
+			}
 		};
 		window.addEventListener('keydown', handler);
 		return () => window.removeEventListener('keydown', handler);
@@ -60,25 +67,53 @@
 
 	$effect(() => {
 		if (!keyboardNav || selectedIndex < 0 || !listRef) return;
-		listRef.querySelector(`[data-index="${selectedIndex}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		listRef
+			.querySelector(`[data-index="${selectedIndex}"]`)
+			?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 		untrack(() => (keyboardNav = false));
 	});
 </script>
 
 <div class={`relative w-full ${className}`}>
-	<div bind:this={listRef} class={`max-h-[min(52dvh,26rem)] overflow-y-auto ${displayScrollbar ? 'court-scrollbar' : ''}`}>
+	<div
+		bind:this={listRef}
+		class={`max-h-[min(52dvh,26rem)] overflow-y-auto ${displayScrollbar ? 'court-scrollbar' : ''}`}
+	>
 		{#each items as item, index (item)}
-			<button use:inViewAction={index} data-index={index} class={`mb-2 flex min-h-12 w-full items-center justify-between border px-4 text-left text-sm font-bold transition ${selectedIndices.includes(index) ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630] hover:bg-[#e5ece5]'} ${itemClass}`} style:opacity={inView[index] ? 1 : 0.4} style:transform={inView[index] ? 'translateY(0)' : 'translateY(5px)'} onclick={() => choose(index)} aria-pressed={selectedIndices.includes(index)}>
-				<span>{selectedIndices.includes(index) ? '✓ ' : ''}{item}</span><span class="text-xs opacity-70">Pilih</span>
+			<button
+				use:inViewAction={index}
+				data-index={index}
+				class={`mb-2 flex min-h-12 w-full items-center justify-between border px-4 text-left text-sm font-bold transition ${selectedIndices.includes(index) ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630] hover:bg-[#e5ece5]'} ${itemClass}`}
+				style:opacity={inView[index] ? 1 : 0.4}
+				style:transform={inView[index] ? 'translateY(0)' : 'translateY(5px)'}
+				onclick={() => choose(index)}
+				aria-pressed={selectedIndices.includes(index)}
+			>
+				<span>{selectedIndices.includes(index) ? '✓ ' : ''}{item}</span><span
+					class="text-xs opacity-70">Pilih</span
+				>
 			</button>
 		{/each}
 	</div>
 </div>
 
 <style>
-	.court-scrollbar { scrollbar-width: thin; scrollbar-color: #38675b #ece7db; }
-	.court-scrollbar::-webkit-scrollbar { width: 6px; }
-	.court-scrollbar::-webkit-scrollbar-track { background: #ece7db; }
-	.court-scrollbar::-webkit-scrollbar-thumb { background: #38675b; }
-	@media (prefers-reduced-motion: reduce) { button { transition: none; } }
+	.court-scrollbar {
+		scrollbar-width: thin;
+		scrollbar-color: #38675b #ece7db;
+	}
+	.court-scrollbar::-webkit-scrollbar {
+		width: 6px;
+	}
+	.court-scrollbar::-webkit-scrollbar-track {
+		background: #ece7db;
+	}
+	.court-scrollbar::-webkit-scrollbar-thumb {
+		background: #38675b;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		button {
+			transition: none;
+		}
+	}
 </style>
