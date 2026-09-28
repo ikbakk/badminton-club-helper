@@ -1,4 +1,19 @@
 import { supabase } from '$lib/supabase';
+
+const publicCache = new Map<string, Promise<unknown>>();
+function cached<T>(key: string, loader: () => Promise<T>) {
+	const existing = publicCache.get(key) as Promise<T> | undefined;
+	if (existing) return existing;
+	const request = loader().catch((error) => {
+		publicCache.delete(key);
+		throw error;
+	});
+	publicCache.set(key, request);
+	return request;
+}
+export function invalidatePublicData() {
+	publicCache.clear();
+}
 export type Club = { id: string; name: string; is_club_admin: boolean; is_finance_admin: boolean };
 export type RosterPlayer = {
 	id: string;
@@ -41,18 +56,22 @@ export async function startSession(clubId: string, pin: string) {
 }
 export type PublicClub = { id: string; name: string };
 export async function getPublicClub() {
-	const { data, error } = await client().from('public_club_profile').select('id,name').limit(1);
-	if (error) throw error;
-	return (data?.[0] ?? null) as PublicClub | null;
+	return cached('club', async () => {
+		const { data, error } = await client().from('public_club_profile').select('id,name').limit(1);
+		if (error) throw error;
+		return (data?.[0] ?? null) as PublicClub | null;
+	});
 }
 export async function getPublicRoster(clubId: string) {
-	const { data, error } = await client()
-		.from('public_member_roster')
-		.select('id,display_name,membership_type')
-		.eq('club_id', clubId)
-		.order('display_name');
-	if (error) throw error;
-	return data ?? [];
+	return cached(`roster:${clubId}`, async () => {
+		const { data, error } = await client()
+			.from('public_member_roster')
+			.select('id,display_name,membership_type')
+			.eq('club_id', clubId)
+			.order('display_name');
+		if (error) throw error;
+		return data ?? [];
+	});
 }
 export type LiveSession = { id: string; club_id: string; started_at: string };
 export async function getLiveSession() {
@@ -126,21 +145,100 @@ export type PublicSessionHistory = {
 };
 
 export type PublicFundSummary = { received: number; expenses: number; balance: number };
+export type PublicPlayerProfile = {
+	id: string;
+	display_name: string;
+	membership_type: 'MEMBER' | 'GUEST';
+	sessions: number;
+	sets: number;
+	wins: number;
+	losses: number;
+};
+export type PublicPlayerSession = { id: string; started_at: string; closed_at: string | null };
+export type PublicSessionMatch = {
+	id: string;
+	sequence_number: number;
+	status: 'PREPARED' | 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+	team_a: string[];
+	team_b: string[];
+	set_one_a: number | null;
+	set_one_b: number | null;
+	set_two_a: number | null;
+	set_two_b: number | null;
+};
+export type PublicFundActivity = {
+	id: string;
+	kind: 'INCOME' | 'EXPENSE';
+	label: string;
+	amount: number;
+	occurred_at: string;
+};
 
 export async function getPublicSessionHistory() {
-	const { data, error } = await client()
-		.from('public_session_history')
-		.select('id,started_at,closed_at,fee_per_person,attendance')
-		.order('started_at', { ascending: false });
-	if (error) throw error;
-	return (data ?? []) as PublicSessionHistory[];
+	return cached('history', async () => {
+		const { data, error } = await client()
+			.from('public_session_history')
+			.select('id,started_at,closed_at,fee_per_person,attendance')
+			.order('started_at', { ascending: false });
+		if (error) throw error;
+		return (data ?? []) as PublicSessionHistory[];
+	});
 }
 
 export async function getPublicFundSummary() {
-	const { data, error } = await client()
-		.from('public_fund_summary')
-		.select('received,expenses,balance')
-		.single();
-	if (error) throw error;
-	return data as PublicFundSummary;
+	return cached('fund-summary', async () => {
+		const { data, error } = await client()
+			.from('public_fund_summary')
+			.select('received,expenses,balance')
+			.single();
+		if (error) throw error;
+		return data as PublicFundSummary;
+	});
+}
+
+export async function getPublicPlayerProfile(playerId: string) {
+	return cached(`player:${playerId}`, async () => {
+		const { data, error } = await client().rpc('public_player_profile', { p_player_id: playerId });
+		if (error) throw error;
+		return (data?.[0] ?? null) as PublicPlayerProfile | null;
+	});
+}
+
+export async function getPublicPlayerRecentSessions(playerId: string) {
+	return cached(`player-sessions:${playerId}`, async () => {
+		const { data, error } = await client().rpc('public_player_recent_sessions', { p_player_id: playerId });
+		if (error) throw error;
+		return (data ?? []) as PublicPlayerSession[];
+	});
+}
+
+export async function getPublicSessionMatches(sessionId: string) {
+	return cached(`session-matches:${sessionId}`, async () => {
+		const { data, error } = await client().rpc('public_session_matches', { p_session_id: sessionId });
+		if (error) throw error;
+		return (data ?? []) as PublicSessionMatch[];
+	});
+}
+
+export async function getPublicFundActivity() {
+	return cached('fund-activity', async () => {
+		const { data, error } = await client().rpc('public_fund_activity');
+		if (error) throw error;
+		return (data ?? []) as PublicFundActivity[];
+	});
+}
+
+export async function prefetchPublicSurface(route: string) {
+	const club = await getPublicClub();
+	if (route === '/players' && club) await getPublicRoster(club.id);
+	if (route === '/history') await getPublicSessionHistory();
+	if (route === '/fund') await Promise.all([getPublicFundSummary(), getPublicFundActivity().catch(() => [])]);
+}
+
+export async function prefetchPublicPlayer(playerId: string) {
+	await Promise.all([getPublicPlayerProfile(playerId).catch(() => null), getPublicPlayerRecentSessions(playerId).catch(() => [])]);
+}
+
+export async function prefetchPublicSession(sessionId: string) {
+	await getPublicSessionMatches(sessionId).catch(() => []);
 }

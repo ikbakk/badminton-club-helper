@@ -1,1 +1,37 @@
 @import 'tailwindcss';
+
+@font-face {
+	font-family: 'Court Sans';
+	src: local('Arial');
+	font-display: swap;
+}
+
+:root {
+	font-family: 'Court Sans', Arial, sans-serif;
+	color: #163630;
+	background: #f4f1e8;
+	accent-color: #e2653e;
+	color-scheme: light;
+}
+
+::selection {
+	background: #e2653e;
+	color: #fffaf0;
+}
+
+* {
+	scrollbar-color: #38675b #ece7db;
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+	outline: 3px solid #e2653e;
+	outline-offset: 2px;
+}

@@ -1,0 +1,50 @@
+<script lang="ts">
+	import { browser } from '$app/environment';
+	import AppShell from '$lib/components/ui/AppShell.svelte';
+	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import { currentUser } from '$lib/auth';
+	import { addPlayer, getClub, getPublicClub, getPublicRoster, getRoster, invalidatePublicData, prefetchPublicPlayer, type Club } from '$lib/data/dashboard';
+
+	let club = $state<Club | null>(null);
+	let publicClub = $state<{ id: string; name: string } | null>(null);
+	let roster = $state<{ id: string; display_name: string; membership_type: 'MEMBER' | 'GUEST' }[]>([]);
+	let signedIn = $state(false);
+	let name = $state('');
+	let loading = $state(true);
+	let notice = $state('');
+	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
+
+	async function load() {
+		try {
+			publicClub = await getPublicClub();
+			club = await getClub();
+			signedIn = Boolean(await currentUser());
+			roster = club ? await getRoster(club.id) : publicClub ? await getPublicRoster(publicClub.id) : [];
+		} catch (error) { notice = error instanceof Error ? error.message : 'Roster belum dapat dimuat.'; }
+		finally { loading = false; }
+	}
+	async function createPlayer() {
+		if (!club || !name.trim()) return;
+		try { await addPlayer(club.id, name); invalidatePublicData(); name = ''; await load(); notice = 'Member ditambahkan.'; }
+		catch (error) { notice = error instanceof Error ? error.message : 'Member belum dapat ditambahkan.'; }
+	}
+	if (browser) void load();
+</script>
+
+<svelte:head><title>Pemain — PB NEWBIE</title></svelte:head>
+<AppShell current="/players" clubName={displayName}>
+	<section class="border-b border-[#b9c5bb] pb-5">
+		<div class="flex items-end justify-between gap-4"><div><h1 class="text-3xl font-black tracking-[-0.05em]">Pemain</h1><p class="mt-2 text-sm leading-6 text-[#527169]">Anggota klub yang bisa ikut sesi malam ini.</p></div><p class="shrink-0 text-sm font-black text-[#38675b]">{loading ? 'Membaca…' : `${roster.length} member`}</p></div>
+	</section>
+	{#if club?.is_club_admin}
+		<section class="mt-5 border border-[#b9c5bb] bg-[#e5ece5] p-5"><h2 class="text-lg font-black">Tambah member</h2><div class="mt-4 flex gap-3"><input class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 font-bold" bind:value={name} placeholder="Nama pemain" /><AppButton disabled={!name.trim()} onclick={createPlayer}>Tambah</AppButton></div></section>
+	{/if}
+	<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0]">
+		{#if loading}<CourtLoading label="Membaca roster…" compact />
+		{:else if roster.length}<ul>{#each roster as player (player.id)}<li class="border-b border-[#b9c5bb] last:border-b-0"><a class="flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-[#e5ece5]" href={`/players/${player.id}`} data-sveltekit-preload-data="hover" onmouseenter={() => void prefetchPublicPlayer(player.id)} onfocus={() => void prefetchPublicPlayer(player.id)}><span><b class="block text-base">{player.display_name}</b><span class="mt-1 block text-sm text-[#527169]">{player.membership_type === 'MEMBER' ? 'Member klub' : 'Tamu'}</span></span><span class="text-lg text-[#38675b]" aria-hidden="true">›</span></a></li>{/each}</ul>
+		{:else}<div class="p-7"><h2 class="text-xl font-black">Belum ada member.</h2><p class="mt-2 max-w-sm text-sm leading-6 text-[#527169]">Daftar pemain akan muncul di sini setelah Club Admin menambahkan member.</p></div>{/if}
+	</section>
+	{#if !signedIn && roster.length}<p class="mt-5 text-sm leading-6 text-[#527169]">Profil pemain dapat dilihat semua orang. Pengelolaan roster hanya untuk Club Admin.</p>{/if}
+	{#if notice}<p class="mt-4 border border-[#e7b8aa] bg-[#fff1ec] p-3 text-sm font-bold text-[#9a3d25]">{notice}</p>{/if}
+</AppShell>

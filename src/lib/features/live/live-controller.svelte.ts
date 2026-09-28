@@ -6,8 +6,11 @@ import {
 	checkInPlayer,
 	claimOperatorLease,
 	completeSet,
+	closeSession,
+	confirmSessionFee,
 	loadLiveSession,
 	startMatch,
+	setLeaveAfterMatch,
 	substitutePlayer,
 	type ActiveMatch,
 	type LiveSession
@@ -22,6 +25,7 @@ export class LiveController {
 	activeMatch = $state<ActiveMatch | null>(null);
 	operatorLease = $state<string | null>(null);
 	pending = $state('');
+	closedSummary = $state<{ attendance: number; sets: number; startedAt: string } | null>(null);
 
 	constructor(private readonly notify: Notice) {}
 
@@ -169,5 +173,40 @@ export class LiveController {
 		return this.runCommand('Abandoning match…', () =>
 			abandonMatch(this.session!.id, this.operatorLease!)
 		);
+	}
+
+	setLeaveAfterMatch(participantId: string, leaveAfterMatch: boolean) {
+		if (!this.session || !this.operatorLease) return Promise.resolve(false);
+		return this.runCommand('Menyimpan status pulang…', () =>
+			setLeaveAfterMatch(this.session!.id, this.operatorLease!, participantId, leaveAfterMatch)
+		);
+	}
+
+	async close() {
+		if (!this.session || !this.operatorLease) return false;
+		this.pending = 'Menutup sesi…';
+		try {
+			this.closedSummary = await closeSession(this.session.id, this.operatorLease);
+			return true;
+		} catch (error) {
+			this.notify(error instanceof Error ? error.message : 'Sesi tidak dapat ditutup.');
+			return false;
+		} finally {
+			this.pending = '';
+		}
+	}
+
+	async confirmFee(fee: number) {
+		if (!this.session || !this.operatorLease) return false;
+		this.pending = 'Menyimpan biaya…';
+		try {
+			await confirmSessionFee(this.session.id, this.operatorLease, fee);
+			return true;
+		} catch (error) {
+			this.notify(error instanceof Error ? error.message : 'Biaya tidak dapat disimpan.');
+			return false;
+		} finally {
+			this.pending = '';
+		}
 	}
 }

@@ -39,10 +39,10 @@
 	} = $props();
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
-		{ title: 'READY / WAITING', status: 'READY' },
-		{ title: 'RESTING', status: 'RESTING' },
-		{ title: 'AWAY', status: 'AWAY' },
-		{ title: 'OUT', status: 'OUT' }
+		{ title: 'SIAP / MENUNGGU', status: 'READY' },
+		{ title: 'ISTIRAHAT', status: 'RESTING' },
+		{ title: 'SEMENTARA PERGI', status: 'AWAY' },
+		{ title: 'SELESAI MALAM INI', status: 'OUT' }
 	];
 	let ready = $derived(participants.filter((participant) => participant.status === 'READY'));
 	let startedAt = $derived(
@@ -54,50 +54,64 @@
 	);
 	let nextAction = $derived(
 		activeMatch
-			? `${ready.length} waiting for the next match.`
+			? `${ready.length} pemain menunggu match berikutnya.`
 			: ready.length === 0
-				? 'No players checked in yet.'
+				? 'Belum ada pemain yang check in.'
 				: ready.length < 4
-					? `${ready.length} ready — ${4 - ready.length} more player${4 - ready.length === 1 ? '' : 's'} needed for doubles.`
-					: 'Four players are ready for the next match.'
+					? `${ready.length} siap — butuh ${4 - ready.length} pemain lagi untuk main ganda.`
+					: 'Empat pemain siap untuk match berikutnya.'
 	);
 </script>
 
 {#if !session}
-	<section class="rounded-[2rem] bg-slate-950 px-6 py-8 text-white shadow-xl shadow-slate-950/15">
-		<p class="text-xs font-black tracking-[0.16em] text-lime-300">COURTSIDE</p>
-		<h2 class="mt-3 text-3xl font-black tracking-tight">No session is live right now.</h2>
-		<p class="mt-3 max-w-sm text-sm leading-6 text-slate-300">
-			Check History for previous sessions, or return when tonight’s badminton starts.
+	<section
+		class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
+	>
+		<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
+		<h2 class="mt-3 text-3xl font-black tracking-[-0.04em] text-[#163630]">
+			Belum ada sesi yang berjalan.
+		</h2>
+		<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
+			Cek Riwayat untuk sesi sebelumnya, atau kembali saat badminton dimulai.
 		</p>
 	</section>
 {:else}
-	<section class="rounded-[2rem] bg-slate-950 p-5 text-white shadow-xl shadow-slate-950/15 sm:p-6">
-		<div class="flex items-start justify-between gap-4">
-			<div>
-				<p class="text-xs font-black tracking-[0.16em] text-lime-300">TONIGHT</p>
-				<h2 class="mt-2 text-2xl font-black tracking-tight">Session is active</h2>
-				<p class="mt-1 text-sm text-slate-300">Started {startedAt}</p>
-			</div>
-			<span
-				class="inline-flex items-center gap-2 rounded-full bg-lime-300 px-3 py-2 text-xs font-black text-lime-950"
-				><span class="size-2 rounded-full bg-lime-950"></span>LIVE</span
+	<section
+		class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
+	>
+		<div
+			class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
+		>
+			<span>MALAM INI · MULAI {startedAt}</span>
+			<span class="inline-flex items-center gap-2 text-[#f5bb61]"
+				><span class="size-2 rounded-full bg-[#f5bb61]"></span>{isOperator
+					? 'MENGOPERASIKAN'
+					: 'BERLANGSUNG'}</span
 			>
 		</div>
-		<div class="mt-6 rounded-3xl border border-white/10 bg-white/8 p-4">
-			<p class="text-xs font-black tracking-[0.14em] text-slate-400">COURT</p>
-			<p class="mt-2 text-lg font-extrabold">
-				{activeMatch
-					? `Match ${activeMatch.sequence_number} is in play`
-					: 'Waiting for the first match'}
-			</p>
-			<p class="mt-1 text-sm leading-5 text-slate-300">{nextAction}</p>
+		<div class="relative overflow-hidden px-5 pt-7 pb-5 sm:px-6">
+			<div
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
+			></div>
+			<div class="relative">
+				<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
+				<h2 class="mt-2 text-3xl font-black tracking-[-0.055em]">
+					{activeMatch
+						? `Match ${activeMatch.sequence_number} sedang dimainkan.`
+						: 'Lapangan menunggu match pertama.'}
+				</h2>
+				<div class="mt-6 border-y border-[#85a097]/45 py-4">
+					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
+				</div>
+				{#if isOperator || ready.length === 0}
+					<div class="mt-5">
+						{#if isOperator}<AppButton onclick={oncheckin}>Check in pemain</AppButton>
+						{:else}<AppButton onclick={onoperate}>Operasikan sesi</AppButton>{/if}
+					</div>
+				{/if}
+			</div>
 		</div>
-		{#if isOperator}
-			<div class="mt-5"><AppButton onclick={oncheckin}>Check in players</AppButton></div>
-		{:else}
-			<div class="mt-5"><AppButton onclick={onoperate}>Operate this session</AppButton></div>
-		{/if}
 	</section>
 	<div class="mt-5">
 		<MatchCourt

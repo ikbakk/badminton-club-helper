@@ -30,23 +30,25 @@
 </script>
 
 <div
-	class="fixed inset-0 z-30 flex items-end bg-slate-950/45 p-3 sm:items-center sm:justify-center"
+	class="fixed inset-0 z-30 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
 	role="presentation"
 >
 	<dialog
 		open
-		class="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl"
+		class="max-h-[85dvh] w-full max-w-lg overflow-y-auto border border-[#b9c5bb] bg-[#fffaf0] p-5 shadow-2xl"
 		aria-labelledby="checkin-title"
 	>
 		<div class="flex items-center justify-between gap-3">
 			<div>
-				<p class="text-xs font-black tracking-[0.15em] text-slate-500">ARRIVALS</p>
-				<h2 id="checkin-title" class="mt-1 text-2xl font-black">Check in players</h2>
+				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">KEDATANGAN</p>
+				<h2 id="checkin-title" class="mt-1 text-2xl font-black tracking-[-0.04em] text-[#163630]">
+					Check in pemain
+				</h2>
 			</div>
 			<AppButton variant="secondary" onclick={onclose}>Done</AppButton>
 		</div>
-		<p class="mt-3 text-sm text-slate-600">
-			Tap a member as they arrive, or add a guest. Everyone checks in as READY.
+		<p class="mt-3 text-sm text-[#527169]">
+			Tap anggota yang datang, atau tambahkan tamu. Semua langsung berstatus READY.
 		</p>
 		<form
 			class="mt-4 flex gap-2"
@@ -57,32 +59,31 @@
 		>
 			<label class="sr-only" for="guest-name">Guest name</label><input
 				id="guest-name"
-				class="min-h-11 min-w-0 flex-1 rounded-2xl border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+				class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#e2653e] focus:ring-4 focus:ring-[#f2c6b9]"
 				bind:value={guestName}
-				placeholder="Guest name"
+				placeholder="Nama tamu"
 			/><AppButton disabled={!guestName.trim() || Boolean(pending)}>+ Guest</AppButton>
 		</form>
-		<div class="mt-5 overflow-hidden rounded-3xl border border-slate-200">
+		<div class="mt-5 overflow-hidden border border-[#b9c5bb]">
 			<p
-				class="border-b border-slate-100 px-4 py-3 text-xs font-black tracking-[0.15em] text-slate-500"
+				class="border-b border-[#b9c5bb] bg-[#e5ece5] px-4 py-3 text-xs font-black tracking-[0.14em] text-[#38675b]"
 			>
 				{pending || 'NOT HERE'}
 			</p>
-			<ul class="divide-y divide-slate-100">
+			<ul class="divide-y divide-[#d6ddd5]">
 				{#each absentPlayers as player (player.id)}<li>
 						<button
-							class="flex min-h-14 w-full items-center gap-3 px-4 text-left hover:bg-lime-50 disabled:opacity-50"
+							class="flex min-h-14 w-full items-center gap-3 px-4 text-left hover:bg-[#edf3ec] disabled:opacity-50"
 							onclick={() => oncheckin(player)}
 							disabled={Boolean(pending)}
-							><span
-								class="grid size-9 place-items-center rounded-2xl border-2 border-slate-200 text-slate-400"
+							><span class="grid size-9 place-items-center border-2 border-[#b9c5bb] text-[#527169]"
 								>○</span
-							><span class="flex-1 font-bold">{player.display_name}</span><span
-								class="text-sm font-bold text-lime-700">Check in</span
+							><span class="flex-1 font-bold text-[#163630]">{player.display_name}</span><span
+								class="text-sm font-bold text-[#b44c30]">Masuk</span
 							></button
 						>
-					</li>{:else}<li class="px-4 py-7 text-center text-sm text-slate-500">
-						Everyone on the roster is here.
+					</li>{:else}<li class="px-4 py-7 text-center text-sm text-[#527169]">
+						Semua anggota sudah datang.
 					</li>{/each}
 			</ul>
 		</div>

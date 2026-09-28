@@ -177,3 +177,33 @@ export function substitutePlayer(
 		p_outgoing_status: outgoingStatus
 	});
 }
+
+export function setLeaveAfterMatch(
+	sessionId: string,
+	leaseId: string,
+	participantId: string,
+	leaveAfterMatch: boolean
+) {
+	return command('set_leave_after_match', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_participant_id: participantId,
+		p_leave_after_match: leaveAfterMatch
+	});
+}
+
+export function closeSession(sessionId: string, leaseId: string) {
+	return command('close_session', { p_session_id: sessionId, p_lease_id: leaseId }) as Promise<{
+		attendance: number;
+		sets: number;
+		startedAt: string;
+	}>;
+}
+
+export function confirmSessionFee(sessionId: string, leaseId: string, fee: number) {
+	return command('confirm_session_fee', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_fee: fee
+	}) as Promise<number>;
+}
