@@ -2,47 +2,63 @@
 
 A mobile-first helper for a casual, one-court badminton club. It is intentionally a club tool—not a SaaS, tournament system, or payment gateway.
 
-## What is included
+## Current capabilities
 
-- Courtside Live session UI with manual/player-state controls, recommendation preview, match start, and final-score flow.
-- Pure, testable baselines for opportunity-based rotation, balanced doubles pairing, bounded-margin team rating updates, and derived finance balances.
-- Supabase-ready schema migration with core facts, append-only events, operator-lease structures, finance structures, and key database invariants.
-- A clean public-safe UI prototype that runs without a Supabase project. It never pretends to persist data when credentials are missing.
-- Unit tests and a Playwright live-session smoke test.
+- Public, read-only club, roster, and live-court view.
+- Email + password Admin sign-in, club bootstrap, roster management, and session creation.
+- PIN-protected, single-device courtside operator lease with explicit takeover.
+- Check-in for members and guests, participant availability states, manual doubles selection, two-set scoring, between-set substitution, and match abandonment.
+- Supabase schema with append-only session events, RLS, public-safe projections, and transactional RPC commands.
+- Unit tests plus a Playwright public-live smoke test.
 
 ## Run locally
 
 ```sh
-cp .env.example .env # optional for the current prototype
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-Then open the URL printed by Vite.
+Set `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` in `.env`. Then open the URL printed by Vite.
 
 ## Verify
 
 ```sh
-npm run check
-npm run lint
-npm run test:unit -- --run
-npm run test:e2e
-npm run build
+npm run verify
 ```
 
-`test:e2e` installs the Playwright browser on first run.
+This runs formatting/lint checks, Svelte type checks, unit tests, Playwright smoke tests, and a production build. `test:e2e` installs the Playwright browser on first run.
 
 ## Supabase setup
 
-1. Create a Supabase project and enable Email (magic-link) authentication.
+1. Create a Supabase project and enable **Email + password** authentication.
 2. Copy `.env.example` to `.env` and set `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY`.
-3. Apply `supabase/migrations/202609270001_initial_schema.sql` through the Supabase CLI.
-4. Before exposing writes, add tested `SECURITY DEFINER` server-command/RPC functions and RLS policies for each domain command. Critical state transitions must remain transactional and must not be direct browser CRUD.
+3. Link the project and apply all migrations:
 
-The migration deliberately models all V1 tables, but the browser prototype is not a production command implementation until those command functions are deployed.
+   ```sh
+   npx supabase link --project-ref <project-ref>
+   npx supabase db push
+   ```
+
+4. Create a first Admin user in Supabase Auth, then sign in and bootstrap the club in the app.
+
+### Implemented RPC commands
+
+- `start_session`
+- `claim_operator_lease`
+- `check_in_player`
+- `add_guest_and_check_in`
+- `change_participant_status`
+- `start_match`
+- `complete_set`
+- `substitute_player`
+- `abandon_match`
+- `close_session` and `confirm_session_fee` (database-ready; UI is intentionally out of the current live-slice scope)
+
+Critical state transitions remain transactional RPCs; the browser never performs direct table mutations.
 
 ## Unfrozen decisions
 
-The score/weight values in `src/lib/domain/rotation` and `src/lib/domain/rating` are explicit **versioned baseline simulations**, not claimed final policy. Calibrate them with the required real-session simulations and override history before enabling them as production authority.
+The score/weight values in `src/lib/domain/rotation` and `src/lib/domain/rating` are explicit **versioned baseline simulations**, not final policy. Calibrate them with the required real-session simulations and override history before enabling them as production authority.
 
-See the numbered specification Markdown files for the complete product constraints.
+See the numbered specification Markdown files for complete constraints and the courtside UI pack for the interaction flows.

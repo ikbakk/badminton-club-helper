@@ -10,7 +10,8 @@
 		pending = '',
 		onstart,
 		oncomplete,
-		onabandon
+		onabandon,
+		onsubstitute
 	}: {
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
@@ -19,17 +20,29 @@
 		onstart: (teamA: string[], teamB: string[]) => void;
 		oncomplete: (a: number, b: number) => void;
 		onabandon: () => void;
+		onsubstitute: (
+			outgoingPlayerId: string,
+			replacementPlayerId: string,
+			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
+		) => void;
 	} = $props();
 
 	let preparing = $state(false);
 	let selected = $state<string[]>([]);
 	let scoreA = $state('');
 	let scoreB = $state('');
+	let substituting = $state(false);
+	let outgoingPlayerId = $state('');
+	let replacementPlayerId = $state('');
+	let outgoingStatus = $state<'RESTING' | 'OUT' | 'LEFT'>('RESTING');
 	let ready = $derived(participants.filter((player) => player.status === 'READY'));
 	let playingSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
 	let completedSets = $derived(activeMatch?.sets.filter((set) => set.status === 'COMPLETED') ?? []);
 	let teamA = $derived(playingSet?.players.filter((player) => player.team === 'A') ?? []);
 	let teamB = $derived(playingSet?.players.filter((player) => player.team === 'B') ?? []);
+	let canSubstitute = $derived(
+		playingSet?.setNumber === 2 && completedSets.some((set) => set.setNumber === 1)
+	);
 
 	function toggle(playerId: string) {
 		selected = selected.includes(playerId)
@@ -79,6 +92,70 @@
 						>Set {set.setNumber}: {set.teamAScore}–{set.teamBScore}</span
 					>{/each}
 			</div>{/if}
+		{#if isOperator && canSubstitute}
+			<div class="mt-5 rounded-2xl border border-amber-200 bg-white/70 p-4">
+				{#if !substituting}
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<p class="font-black">Between-set substitution</p>
+							<p class="mt-1 text-sm text-slate-600">Replace one player for Set 2.</p>
+						</div>
+						<AppButton variant="secondary" onclick={() => (substituting = true)}
+							>Substitute player</AppButton
+						>
+					</div>
+				{:else}
+					<label class="block text-sm font-bold text-slate-700"
+						>Outgoing player<select
+							class="mt-1 min-h-11 w-full rounded-xl border border-amber-200 bg-white px-3"
+							bind:value={outgoingPlayerId}
+							><option value="" disabled>Choose current player</option
+							>{#each playingSet.players as player (player.id)}<option value={player.id}
+									>{player.name}</option
+								>{/each}</select
+						></label
+					>
+					<label class="mt-3 block text-sm font-bold text-slate-700"
+						>READY replacement<select
+							class="mt-1 min-h-11 w-full rounded-xl border border-amber-200 bg-white px-3"
+							bind:value={replacementPlayerId}
+							><option value="" disabled>Choose replacement</option
+							>{#each ready as player (player.id)}<option value={player.id}>{player.name}</option
+								>{/each}</select
+						></label
+					>
+					<fieldset class="mt-3">
+						<legend class="text-sm font-bold text-slate-700">Outgoing player becomes</legend>
+						<div class="mt-2 flex flex-wrap gap-2">
+							{#each ['RESTING', 'OUT', 'LEFT'] as status (status)}<button
+									type="button"
+									class={`rounded-xl px-3 py-2 text-sm font-bold ${outgoingStatus === status ? 'bg-amber-300 text-amber-950' : 'bg-white text-slate-700 ring-1 ring-amber-200'}`}
+									onclick={() => (outgoingStatus = status as 'RESTING' | 'OUT' | 'LEFT')}
+									>{status[0] + status.slice(1).toLowerCase()}</button
+								>{/each}
+						</div>
+					</fieldset>
+					<div class="mt-4 flex gap-3">
+						<AppButton
+							variant="secondary"
+							onclick={() => {
+								substituting = false;
+								outgoingPlayerId = '';
+								replacementPlayerId = '';
+							}}>Cancel</AppButton
+						><AppButton
+							disabled={!outgoingPlayerId || !replacementPlayerId || Boolean(pending)}
+							onclick={() => {
+								onsubstitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
+								substituting = false;
+								outgoingPlayerId = '';
+								replacementPlayerId = '';
+							}}>{pending || 'Confirm substitution'}</AppButton
+						>
+					</div>
+				{/if}
+			</div>
+		{/if}
 		{#if isOperator}<div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
 				<label class="text-xs font-bold text-slate-600"
 					>Team A score<input

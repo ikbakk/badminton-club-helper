@@ -64,6 +64,8 @@ export async function loadLiveSession(): Promise<{
 				uncertainty: Number(participant.uncertainty),
 				status: participant.status,
 				readySince: participant.ready_since ? new Date(participant.ready_since) : undefined,
+				// These compatibility fields are not displayed or used as rotation authority.
+				// Live rotation metrics remain explicitly unavailable until Algorithm 1 is enabled.
 				consecutiveMatches: 0,
 				opportunities: 0,
 				missedOpportunities: 0,
@@ -150,4 +152,28 @@ export function completeSet(
 
 export function abandonMatch(sessionId: string, leaseId: string) {
 	return command('abandon_match', { p_session_id: sessionId, p_lease_id: leaseId });
+}
+
+export function addGuestAndCheckIn(sessionId: string, leaseId: string, name: string) {
+	return command('add_guest_and_check_in', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_name: name
+	});
+}
+
+export function substitutePlayer(
+	sessionId: string,
+	leaseId: string,
+	outgoingPlayerId: string,
+	replacementPlayerId: string,
+	outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
+) {
+	return command('substitute_player', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_outgoing_player_id: outgoingPlayerId,
+		p_replacement_player_id: replacementPlayerId,
+		p_outgoing_status: outgoingStatus
+	});
 }

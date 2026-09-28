@@ -17,7 +17,8 @@
 		onselect,
 		onstartmatch,
 		oncompleteset,
-		onabandonmatch
+		onabandonmatch,
+		onsubstitute
 	}: {
 		session: LiveSession | null;
 		participants: Participant[];
@@ -30,6 +31,11 @@
 		onstartmatch: (teamA: string[], teamB: string[]) => void;
 		oncompleteset: (teamA: number, teamB: number) => void;
 		onabandonmatch: () => void;
+		onsubstitute: (
+			outgoingPlayerId: string,
+			replacementPlayerId: string,
+			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
+		) => void;
 	} = $props();
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
@@ -47,11 +53,13 @@
 			: ''
 	);
 	let nextAction = $derived(
-		ready.length === 0
-			? 'No players checked in yet.'
-			: ready.length < 4
-				? `${ready.length} ready — one more player needed for doubles.`
-				: 'Four players are ready for the next match.'
+		activeMatch
+			? `${ready.length} waiting for the next match.`
+			: ready.length === 0
+				? 'No players checked in yet.'
+				: ready.length < 4
+					? `${ready.length} ready — ${4 - ready.length} more player${4 - ready.length === 1 ? '' : 's'} needed for doubles.`
+					: 'Four players are ready for the next match.'
 	);
 </script>
 
@@ -100,6 +108,7 @@
 			onstart={onstartmatch}
 			oncomplete={oncompleteset}
 			onabandon={onabandonmatch}
+			{onsubstitute}
 		/>
 	</div>
 

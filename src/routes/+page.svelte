@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
 	import { currentUser, signInWithPassword } from '$lib/auth';
 	import {
 		addPlayer,
@@ -14,17 +15,7 @@
 		type Club,
 		type RosterPlayer
 	} from '$lib/data/dashboard';
-	import {
-		abandonMatch,
-		changeParticipantStatus,
-		checkInPlayer,
-		claimOperatorLease,
-		completeSet,
-		loadLiveSession,
-		startMatch,
-		type ActiveMatch,
-		type LiveSession
-	} from '$lib/data/live';
+	import { LiveController } from '$lib/features/live/live-controller.svelte';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
 
@@ -44,9 +35,10 @@
 	let publicClub = $state<{ id: string; name: string } | null>(null);
 	let publicRoster = $state<{ id: string; display_name: string }[]>([]);
 	let roster = $state<RosterPlayer[]>([]);
-	let session = $state<LiveSession | null>(null);
-	let participants = $state<Participant[]>([]);
-	let activeMatch = $state<ActiveMatch | null>(null);
+	let live = new LiveController((message) => (notice = message));
+	let session = $derived(live.session);
+	let participants = $derived(live.participants);
+	let activeMatch = $derived(live.activeMatch);
 	let loading = $state(true);
 	let notice = $state('');
 	let clubName = $state('');
@@ -54,43 +46,18 @@
 	let sessionPin = $state('');
 	let adminLoginOpen = $state(false);
 	let operatorPin = $state('');
-	let operatorLease = $state<string | null>(null);
 	let showOperatorSheet = $state(false);
 	let showTakeover = $state(false);
 	let showCheckIn = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
-	let pending = $state('');
+	let pending = $derived(live.pending);
 
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
-	let isOperator = $derived(Boolean(operatorLease));
+	let isOperator = $derived(live.isOperator);
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
 
-	function leaseKey(sessionId: string) {
-		return `pb-newbie:operator-lease:${sessionId}`;
-	}
-	function deviceKey() {
-		return 'pb-newbie:operator-device';
-	}
-	function getDeviceId() {
-		if (!browser) return '';
-		let id = localStorage.getItem(deviceKey());
-		if (!id) {
-			id = crypto.randomUUID();
-			localStorage.setItem(deviceKey(), id);
-		}
-		return id;
-	}
-
 	async function refreshLive() {
-		try {
-			const live = await loadLiveSession();
-			session = live.session;
-			participants = live.participants;
-			activeMatch = live.activeMatch;
-			operatorLease = session && browser ? localStorage.getItem(leaseKey(session.id)) : null;
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not load the live session.';
-		}
+		await live.refresh();
 	}
 
 	async function refreshAccount() {
@@ -159,105 +126,51 @@
 	}
 
 	async function claimOperator(takeover = false) {
-		if (!session || !operatorPin) return;
-		pending = takeover ? 'Taking over…' : 'Checking PIN…';
-		try {
-			const lease = await claimOperatorLease(session.id, operatorPin, getDeviceId(), takeover);
-			localStorage.setItem(leaseKey(session.id), lease);
-			operatorLease = lease;
+		const result = await live.claim(operatorPin, takeover);
+		if (result.requiresTakeover) {
+			showTakeover = true;
+			return;
+		}
+		if (result.ok) {
 			operatorPin = '';
 			showOperatorSheet = false;
 			showTakeover = false;
-			notice = 'You’re operating this session.';
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Could not claim session control.';
-			if (/another device/i.test(message) && !takeover) showTakeover = true;
-			else
-				notice = /invalid session pin/i.test(message)
-					? "That PIN isn't correct. Try again."
-					: message;
-		} finally {
-			pending = '';
 		}
 	}
 
 	async function checkIn(player: RosterPlayer) {
-		if (!session || !operatorLease) return;
-		pending = `Checking in ${player.display_name}…`;
-		try {
-			await checkInPlayer(session.id, operatorLease, player.id);
-			await refreshLive();
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not check in player.';
-		} finally {
-			pending = '';
-		}
+		await live.checkIn(player.id);
+	}
+
+	async function addGuest(name: string) {
+		await live.addGuest(name);
+	}
+
+	async function substitute(
+		outgoingPlayerId: string,
+		replacementPlayerId: string,
+		outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
+	) {
+		await live.substitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
 	}
 
 	async function setStatus(status: ParticipantStatus) {
-		if (!session || !operatorLease || !selectedParticipant?.sessionParticipantId) return;
-		pending = `Updating ${selectedParticipant.name}…`;
-		try {
-			await changeParticipantStatus(
-				session.id,
-				operatorLease,
-				selectedParticipant.sessionParticipantId,
-				status
-			);
+		if (!selectedParticipant?.sessionParticipantId) return;
+		if (await live.setStatus(selectedParticipant.sessionParticipantId, status))
 			selectedParticipant = null;
-			await refreshLive();
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not update player status.';
-		} finally {
-			pending = '';
-		}
 	}
 
 	async function beginMatch(teamA: string[], teamB: string[]) {
-		if (!session || !operatorLease) return;
-		pending = 'Starting match…';
-		try {
-			await startMatch(session.id, operatorLease, teamA, teamB);
-			await refreshLive();
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not start match.';
-		} finally {
-			pending = '';
-		}
+		await live.startMatch(teamA, teamB);
 	}
 
 	async function saveSet(teamA: number, teamB: number) {
-		if (!session || !operatorLease) return;
-		pending = 'Saving score…';
-		try {
-			await completeSet(session.id, operatorLease, teamA, teamB);
-			await refreshLive();
-		} catch (error) {
-			notice =
-				error instanceof Error
-					? error.message
-					: "Couldn't save this set. Your score is still here.";
-		} finally {
-			pending = '';
-		}
+		await live.completeSet(teamA, teamB);
 	}
 
 	async function stopMatch() {
-		if (
-			!session ||
-			!operatorLease ||
-			!confirm('Abandon this match? Completed sets remain in history.')
-		)
-			return;
-		pending = 'Abandoning match…';
-		try {
-			await abandonMatch(session.id, operatorLease);
-			await refreshLive();
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not abandon match.';
-		} finally {
-			pending = '';
-		}
+		if (!confirm('Abandon this match? Completed sets remain in history.')) return;
+		await live.abandon();
 	}
 
 	function signOut() {
@@ -387,6 +300,7 @@
 				onstartmatch={beginMatch}
 				oncompleteset={saveSet}
 				onabandonmatch={stopMatch}
+				onsubstitute={substitute}
 			/>
 			{#if userEmail && club?.is_club_admin && !session}<section
 					class="mt-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
@@ -552,51 +466,14 @@
 {/if}
 
 {#if showCheckIn}
-	<div
-		class="fixed inset-0 z-30 flex items-end bg-slate-950/45 p-3 sm:items-center sm:justify-center"
-		role="presentation"
-	>
-		<section
-			class="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl"
-			role="document"
-			aria-labelledby="checkin-title"
-		>
-			<div class="flex items-center justify-between gap-3">
-				<div>
-					<p class="text-xs font-black tracking-[0.15em] text-slate-500">ARRIVALS</p>
-					<h2 id="checkin-title" class="mt-1 text-2xl font-black">Check in players</h2>
-				</div>
-				<AppButton variant="secondary" onclick={() => (showCheckIn = false)}>Done</AppButton>
-			</div>
-			<p class="mt-3 text-sm text-slate-600">
-				Tap a player once as they arrive. They’ll move to READY immediately.
-			</p>
-			<div class="mt-5 overflow-hidden rounded-3xl border border-slate-200">
-				<p
-					class="border-b border-slate-100 px-4 py-3 text-xs font-black tracking-[0.15em] text-slate-500"
-				>
-					{pending || 'NOT HERE'}
-				</p>
-				<ul class="divide-y divide-slate-100">
-					{#each roster.filter((player) => !checkedInIds.has(player.id)) as player (player.id)}<li>
-							<button
-								class="flex min-h-14 w-full items-center gap-3 px-4 text-left hover:bg-lime-50 disabled:opacity-50"
-								onclick={() => checkIn(player)}
-								disabled={Boolean(pending)}
-								><span
-									class="grid size-9 place-items-center rounded-2xl border-2 border-slate-200 text-slate-400"
-									>○</span
-								><span class="flex-1 font-bold">{player.display_name}</span><span
-									class="text-sm font-bold text-lime-700">Check in</span
-								></button
-							>
-						</li>{:else}<li class="px-4 py-7 text-center text-sm text-slate-500">
-							Everyone on the roster is here.
-						</li>{/each}
-				</ul>
-			</div>
-		</section>
-	</div>
+	<CheckInSheet
+		{roster}
+		{checkedInIds}
+		{pending}
+		oncheckin={checkIn}
+		onaddguest={addGuest}
+		onclose={() => (showCheckIn = false)}
+	/>
 {/if}
 
 {#if selectedParticipant}
