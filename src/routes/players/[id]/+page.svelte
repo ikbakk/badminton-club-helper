@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
-	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
 		getPublicClub,
 		getPublicPlayerProfile,
@@ -45,7 +45,40 @@
 <svelte:head><title>{player?.display_name ?? 'Pemain'} — PB NEWBIE</title></svelte:head>
 <AppShell current="/players" {clubName}>
 	<a href={resolve('/players')} class="text-sm font-black text-[#38675b]">‹ Semua pemain</a>
-	{#if loading}<div class="mt-7"><CourtLoading label="Membuka profil pemain…" /></div>
+	{#if loading}<section
+			class="mt-6"
+			role="status"
+			aria-busy="true"
+			aria-label="Membuka profil pemain"
+		>
+			<div class="w-3/5"><LoadingSkeleton height="2.5rem" /></div>
+			<p class="mt-2 text-sm font-bold text-[#527169]">Member klub</p>
+			<div
+				class="mt-7 grid grid-cols-2 border border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-4"
+				aria-hidden="true"
+			>
+				{#each ['Sesi', 'Set', 'Menang', 'Kalah'] as stat (stat)}<div
+						class="border-r border-b border-[#b9c5bb] p-4 last:border-r-0"
+					>
+						<div class="w-12"><LoadingSkeleton height="1.75rem" /></div>
+						<span class="mt-2 block text-sm">{stat}</span>
+					</div>{/each}
+			</div>
+			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
+				<h2 class="text-xl font-black">Rating</h2>
+				<div class="mt-3 w-3/4"><LoadingSkeleton /></div>
+			</section>
+			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
+				<h2 class="text-xl font-black">Sesi terbaru</h2>
+				<div class="mt-3 border-y border-[#b9c5bb] bg-[#fffaf0]" aria-hidden="true">
+					{#each [1, 2] as row (row)}<div
+							class="flex min-h-12 items-center border-b border-[#e5ece5] px-4 last:border-0"
+						>
+							<div class="w-1/3"><LoadingSkeleton /></div>
+						</div>{/each}
+				</div>
+			</section>
+		</section>
 	{:else if player}<section class="mt-6">
 			<h1 class="text-4xl font-black tracking-[-0.06em]">{player.display_name}</h1>
 			<p class="mt-2 text-sm font-bold text-[#527169]">Member klub</p>

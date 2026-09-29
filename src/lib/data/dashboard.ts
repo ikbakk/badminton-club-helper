@@ -49,6 +49,13 @@ export async function addPlayer(clubId: string, name: string) {
 	});
 	if (error) throw error;
 }
+export async function promoteGuestToMember(clubId: string, playerId: string) {
+	const { error } = await client().rpc('promote_guest_to_member', {
+		p_club_id: clubId,
+		p_player_id: playerId
+	});
+	if (error) throw error;
+}
 export async function startSession(clubId: string, pin: string) {
 	const { data, error } = await client().rpc('start_session', { p_club_id: clubId, p_pin: pin });
 	if (error) throw error;
@@ -166,6 +173,18 @@ export type PublicSessionMatch = {
 	set_two_a: number | null;
 	set_two_b: number | null;
 };
+export type PublicSessionAttendee = {
+	player_id: string;
+	display_name: string;
+	membership_type: 'MEMBER' | 'GUEST';
+};
+export type PublicSessionFinanceRecap = {
+	fee_per_person: number | null;
+	expected_fees: number;
+	court_expenses: number;
+	shuttlecock_expenses: number;
+	other_expenses: number;
+};
 export type PublicFundActivity = {
 	id: string;
 	kind: 'INCOME' | 'EXPENSE';
@@ -173,6 +192,196 @@ export type PublicFundActivity = {
 	amount: number;
 	occurred_at: string;
 };
+
+export type FinanceSession = {
+	session_id: string;
+	started_at: string;
+	fee_per_person: number;
+	attendance: number;
+	paid_count: number;
+	paid_amount: number;
+};
+
+export type FinanceSessionAttendee = {
+	player_id: string;
+	display_name: string;
+	amount: number;
+	paid_at: string | null;
+};
+
+export async function getFinanceSessions(clubId: string) {
+	if (!supabase) return [] as FinanceSession[];
+	const { data, error } = await supabase.rpc('finance_sessions', { p_club_id: clubId });
+	if (error) throw error;
+	return (data ?? []) as FinanceSession[];
+}
+
+export async function getFinanceSessionAttendees(clubId: string, sessionId: string) {
+	if (!supabase) return [] as FinanceSessionAttendee[];
+	const { data, error } = await supabase.rpc('finance_session_attendees', {
+		p_club_id: clubId,
+		p_session_id: sessionId
+	});
+	if (error) throw error;
+	return (data ?? []) as FinanceSessionAttendee[];
+}
+
+export async function setSessionAttendeePaid(
+	clubId: string,
+	sessionId: string,
+	playerId: string,
+	paid: boolean
+) {
+	if (!supabase) throw new Error('Supabase is not configured.');
+	const { error } = await supabase.rpc('set_session_attendee_paid', {
+		p_club_id: clubId,
+		p_session_id: sessionId,
+		p_player_id: playerId,
+		p_paid: paid
+	});
+	if (error) throw error;
+}
+
+export type FinancePlayerBalance = {
+	player_id: string;
+	display_name: string;
+	obligations: number;
+	paid: number;
+	allocated: number;
+	debt: number;
+	credit: number;
+};
+
+export type FinancePayment = {
+	payment_id: string;
+	player_id: string;
+	display_name: string;
+	remaining: number;
+};
+
+export type FinanceObligation = {
+	obligation_id: string;
+	player_id: string;
+	display_name: string;
+	session_started_at: string;
+	remaining: number;
+};
+
+export type FinanceSubmission = {
+	submission_id: string;
+	session_id: string;
+	submitted_at: string;
+	session_started_at: string;
+	reported_court_cost: number | null;
+	reported_shuttlecock_cost: number | null;
+	notes: string | null;
+};
+
+export async function getFinancePlayerBalances(clubId: string) {
+	const { data, error } = await client().rpc('finance_player_balances', { p_club_id: clubId });
+	if (error) throw error;
+	const rows = (data ?? []) as (Omit<
+		FinancePlayerBalance,
+		'obligations' | 'paid' | 'allocated' | 'debt' | 'credit'
+	> & {
+		obligations: string | number;
+		paid: string | number;
+		allocated: string | number;
+		debt: string | number;
+		credit: string | number;
+	})[];
+	return rows.map((row) => ({
+		...row,
+		obligations: Number(row.obligations),
+		paid: Number(row.paid),
+		allocated: Number(row.allocated),
+		debt: Number(row.debt),
+		credit: Number(row.credit)
+	}));
+}
+
+export async function recordPayment(
+	clubId: string,
+	playerId: string,
+	amount: number,
+	method: 'CASH' | 'BANK' | 'SHOPEEPAY'
+) {
+	const { error } = await client().rpc('record_payment', {
+		p_club_id: clubId,
+		p_player_id: playerId,
+		p_amount: amount,
+		p_method: method
+	});
+	if (error) throw error;
+}
+
+export async function recordExpense(
+	clubId: string,
+	category: 'COURT' | 'SHUTTLECOCK' | 'OTHER',
+	amount: number,
+	description: string
+) {
+	const { error } = await client().rpc('record_expense', {
+		p_club_id: clubId,
+		p_category: category,
+		p_amount: amount,
+		p_description: description || null,
+		p_session_id: null
+	});
+	if (error) throw error;
+}
+
+export async function getFinanceUnallocatedPayments(clubId: string) {
+	const { data, error } = await client().rpc('finance_unallocated_payments', { p_club_id: clubId });
+	if (error) throw error;
+	return (
+		(data ?? []) as (Omit<FinancePayment, 'remaining'> & { remaining: string | number })[]
+	).map((row) => ({ ...row, remaining: Number(row.remaining) }));
+}
+
+export async function getFinanceOpenObligations(clubId: string) {
+	const { data, error } = await client().rpc('finance_open_obligations', { p_club_id: clubId });
+	if (error) throw error;
+	return (
+		(data ?? []) as (Omit<FinanceObligation, 'remaining'> & {
+			remaining: string | number;
+		})[]
+	).map((row) => ({ ...row, remaining: Number(row.remaining) }));
+}
+
+export async function allocatePayment(
+	clubId: string,
+	paymentId: string,
+	obligationId: string,
+	amount: number
+) {
+	const { error } = await client().rpc('allocate_payment', {
+		p_club_id: clubId,
+		p_payment_id: paymentId,
+		p_obligation_id: obligationId,
+		p_amount: amount
+	});
+	if (error) throw error;
+}
+
+export async function getFinancePendingSubmissions(clubId: string) {
+	const { data, error } = await client().rpc('finance_pending_submissions', { p_club_id: clubId });
+	if (error) throw error;
+	return (data ?? []) as FinanceSubmission[];
+}
+
+export async function reviewFinanceSubmission(
+	clubId: string,
+	submissionId: string,
+	confirm: boolean
+) {
+	const { error } = await client().rpc('review_finance_submission', {
+		p_club_id: clubId,
+		p_submission_id: submissionId,
+		p_confirm: confirm
+	});
+	if (error) throw error;
+}
 
 export async function getPublicSessionHistory() {
 	return cached('history', async () => {
@@ -221,6 +430,35 @@ export async function getPublicSessionMatches(sessionId: string) {
 		});
 		if (error) throw error;
 		return (data ?? []) as PublicSessionMatch[];
+	});
+}
+
+export async function getPublicSessionAttendance(sessionId: string) {
+	return cached(`session-attendance:${sessionId}`, async () => {
+		const { data, error } = await client().rpc('public_session_attendance', {
+			p_session_id: sessionId
+		});
+		if (error) throw error;
+		return (data ?? []) as PublicSessionAttendee[];
+	});
+}
+
+export async function getPublicSessionFinanceRecap(sessionId: string) {
+	return cached(`session-finance:${sessionId}`, async () => {
+		const { data, error } = await client().rpc('public_session_finance_recap', {
+			p_session_id: sessionId
+		});
+		if (error) throw error;
+		const row = data?.[0] as PublicSessionFinanceRecap | undefined;
+		return row
+			? {
+					...row,
+					expected_fees: Number(row.expected_fees),
+					court_expenses: Number(row.court_expenses),
+					shuttlecock_expenses: Number(row.shuttlecock_expenses),
+					other_expenses: Number(row.other_expenses)
+				}
+			: null;
 	});
 }
 

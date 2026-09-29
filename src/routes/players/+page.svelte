@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
-	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { currentUser } from '$lib/auth';
 	import {
 		addPlayer,
@@ -13,6 +13,7 @@
 		getRoster,
 		invalidatePublicData,
 		prefetchPublicPlayer,
+		promoteGuestToMember,
 		type Club
 	} from '$lib/data/dashboard';
 
@@ -55,6 +56,17 @@
 			notice = error instanceof Error ? error.message : 'Member belum dapat ditambahkan.';
 		}
 	}
+	async function promoteGuest(playerId: string) {
+		if (!club || !confirm('Jadikan tamu ini member klub? Riwayatnya tetap tersimpan.')) return;
+		try {
+			await promoteGuestToMember(club.id, playerId);
+			invalidatePublicData();
+			await load();
+			notice = 'Tamu dipromosikan menjadi member.';
+		} catch (error) {
+			notice = error instanceof Error ? error.message : 'Tamu belum dapat dipromosikan.';
+		}
+	}
 	if (browser) void load();
 </script>
 
@@ -68,9 +80,8 @@
 					Anggota klub yang bisa ikut sesi malam ini.
 				</p>
 			</div>
-			<p class="shrink-0 text-sm font-black text-[#38675b]">
-				{loading ? 'Membaca…' : `${roster.length} member`}
-			</p>
+			{#if loading}<span class="w-18 shrink-0"><LoadingSkeleton height="1rem" /></span>
+			{:else}<p class="shrink-0 text-sm font-black text-[#38675b]">{roster.length} member</p>{/if}
 		</div>
 	</section>
 	{#if club?.is_club_admin}
@@ -86,7 +97,20 @@
 		</section>
 	{/if}
 	<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0]">
-		{#if loading}<CourtLoading label="Membaca roster…" compact />
+		{#if loading}<div
+				class="divide-y divide-[#b9c5bb]"
+				role="status"
+				aria-busy="true"
+				aria-label="Membaca roster"
+			>
+				{#each [1, 2, 3, 4] as row (row)}<div class="flex min-h-16 items-center px-5 py-3">
+						<div class="w-full space-y-2">
+							<div class="w-2/5"><LoadingSkeleton /></div>
+							<div class="w-1/4"><LoadingSkeleton height="0.75rem" /></div>
+						</div>
+					</div>{/each}
+			</div>
+			<span class="sr-only">Membaca roster…</span>
 		{:else if roster.length}<ul>
 				{#each roster as player (player.id)}<li class="border-b border-[#b9c5bb] last:border-b-0">
 						<a
@@ -102,6 +126,10 @@
 								></span
 							><span class="text-lg text-[#38675b]" aria-hidden="true">›</span></a
 						>
+						{#if club?.is_club_admin && player.membership_type === 'GUEST'}<button
+								class="mb-3 ml-5 min-h-9 border border-[#b9c5bb] px-3 text-xs font-black text-[#38675b]"
+								onclick={() => void promoteGuest(player.id)}>Jadikan member</button
+							>{/if}
 					</li>{/each}
 			</ul>
 		{:else}<div class="p-7">

@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
-	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
 		getPublicClub,
 		getPublicSessionHistory,
@@ -44,7 +44,23 @@
 			Malam yang sudah selesai, untuk dilihat semua member.
 		</p>
 	</section>
-	{#if loading}<div class="mt-5"><CourtLoading label="Membuka riwayat sesi…" /></div>
+	{#if loading}<section
+			class="mt-5 border border-[#b9c5bb] bg-[#fffaf0]"
+			role="status"
+			aria-busy="true"
+			aria-label="Membuka riwayat sesi"
+		>
+			{#each [1, 2, 3] as row (row)}<div
+					class="flex min-h-20 items-center gap-4 border-b border-[#b9c5bb] px-5 py-4 last:border-0"
+					aria-hidden="true"
+				>
+					<div class="flex-1 space-y-2">
+						<div class="w-2/5"><LoadingSkeleton /></div>
+						<div class="w-1/3"><LoadingSkeleton height="0.75rem" /></div>
+					</div>
+					<div class="w-4"><LoadingSkeleton /></div>
+				</div>{/each}
+		</section>
 	{:else if history.length}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0]">
 			<ul>
 				{#each history as session (session.id)}<li

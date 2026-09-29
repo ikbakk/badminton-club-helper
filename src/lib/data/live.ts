@@ -94,6 +94,21 @@ export async function claimOperatorLease(
 	return data as string;
 }
 
+export async function claimAdminOperatorLease(
+	sessionId: string,
+	deviceId: string,
+	takeover = false
+) {
+	if (!supabase) throw new Error('Supabase is not configured.');
+	const { data, error } = await supabase.rpc('claim_admin_operator_lease', {
+		p_session_id: sessionId,
+		p_device_id: deviceId,
+		p_takeover: takeover
+	});
+	if (error) throw error;
+	return data as string;
+}
+
 export async function checkInPlayer(sessionId: string, leaseId: string, playerId: string) {
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { error } = await supabase.rpc('check_in_player', {
@@ -200,10 +215,54 @@ export function closeSession(sessionId: string, leaseId: string) {
 	}>;
 }
 
+export function reopenSession(sessionId: string, leaseId: string) {
+	return command('reopen_session', { p_session_id: sessionId, p_lease_id: leaseId });
+}
+
+export async function suggestSessionFee(sessionId: string, leaseId: string) {
+	const result = await command('suggest_session_fee', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId
+	});
+	return result === null ? null : Number(result);
+}
+
+export function correctCompletedSet(
+	sessionId: string,
+	leaseId: string,
+	setNumber: 1 | 2,
+	teamAScore: number,
+	teamBScore: number
+) {
+	return command('correct_completed_set', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_set_number: setNumber,
+		p_team_a_score: teamAScore,
+		p_team_b_score: teamBScore
+	});
+}
+
 export function confirmSessionFee(sessionId: string, leaseId: string, fee: number) {
 	return command('confirm_session_fee', {
 		p_session_id: sessionId,
 		p_lease_id: leaseId,
 		p_fee: fee
 	}) as Promise<number>;
+}
+
+export function submitSessionFinance(
+	sessionId: string,
+	leaseId: string,
+	courtCost: number | null,
+	shuttlecockCost: number | null,
+	notes: string
+) {
+	return command('submit_session_finance', {
+		p_session_id: sessionId,
+		p_lease_id: leaseId,
+		p_reported_court_cost: courtCost,
+		p_reported_shuttlecock_cost: shuttlecockCost,
+		p_notes: notes || null
+	});
 }

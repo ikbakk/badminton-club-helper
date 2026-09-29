@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
-	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { currentUser } from '$lib/auth';
 	import { getClub, getPublicClub, type Club } from '$lib/data/dashboard';
 	import { supabase } from '$lib/supabase';
@@ -37,7 +37,22 @@
 			Rumah permanen untuk informasi dan otoritas klub.
 		</p>
 	</section>
-	{#if loading}<div class="mt-6"><CourtLoading label="Memeriksa akses pengaturan…" /></div>
+	{#if loading}<div
+			class="mt-5 grid gap-4"
+			aria-busy="true"
+			aria-label="Memeriksa akses pengaturan…"
+		>
+			{#each [1, 2, 3] as row (row)}<section
+					class="flex min-h-18 items-center justify-between border border-[#b9c5bb] bg-[#fffaf0] px-5 py-4"
+					aria-hidden="true"
+				>
+					<div class="space-y-2">
+						<div class="w-24"><LoadingSkeleton height="1.25rem" /></div>
+						<div class="w-48"><LoadingSkeleton height="0.75rem" /></div>
+					</div>
+					<div class="w-4"><LoadingSkeleton /></div>
+				</section>{/each}
+		</div>
 	{:else if isAdmin}<div class="mt-5 grid gap-4">
 			<section class="border border-[#b9c5bb] bg-[#fffaf0]">
 				<a
