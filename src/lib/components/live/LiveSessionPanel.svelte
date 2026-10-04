@@ -47,8 +47,9 @@
 	const groups: { title: string; status: ParticipantStatus }[] = [
 		{ title: 'SIAP / MENUNGGU', status: 'READY' },
 		{ title: 'ISTIRAHAT', status: 'RESTING' },
-		{ title: 'SEMENTARA PERGI', status: 'AWAY' },
-		{ title: 'SELESAI MALAM INI', status: 'OUT' }
+		{ title: 'PERGI SEBENTAR', status: 'AWAY' },
+		{ title: 'SELESAI BERMAIN MALAM INI', status: 'OUT' },
+		{ title: 'SUDAH PULANG', status: 'LEFT' }
 	];
 	let ready = $derived(participants.filter((participant) => participant.status === 'READY'));
 	let startedAt = $derived(
@@ -62,7 +63,7 @@
 		activeMatch
 			? `${ready.length} pemain menunggu match berikutnya.`
 			: ready.length === 0
-				? 'Belum ada pemain yang check in.'
+				? 'Belum ada pemain yang datang.'
 				: ready.length < 4
 					? `${ready.length} siap — butuh ${4 - ready.length} pemain lagi untuk main ganda.`
 					: 'Empat pemain siap untuk match berikutnya.'
@@ -104,7 +105,7 @@
 				<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
 				<h2 class="mt-2 text-3xl font-black tracking-[-0.055em]">
 					{activeMatch
-						? `Match ${activeMatch.sequence_number} sedang dimainkan.`
+						? `Match ${activeMatch.sequence_number} sedang berlangsung.`
 						: 'Lapangan menunggu match pertama.'}
 				</h2>
 				<div class="mt-6 border-y border-[#85a097]/45 py-4">
@@ -120,7 +121,7 @@
 							disabled={!online || Boolean(pending)}
 							onclick={onendsession}>Akhiri sesi</AppButton
 						>{:else}<p class="w-full text-xs leading-5 text-[#d4e1db]">
-							Login Club Admin diperlukan untuk check-in pemain dan mengelola match.
+							Masuk sebagai admin klub untuk mencatat pemain hadir dan mengelola match.
 						</p>{/if}
 				</div>
 			</div>
@@ -129,7 +130,7 @@
 	{#if !online}<p
 			class="mt-4 border border-[#e7b8aa] bg-[#fff1ec] p-3 text-sm font-bold text-[#9a3d25]"
 		>
-			Offline — menampilkan kondisi sesi terakhir yang tersinkron. Kontrol lapangan tidak tersedia.
+			Koneksi terputus. Yang terlihat adalah kondisi terakhir; perubahan belum bisa dilakukan.
 		</p>
 	{/if}
 	<div class="mt-5">
@@ -148,12 +149,34 @@
 	</div>
 
 	<div class="mt-5 grid gap-4">
+		<aside class="px-1 py-1" aria-label="Keterangan warna status pemain">
+			<ul class="grid gap-1 text-xs leading-5 text-[#527169]">
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#dceadf]"></span><b>Hijau:</b> siap / menunggu giliran
+				</li>
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#d9e3f6]"></span><b>Biru:</b> sedang bermain
+				</li>
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#dce8eb]"></span><b>Biru muda:</b> istirahat
+				</li>
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#fae2ae]"></span><b>Kuning:</b> pergi sebentar
+				</li>
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#f7d7cf]"></span><b>Terakota:</b> selesai bermain malam ini
+				</li>
+				<li class="flex items-center gap-2">
+					<span class="size-3 shrink-0 bg-[#e4e2da]"></span><b>Abu-abu:</b> sudah pulang
+				</li>
+			</ul>
+		</aside>
 		{#each groups as group (group.status)}
 			<ParticipantGroup
 				title={group.title}
 				status={group.status}
 				participants={participants.filter((participant) => participant.status === group.status)}
-				interactive={canManage && group.status !== 'OUT'}
+				interactive={canManage && group.status !== 'OUT' && group.status !== 'LEFT'}
 				{onselect}
 			/>
 		{/each}

@@ -9,7 +9,7 @@
 		onSelectionChange,
 		label,
 		maxSelected,
-		emptyMessage = 'Tidak ada pilihan.'
+		emptyMessage = 'Belum ada yang bisa dipilih.'
 	}: {
 		options: Option[];
 		selected: string[];

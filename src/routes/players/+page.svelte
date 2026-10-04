@@ -39,7 +39,7 @@
 					? await getPublicRoster(publicClub.id)
 					: [];
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Roster belum dapat dimuat.';
+			notice = error instanceof Error ? error.message : 'Daftar pemain belum bisa dimuat.';
 		} finally {
 			loading = false;
 		}
@@ -51,13 +51,13 @@
 			invalidatePublicData();
 			name = '';
 			await load();
-			notice = 'Member ditambahkan.';
+			notice = 'Pemain ditambahkan ke daftar klub.';
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Member belum dapat ditambahkan.';
+			notice = error instanceof Error ? error.message : 'Pemain belum bisa ditambahkan. Coba lagi.';
 		}
 	}
 	async function promoteGuest(playerId: string) {
-		if (!club || !confirm('Jadikan tamu ini member klub? Riwayatnya tetap tersimpan.')) return;
+		if (!club || !confirm('Jadikan pemain ini anggota tetap klub? Riwayat mainnya tetap tersimpan.')) return;
 		try {
 			await promoteGuestToMember(club.id, playerId);
 			invalidatePublicData();
@@ -122,7 +122,7 @@
 							><span
 								><b class="block text-base">{player.display_name}</b><span
 									class="mt-1 block text-sm text-[#527169]"
-									>{player.membership_type === 'MEMBER' ? 'Member klub' : 'Tamu'}</span
+					>{player.membership_type === 'MEMBER' ? 'Anggota klub' : 'Tamu'}</span
 								></span
 							><span class="text-lg text-[#38675b]" aria-hidden="true">›</span></a
 						>
@@ -135,12 +135,12 @@
 		{:else}<div class="p-7">
 				<h2 class="text-xl font-black">Belum ada member.</h2>
 				<p class="mt-2 max-w-sm text-sm leading-6 text-[#527169]">
-					Daftar pemain akan muncul di sini setelah Club Admin menambahkan member.
+					Daftar pemain akan muncul di sini setelah admin klub menambahkan pemain.
 				</p>
 			</div>{/if}
 	</section>
 	{#if !signedIn && roster.length}<p class="mt-5 text-sm leading-6 text-[#527169]">
-			Profil pemain dapat dilihat semua orang. Pengelolaan roster hanya untuk Club Admin.
+			Profil pemain bisa dilihat semua orang. Hanya admin klub yang bisa mengelola daftar pemain.
 		</p>{/if}
 	{#if notice}<p
 			class="mt-4 border border-[#e7b8aa] bg-[#fff1ec] p-3 text-sm font-bold text-[#9a3d25]"

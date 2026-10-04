@@ -22,7 +22,10 @@ async function mockLiveBackend(
 		const url = new URL(route.request().url());
 		const path = url.pathname;
 		if (path.endsWith('/live_session'))
-			return route.fulfill({ json: [session], headers: { 'content-range': '0-0/1' } });
+			return route.fulfill({
+				json: closed ? [] : [session],
+				headers: { 'content-range': closed ? '*/*' : '0-0/1' }
+			});
 		if (path.endsWith('/live_participants'))
 			return route.fulfill({
 				json: failSubstitution
@@ -268,7 +271,7 @@ test('admin checks in a selected group with one database request', async ({ page
 	await page.getByLabel('Pilih pemain yang datang').getByText('Ayu', { exact: true }).click();
 	await page.getByLabel('Pilih pemain yang datang').getByText('Budi', { exact: true }).click();
 	expect(await page.evaluate(() => window.scrollY)).toBe(pageScrollBeforeSelection);
-	await page.getByRole('button', { name: 'Check in 2 pemain' }).click();
+	await page.getByRole('button', { name: 'Catat 2 pemain hadir' }).click();
 	await expect.poll(() => batchRequests.length).toBe(1);
 	expect(batchRequests[0]).toEqual({
 		p_session_id: sessionId,
@@ -290,6 +293,10 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
 	await expect(page.getByRole('heading', { name: 'Rekap penutupan sesi' })).toBeVisible();
 	await expect(page.getByText('2 pemain hadir · 0 match · sesi sudah ditutup')).toBeVisible();
+	await page.getByRole('link', { name: 'Kembali ke Live' }).click();
+	await expect(page.getByRole('heading', { name: 'Rekap sesi belum dikonfirmasi' })).toBeVisible();
+	await page.getByRole('link', { name: 'Lanjutkan rekap' }).click();
+	await expect(page.getByRole('link', { name: 'Konfirmasi rekap' })).toBeVisible();
 	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
 	await expect(page.getByRole('heading', { name: 'Checklist pembayaran' })).toBeVisible();
 	await expect(page.getByText('Ayu')).toBeVisible();
@@ -303,15 +310,19 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await expect.poll(() => backend.getPaidWriteCount()).toBe(2);
 	await page.getByRole('link', { name: 'Riwayat' }).click();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}/confirm$`));
-	await expect(page.getByRole('heading', { name: 'Mau keluar ke riwayat?' })).toBeVisible();
+	await expect(
+		page.getByRole('heading', { name: 'Sesi selesai. Lanjut ke riwayat?' })
+	).toBeVisible();
 	await page.getByRole('link', { name: 'Kembali edit iuran & pembayaran' }).click();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
 	await page.getByRole('link', { name: 'Riwayat' }).click();
-	await page.getByRole('link', { name: 'Lanjut ke riwayat' }).click();
+	await page.getByRole('link', { name: 'Confirm' }).click();
 	await expect(page.getByRole('heading', { name: 'Rekap dana sesi' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Hadir & pembayaran (2)' })).toBeVisible();
-	await expect(page.getByRole('img', { name: 'Lunas' })).toBeVisible();
-	await expect(page.getByRole('img', { name: 'Belum bayar' })).toBeVisible();
+	await expect(page.locator('li').filter({ hasText: 'Ayu' }).first()).toHaveClass(/bg-\[#dceadf\]/);
+	await expect(page.locator('li').filter({ hasText: 'Budi' }).first()).toHaveClass(
+		/bg-\[#f9e0d8\]/
+	);
 	await expect(page.getByText('Rp15.000', { exact: true })).toBeVisible();
 });
 

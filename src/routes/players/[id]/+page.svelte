@@ -44,7 +44,7 @@
 
 <svelte:head><title>{player?.display_name ?? 'Pemain'} — PB NEWBIE</title></svelte:head>
 <AppShell current="/players" {clubName}>
-	<a href={resolve('/players')} class="text-sm font-black text-[#38675b]">‹ Semua pemain</a>
+	<a href={resolve('/players')} class="text-sm font-black text-[#38675b]">‹ Kembali ke pemain</a>
 	{#if loading}<section
 			class="mt-6"
 			role="status"
@@ -52,7 +52,7 @@
 			aria-label="Membuka profil pemain"
 		>
 			<div class="w-3/5"><LoadingSkeleton height="2.5rem" /></div>
-			<p class="mt-2 text-sm font-bold text-[#527169]">Member klub</p>
+			<p class="mt-2 text-sm font-bold text-[#527169]">Anggota klub</p>
 			<div
 				class="mt-7 grid grid-cols-2 border border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-4"
 				aria-hidden="true"
@@ -81,7 +81,7 @@
 		</section>
 	{:else if player}<section class="mt-6">
 			<h1 class="text-4xl font-black tracking-[-0.06em]">{player.display_name}</h1>
-			<p class="mt-2 text-sm font-bold text-[#527169]">Member klub</p>
+			<p class="mt-2 text-sm font-bold text-[#527169]">Anggota klub</p>
 			{#if statisticsAvailable}<div
 					class="mt-7 grid grid-cols-2 border border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-4"
 				>

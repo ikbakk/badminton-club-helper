@@ -266,16 +266,29 @@
 		</section>
 	{:else}
 		<header class="mt-6 border-b border-[#b9c5bb] pb-6">
-			<h1 class="text-3xl font-black tracking-[-0.05em]">Rekap penutupan sesi</h1>
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<h1 class="text-3xl font-black tracking-[-0.05em]">Rekap penutupan sesi</h1>
+				{#if isAdmin}
+					<a
+						class="inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+						href={resolve('/session-close/[id]/confirm', { id: params.id })}>Konfirmasi rekap</a
+					>
+				{/if}
+			</div>
 			<p class="mt-2 text-base font-bold">{date(session.started_at)}</p>
 			<p class="mt-1 text-sm text-[#527169]">
 				{session.attendance} pemain hadir · {matchCount} match · sesi sudah ditutup
 			</p>
+			{#if session.fee_per_person === null}
+				<p class="mt-3 text-xs font-bold text-[#9a3d25]">
+					Rekap belum final — tetapkan iuran untuk menyelesaikan rekap ini.
+				</p>
+			{/if}
 		</header>
 
 		{#if !isAdmin}
 			<section class="mt-6 border border-[#b9c5bb] bg-[#fffaf0] p-5">
-				<h2 class="text-xl font-black">Masuk sebagai Club Admin</h2>
+				<h2 class="text-xl font-black">Masuk sebagai admin klub</h2>
 				<p class="mt-2 text-sm leading-6 text-[#527169]">
 					Login admin diperlukan untuk menetapkan iuran dan mengubah checklist pembayaran.
 				</p>

@@ -62,7 +62,7 @@
 			</section>
 		{:else}
 			<section class="mt-8">
-				<h1 class="text-3xl font-black tracking-[-0.05em]">Mau keluar ke riwayat?</h1>
+				<h1 class="text-3xl font-black tracking-[-0.05em]">Sesi selesai. Lanjut ke riwayat?</h1>
 				<p class="mt-3 text-sm leading-6 text-[#527169]">
 					Pastikan rekap sesi sudah benar. Kamu masih bisa kembali untuk mengubah checklist
 					pembayaran.
@@ -110,7 +110,7 @@
 						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0] hover:bg-[#38675b]"
 						href={resolve('/history/[id]', { id: params.id })}
 					>
-						Lanjut ke riwayat <ArrowRight size={17} />
+						Confirm <ArrowRight size={17} />
 					</a>
 				</div>
 			</section>

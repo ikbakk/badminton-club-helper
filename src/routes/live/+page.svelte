@@ -79,6 +79,14 @@
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
 	let canManageLive = $derived(Boolean(userEmail && club?.is_club_admin));
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
+	const participantStatusLabel: Record<ParticipantStatus, string> = {
+		READY: 'Siap',
+		PLAYING: 'Sedang main',
+		RESTING: 'Istirahat',
+		AWAY: 'Sebentar pergi',
+		OUT: 'Selesai main',
+		LEFT: 'Sudah pulang'
+	};
 	async function refreshLive() {
 		await live.refresh();
 	}
@@ -91,7 +99,7 @@
 			notify('Koneksi kembali. Memperbarui kondisi lapangan…');
 			void refreshLive();
 		} else {
-			notify('Offline — menampilkan kondisi sesi terakhir yang tersinkron.');
+			notify('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
 		}
 	}
 
@@ -120,7 +128,7 @@
 			roster = club ? await getRoster(club.id) : [];
 			live.setAdminAuthorized(Boolean(club?.is_club_admin));
 		} catch (error) {
-			notifyError(error, 'Could not load club settings.');
+			notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.');
 		} finally {
 			loading = false;
 		}
@@ -137,13 +145,13 @@
 	}
 
 	async function passwordLogin() {
-		pending = 'Signing in…';
+		pending = 'Sedang masuk…';
 		try {
 			await signInWithPassword(email, password);
 			adminLoginOpen = false;
-			notify('Signed in.');
+			notify('Berhasil masuk.');
 		} catch (error) {
-			notifyError(error, 'Could not sign in.');
+			notifyError(error, 'Tidak bisa masuk. Periksa email dan kata sandi, lalu coba lagi.');
 		} finally {
 			pending = '';
 		}
@@ -153,10 +161,10 @@
 		try {
 			await bootstrapClub(clubName);
 			clubName = '';
-			notify('Club created. Add your first players.');
+			notify('Klub siap. Tambahkan pemain dulu, lalu mulai sesi.');
 			await refreshAccount();
 		} catch (error) {
-			notifyError(error, 'Could not create club.');
+			notifyError(error, 'Klub belum bisa dibuat. Coba lagi sebentar.');
 		}
 	}
 
@@ -167,7 +175,7 @@
 			playerName = '';
 			await refreshAccount();
 		} catch (error) {
-			notifyError(error, 'Could not add player.');
+			notifyError(error, 'Pemain belum bisa ditambahkan. Coba lagi.');
 		}
 	}
 
@@ -178,7 +186,7 @@
 			notify('Sesi dimulai.');
 			await refreshLive();
 		} catch (error) {
-			notifyError(error, 'Could not start the session.');
+			notifyError(error, 'Sesi belum bisa dimulai. Coba lagi.');
 		}
 	}
 
@@ -217,7 +225,8 @@
 	}
 
 	async function stopMatch() {
-		if (!confirm('Abandon this match? Completed sets remain in history.')) return false;
+		if (!confirm('Batalkan match ini? Set yang sudah selesai tetap tersimpan di riwayat.'))
+			return false;
 		return live.abandon();
 	}
 
@@ -292,7 +301,7 @@
 					<button
 						class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
 						onclick={() => (showSessionMenu = true)}
-						aria-label="Menu sesi"><Ellipsis size={21} /></button
+						aria-label="Buka menu sesi"><Ellipsis size={21} /></button
 					>
 				</div>
 			{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
@@ -320,10 +329,10 @@
 						type="email"
 						bind:value={email}
 						autocomplete="email"
-						placeholder="you@example.com"
+						placeholder="nama@email.com"
 					/></label
 				><label class="mt-4 block text-sm font-bold"
-					>Password<input
+					>Kata sandi<input
 						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 						type="password"
 						bind:value={password}
@@ -393,21 +402,19 @@
 			{/if}
 		{:else if userEmail && !club}
 			<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
-				<p class="text-xs font-black tracking-[0.16em] text-lime-300">FIRST TIME SETUP</p>
-				<h1 class="mt-3 text-3xl font-black tracking-tight">Set up your club.</h1>
+				<h1 class="mt-3 text-3xl font-black tracking-tight">Buat klubmu.</h1>
 				<p class="mt-3 text-sm leading-6 text-slate-300">
-					You’ll become Club Admin. Add players next, then start your first session.
+					Kamu akan menjadi admin klub. Setelah itu, tambahkan pemain dan mulai sesi pertama.
 				</p>
 				<label class="mt-6 block text-sm font-bold"
-					>Club name<input
+					>Nama klub<input
 						class="mt-2 min-h-12 w-full border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
 						bind:value={clubName}
-						placeholder="Friday Shuttle Club"
+						placeholder="PB NEWBIE"
 					/></label
 				>
 				<div class="mt-5">
-					<AppButton onclick={createClub} disabled={clubName.trim().length < 2}
-						>Create club</AppButton
+					<AppButton onclick={createClub} disabled={clubName.trim().length < 2}>Buat klub</AppButton
 					>
 				</div>
 			</section>
@@ -435,34 +442,65 @@
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">CLUB ADMIN</p>
 					<h2 class="mt-1 text-xl font-black">Mulai sesi malam ini</h2>
 					<p class="mt-2 text-sm leading-6 text-slate-600">
-						Sesi dikelola oleh Club Admin yang masuk dengan akun.
+						Admin klub yang masuk dengan akun bisa mengelola sesi.
 					</p>
 					<div class="mt-5">
 						<AppButton onclick={createSession}>Mulai sesi</AppButton>
 					</div>
 				</section>{/if}
+			{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
+				<section class="mt-5 border-y border-[#b9c5bb] py-5">
+					<h2 class="text-xl font-black">Rekap sesi belum dikonfirmasi</h2>
+					<p class="mt-1 text-sm leading-5 text-[#527169]">
+						Sesi yang belum ditetapkan iurannya bisa dilanjutkan di sini.
+					</p>
+					<ul class="mt-3 divide-y divide-[#d6ddd5] border-y border-[#b9c5bb]">
+						{#each publicHistory.filter((item) => item.closed_at && item.fee_per_person === null) as item (item.id)}
+							<li class="flex items-center justify-between gap-3 py-3">
+								<span class="min-w-0">
+									<b class="block"
+										>{new Intl.DateTimeFormat('id-ID', {
+											day: 'numeric',
+											month: 'long',
+											year: 'numeric'
+										}).format(new Date(item.started_at))}</b
+									>
+									<span class="text-xs text-[#527169]"
+										>{item.attendance} pemain hadir · iuran belum ditetapkan</span
+									>
+								</span>
+								<a
+									class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+									href={resolve('/session-close/[id]', { id: item.id })}>Lanjutkan rekap</a
+								>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 		{:else if tab === 'players'}
 			<section class=" bg-slate-950 p-6 text-white">
 				<p class="text-xs font-black tracking-[0.16em] text-lime-300">ROSTER</p>
 				<h1 class="mt-2 text-3xl font-black tracking-tight">
-					{publicRoster.length ? `${publicRoster.length} club players` : 'The roster is waiting.'}
+					{publicRoster.length ? `${publicRoster.length} pemain terdaftar` : 'Belum ada pemain.'}
 				</h1>
 				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Members are permanent club players. Session guests stay on the courtside flow.
+					Daftarkan pemain tetap di sini. Pemain tamu bisa ditambahkan langsung dari halaman Live.
 				</p>
 			</section>
 			{#if userEmail && club?.is_club_admin}<section
 					class="mt-4 border border-slate-200 bg-white p-4 shadow-sm"
 				>
 					<label class="block text-sm font-bold"
-						>Add a member<input
+						>Tambah pemain<input
 							class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 							bind:value={playerName}
-							placeholder="Player name"
+							placeholder="Nama pemain"
 						/></label
 					>
 					<div class="mt-4">
-						<AppButton onclick={createPlayer} disabled={!playerName.trim()}>Add member</AppButton>
+						<AppButton onclick={createPlayer} disabled={!playerName.trim()}>Tambah pemain</AppButton
+						>
 					</div>
 				</section>{/if}
 			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
@@ -475,15 +513,16 @@
 								>{player.display_name.slice(0, 1)}</span
 							><span class="font-bold">{player.display_name}</span>
 						</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
-							No players have been added yet.
+							Belum ada pemain terdaftar.
 						</li>{/each}
 				</ul>
 			</section>
 		{:else if tab === 'history'}
 			<section class=" bg-slate-950 p-6 text-white">
-				<h1 class="text-3xl font-black tracking-tight">Session history</h1>
+				<h1 class="text-3xl font-black tracking-tight">Riwayat sesi</h1>
 				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Closed nights remain visible to everyone. Individual payment details stay private.
+					Sesi yang sudah selesai bisa dilihat semua orang. Rincian pembayaran tiap pemain hanya
+					untuk admin.
 				</p>
 			</section>
 			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
@@ -500,37 +539,37 @@
 									}).format(new Date(item.started_at))}
 								</p>
 								<p class="mt-1 text-sm text-slate-500">
-									{item.attendance} players · Fee {item.fee_per_person
+									{item.attendance} pemain · Iuran {item.fee_per_person
 										? `Rp${item.fee_per_person.toLocaleString('id-ID')}`
-										: 'not confirmed'}
+										: 'belum ditetapkan'}
 								</p>
 							</div>
 							<span class="rounded-full bg-lime-100 px-3 py-1 text-xs font-black text-lime-800"
-								>CLOSED</span
+								>Selesai</span
 							>
 						</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
-							No completed sessions yet.
+							Belum ada sesi yang selesai.
 						</li>{/each}
 				</ul>
 			</section>
 		{:else}
 			<section class=" bg-slate-950 p-6 text-white">
-				<h1 class="text-3xl font-black tracking-tight">Club fund</h1>
+				<h1 class="text-3xl font-black tracking-tight">Dana klub</h1>
 				<p class="mt-3 text-sm leading-6 text-slate-300">
-					A public total of recorded payments and approved expenses. Individual balances stay
-					private.
+					Ringkasan iuran yang tercatat dan pengeluaran yang disetujui. Saldo per pemain hanya
+					terlihat oleh admin.
 				</p>
 				<div class="mt-6 grid grid-cols-3 gap-2 text-center">
 					<div>
-						<p class="text-xs font-bold text-slate-400">RECEIVED</p>
+						<p class="text-xs font-bold text-slate-400">MASUK</p>
 						<p class="mt-1 font-black">Rp{(fundSummary?.received ?? 0).toLocaleString('id-ID')}</p>
 					</div>
 					<div>
-						<p class="text-xs font-bold text-slate-400">EXPENSES</p>
+						<p class="text-xs font-bold text-slate-400">KELUAR</p>
 						<p class="mt-1 font-black">Rp{(fundSummary?.expenses ?? 0).toLocaleString('id-ID')}</p>
 					</div>
 					<div>
-						<p class="text-xs font-bold text-lime-300">BALANCE</p>
+						<p class="text-xs font-bold text-lime-300">SALDO</p>
 						<p class="mt-1 font-black text-lime-300">
 							Rp{(fundSummary?.balance ?? 0).toLocaleString('id-ID')}
 						</p>
@@ -619,7 +658,8 @@
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">PLAYER STATUS</p>
 					<h2 id="player-title" class="mt-1 text-2xl font-black">{selectedParticipant.name}</h2>
 					<p class="mt-1 text-sm text-slate-600">
-						{selectedParticipant.status} · choose the next availability.
+						Status sekarang: {participantStatusLabel[selectedParticipant.status]}. Pilih status
+						berikutnya.
 					</p>
 				</div>
 				<button
@@ -633,9 +673,7 @@
 						variant={status === 'OUT' || status === 'LEFT' ? 'danger' : 'secondary'}
 						onclick={() => setStatus(status)}
 						disabled={Boolean(pending)}
-						>{status === 'READY'
-							? 'Mark ready'
-							: status[0] + status.slice(1).toLowerCase()}</AppButton
+						>{status === 'READY' ? 'Tandai siap' : participantStatusLabel[status]}</AppButton
 					>{/each}
 			</div>
 			{#if selectedParticipant.status === 'READY' || selectedParticipant.status === 'PLAYING'}

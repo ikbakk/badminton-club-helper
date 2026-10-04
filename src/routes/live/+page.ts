@@ -7,7 +7,7 @@ export const load: PageLoad = async () => {
 	} catch (error) {
 		return {
 			live: { session: null, participants: [] },
-			loadError: error instanceof Error ? error.message : 'Could not load the live session.'
+			loadError: error instanceof Error ? error.message : 'Kondisi sesi belum bisa dimuat.'
 		};
 	}
 };

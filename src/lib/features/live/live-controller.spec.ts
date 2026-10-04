@@ -82,7 +82,7 @@ describe('LiveController', () => {
 		await controller.checkIn('member-1');
 
 		expect(api.checkInPlayer).not.toHaveBeenCalled();
-		expect(notice).toHaveBeenCalledWith('Offline — showing the last synchronized session state.');
+		expect(notice).toHaveBeenCalledWith('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
 	});
 
 	it('does not allow live writes without an authenticated Club Admin', async () => {

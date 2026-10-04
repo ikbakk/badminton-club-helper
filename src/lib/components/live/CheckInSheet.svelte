@@ -51,7 +51,7 @@
 						Check in pemain
 					</h2>
 				</div>
-				<AppButton variant="secondary" onclick={onclose}>Done</AppButton>
+				<AppButton variant="secondary" onclick={onclose}>Selesai</AppButton>
 			</div>
 			<p class="mt-3 text-sm text-[#527169]">
 				Pilih semua anggota yang datang, lalu check in sekaligus. Semua akan berstatus READY.
@@ -63,7 +63,7 @@
 					void addGuest();
 				}}
 			>
-				<label class="sr-only" for="guest-name">Guest name</label><input
+				<label class="sr-only" for="guest-name">Nama pemain tamu</label><input
 					id="guest-name"
 					class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#e2653e] focus:ring-4 focus:ring-[#f2c6b9]"
 					bind:value={guestName}
@@ -76,7 +76,7 @@
 				<p
 					class="border-b border-[#b9c5bb] bg-[#e5ece5] px-4 py-3 text-xs font-black tracking-[0.14em] text-[#38675b]"
 				>
-					{pending || 'NOT HERE'}
+					{pending || 'BELUM HADIR'}
 				</p>
 				<MultiSelect
 					options={playerOptions}
@@ -95,7 +95,7 @@
 			>
 				{pending ||
 					(selectedPlayerIds.length
-						? `Check in ${selectedPlayerIds.length} pemain`
+						? `Catat ${selectedPlayerIds.length} pemain hadir`
 						: 'Check in pemain')}
 			</AppButton>
 		</div>

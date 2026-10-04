@@ -34,7 +34,7 @@
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<h1 class="text-3xl font-black tracking-[-0.05em]">Pengaturan</h1>
 		<p class="mt-2 text-sm leading-6 text-[#527169]">
-			Rumah permanen untuk informasi dan otoritas klub.
+			Atur informasi klub dan siapa yang bisa mengelolanya.
 		</p>
 	</section>
 	{#if loading}<div
@@ -82,7 +82,7 @@
 					class="flex min-h-18 items-center justify-between px-5 py-4 hover:bg-[#e5ece5]"
 					><span
 						><b class="block text-lg">Akses</b><span class="mt-1 block text-sm text-[#527169]"
-							>Club Admin dan Finance Admin</span
+							>Admin klub dan admin keuangan</span
 						></span
 					><span class="text-lg text-[#38675b]">›</span></a
 				>
@@ -96,8 +96,8 @@
 	{:else}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-7">
 			<h2 class="text-2xl font-black">Khusus admin klub.</h2>
 			<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
-				Pengaturan klub, tujuan pembayaran, dan otoritas hanya tersedia setelah masuk sebagai Club
-				Admin atau Finance Admin.
+				Pengaturan klub dan akses admin hanya tersedia setelah kamu masuk dengan akun admin klub
+				atau admin keuangan.
 			</p>
 			<a
 				class="mt-5 inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
