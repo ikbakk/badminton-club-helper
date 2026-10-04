@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import AnimatedList from '$lib/components/svelte-bits/AnimatedList.svelte';
 	import type { ActiveMatch } from '$lib/data/live';
 	import type { Participant } from '$lib/domain/types';
@@ -8,18 +9,22 @@
 		participants,
 		activeMatch,
 		isOperator = false,
+		online = true,
 		pending = '',
 		onstart,
 		oncomplete,
+		oncorrect,
 		onabandon,
 		onsubstitute
 	}: {
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
 		isOperator?: boolean;
+		online?: boolean;
 		pending?: string;
 		onstart: (teamA: string[], teamB: string[]) => void;
 		oncomplete: (a: number, b: number) => void;
+		oncorrect: (setNumber: 1 | 2, a: number, b: number) => void;
 		onabandon: () => void;
 		onsubstitute: (
 			outgoingPlayerId: string,
@@ -38,6 +43,9 @@
 	let outgoingPlayerId = $state('');
 	let replacementPlayerId = $state('');
 	let outgoingStatus = $state<'RESTING' | 'OUT' | 'LEFT'>('RESTING');
+	let correctionSet = $state<1 | 2 | null>(null);
+	let correctionA = $state('');
+	let correctionB = $state('');
 
 	let ready = $derived(participants.filter((player) => player.status === 'READY'));
 	let playingSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
@@ -65,6 +73,11 @@
 		if (selected.length === 4) stage = 'teams';
 	}
 
+	function beginPreparation() {
+		selected = [];
+		stage = 'select';
+	}
+
 	function swapPair() {
 		if (selected.length !== 4) return;
 		selected = [selected[0], selected[3], selected[2], selected[1]];
@@ -85,6 +98,24 @@
 		replacementPlayerId = '';
 		outgoingStatus = 'RESTING';
 	}
+
+	function openCorrection(setNumber: 1 | 2) {
+		const set = completedSets.find((item) => item.setNumber === setNumber);
+		if (!set) return;
+		correctionSet = setNumber;
+		correctionA = String(set.teamAScore ?? '');
+		correctionB = String(set.teamBScore ?? '');
+		matchMenuOpen = false;
+	}
+
+	function submitCorrection() {
+		if (!correctionSet) return;
+		const a = Number(correctionA);
+		const b = Number(correctionB);
+		if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return;
+		oncorrect(correctionSet, a, b);
+		correctionSet = null;
+	}
 </script>
 
 {#if activeMatch && playingSet}
@@ -99,16 +130,54 @@
 					MATCH {activeMatch.sequence_number}
 				</p>
 				<button
-					class="grid size-9 place-items-center text-xl text-[#38675b]"
+					class="grid size-11 place-items-center text-xl text-[#38675b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
 					onclick={() => (matchMenuOpen = !matchMenuOpen)}
 					aria-label="Menu match">•••</button
 				>
 			</div>
-			{#if matchMenuOpen}
+			{#if matchMenuOpen && isOperator}
 				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3">
-					<AppButton variant="danger" onclick={onabandon} disabled={Boolean(pending)}
-						>Batalkan match</AppButton
-					>
+					<div class="flex flex-wrap gap-3">
+						{#if completedSets.length}<AppButton
+								variant="secondary"
+								onclick={() => openCorrection(completedSets[0].setNumber as 1 | 2)}
+								disabled={Boolean(pending) || !online}>Koreksi skor</AppButton
+							>{/if}<AppButton
+							variant="danger"
+							onclick={onabandon}
+							disabled={Boolean(pending) || !online}>Batalkan match</AppButton
+						>
+					</div>
+				</div>
+			{/if}
+			{#if correctionSet}
+				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-4">
+					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
+						KOREKSI SET {correctionSet}
+					</p>
+					<div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+						<label class="text-xs font-bold text-[#527169]"
+							>Skor Tim A<input
+								class="mt-1 min-h-11 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-xl font-black"
+								inputmode="numeric"
+								bind:value={correctionA}
+							/></label
+						><span class="pb-3 font-black text-[#e2653e]">—</span><label
+							class="text-xs font-bold text-[#527169]"
+							>Skor Tim B<input
+								class="mt-1 min-h-11 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-xl font-black"
+								inputmode="numeric"
+								bind:value={correctionB}
+							/></label
+						>
+					</div>
+					<div class="mt-4 flex flex-wrap gap-3">
+						<AppButton variant="secondary" onclick={() => (correctionSet = null)}>Batal</AppButton
+						><AppButton
+							disabled={Boolean(pending) || !online || !correctionA || !correctionB}
+							onclick={submitCorrection}>{pending || 'Simpan koreksi'}</AppButton
+						>
+					</div>
 				</div>
 			{/if}
 			<div
@@ -143,9 +212,10 @@
 						Semua lanjut bermain?
 					</h3>
 					<div class="mt-5 flex flex-wrap gap-3">
-						<AppButton onclick={() => (setTwoStarted = true)}>Mulai Set 2</AppButton><AppButton
-							variant="secondary"
-							onclick={() => (substituteStep = 1)}>Ganti pemain</AppButton
+						<AppButton disabled={!online} onclick={() => (setTwoStarted = true)}
+							>Mulai Set 2</AppButton
+						><AppButton variant="secondary" disabled={!online} onclick={() => (substituteStep = 1)}
+							>Ganti pemain</AppButton
 						>
 					</div>
 				</div>
@@ -197,7 +267,7 @@
 						</h3>
 						<div class="mt-4 flex flex-wrap gap-2">
 							{#each ['RESTING', 'OUT', 'LEFT'] as status (status)}<button
-									class={`px-3 py-2 text-sm font-bold ${outgoingStatus === status ? 'bg-[#163630] text-[#fffaf0]' : 'bg-[#fffaf0] text-[#163630] ring-1 ring-[#b9c5bb]'}`}
+									class={`min-h-11 px-3 py-2 text-sm font-bold ${outgoingStatus === status ? 'bg-[#163630] text-[#fffaf0]' : 'bg-[#fffaf0] text-[#163630] ring-1 ring-[#b9c5bb]'}`}
 									onclick={() => (outgoingStatus = status as 'RESTING' | 'OUT' | 'LEFT')}
 									>{status === 'RESTING'
 										? 'Istirahat'
@@ -209,7 +279,7 @@
 						<div class="mt-5 flex gap-3">
 							<AppButton variant="secondary" onclick={() => (substituteStep = 2)}>Kembali</AppButton
 							><AppButton
-								disabled={Boolean(pending)}
+								disabled={Boolean(pending) || !online}
 								onclick={() => {
 									onsubstitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
 									resetSubstitution();
@@ -241,7 +311,9 @@
 						>
 					</div>
 					<div class="mt-4">
-						<AppButton onclick={submitScore} disabled={Boolean(pending) || !scoreA || !scoreB}
+						<AppButton
+							onclick={submitScore}
+							disabled={Boolean(pending) || !online || !scoreA || !scoreB}
 							>{pending || `Selesaikan Set ${playingSet.setNumber}`}</AppButton
 						>
 					</div>
@@ -266,20 +338,22 @@
 			</h3>
 			<p class="mt-2 text-sm text-[#527169]">Siapkan match berikutnya saat lapangan kosong.</p>
 			<div class="mt-5">
-				<AppButton onclick={() => (stage = 'select')}>Siapkan match</AppButton>
+				<AppButton onclick={beginPreparation}>Siapkan match</AppButton>
 			</div>
 		</div>
 	</section>
 {/if}
 
 {#if stage !== 'idle'}
-	<div class="fixed inset-0 z-40 flex items-end bg-[#163630]/55" role="presentation">
-		<div
-			class="w-full border-t-4 border-[#163630] bg-[#fffaf0] shadow-[0_-12px_28px_rgba(22,54,48,0.18)]"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="prepare-match-title"
-		>
+	<CourtSheet
+		open={true}
+		title="Siapkan match"
+		class="prepare-match-sheet"
+		onOpenChange={(open) => {
+			if (!open) stage = 'idle';
+		}}
+	>
+		<div class="overscroll-contain">
 			<div class="mx-auto w-12 border-t-2 border-[#85a097] pt-4"></div>
 			{#if stage === 'select'}
 				<div class="border-b border-[#b9c5bb] px-5 pb-4">
@@ -290,15 +364,15 @@
 						>
 							Pilih 4 pemain
 						</h3>
-						<button
-							class="min-h-11 px-3 text-sm font-black text-[#38675b]"
-							onclick={() => (stage = 'idle')}>Tutup</button
+						<AppButton disabled={selected.length !== 4} onclick={continueToTeams}
+							>Lanjutkan</AppButton
 						>
 					</div>
 					<p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p>
 				</div>
 				<div class="px-5 py-4">
 					<AnimatedList
+						maxHeight="min(52dvh, 26rem, calc(94dvh - 13rem))"
 						items={ready.map((player) => player.name)}
 						selectedIndices={ready
 							.map((player, index) => (selected.includes(player.id) ? index : -1))
@@ -306,21 +380,12 @@
 						onItemSelect={(_item, index) => toggle(ready[index].id)}
 					/>
 				</div>
-				<div class="flex items-center justify-between border-t border-[#b9c5bb] px-5 py-4">
-					<span class="text-sm font-bold text-[#527169]">{selected.length} / 4 dipilih</span
-					><AppButton disabled={selected.length !== 4} onclick={continueToTeams}
-						>Lanjutkan</AppButton
-					>
-				</div>
 			{:else}
 				<div class="border-b border-[#b9c5bb] px-5 pb-4">
 					<div class="flex items-center justify-between gap-4">
 						<button
 							class="min-h-11 text-sm font-black text-[#38675b]"
 							onclick={() => (stage = 'select')}>‹ Pemain</button
-						><button
-							class="min-h-11 px-3 text-sm font-black text-[#38675b]"
-							onclick={() => (stage = 'idle')}>Tutup</button
 						>
 					</div>
 					<h3
@@ -362,7 +427,7 @@
 				</div>
 			{/if}
 		</div>
-	</div>
+	</CourtSheet>
 {/if}
 
 <style>

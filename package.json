@@ -43,6 +43,7 @@
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "^2.117.2",
-		"@tanstack/svelte-query": "^6.3.0"
+		"@tanstack/svelte-query": "^6.3.0",
+		"sve-ui": "^0.15.0"
 	}
 }

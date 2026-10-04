@@ -4,20 +4,39 @@ import {
 	addGuestAndCheckIn,
 	changeParticipantStatus,
 	checkInPlayer,
+	claimAdminOperatorLease,
 	claimOperatorLease,
 	completeSet,
 	closeSession,
 	confirmSessionFee,
+	correctCompletedSet,
 	loadLiveSession,
+	reopenSession,
 	startMatch,
 	setLeaveAfterMatch,
+	suggestSessionFee,
+	submitSessionFinance,
 	substitutePlayer,
 	type ActiveMatch,
 	type LiveSession
 } from '$lib/data/live';
 import type { Participant, ParticipantStatus } from '$lib/domain/types';
+import { createDeviceId } from './device-id';
 
 type Notice = (message: string) => void;
+
+function errorMessage(error: unknown, fallback: string) {
+	if (error instanceof Error) return error.message;
+	if (error && typeof error === 'object' && 'message' in error) {
+		const message = error.message;
+		if (typeof message === 'string' && message) {
+			const details = 'details' in error && typeof error.details === 'string' ? error.details : '';
+			const hint = 'hint' in error && typeof error.hint === 'string' ? error.hint : '';
+			return [message, details, hint].filter(Boolean).join(' — ');
+		}
+	}
+	return fallback;
+}
 
 export class LiveController {
 	session = $state<LiveSession | null>(null);
@@ -25,12 +44,17 @@ export class LiveController {
 	activeMatch = $state<ActiveMatch | null>(null);
 	operatorLease = $state<string | null>(null);
 	pending = $state('');
+	online = $state(true);
 	closedSummary = $state<{ attendance: number; sets: number; startedAt: string } | null>(null);
 
 	constructor(private readonly notify: Notice) {}
 
 	get isOperator() {
 		return Boolean(this.operatorLease);
+	}
+
+	setOnline(online: boolean) {
+		this.online = online;
 	}
 
 	private leaseKey(sessionId: string) {
@@ -45,7 +69,7 @@ export class LiveController {
 		if (!browser) return '';
 		let id = localStorage.getItem(this.deviceKey());
 		if (!id) {
-			id = crypto.randomUUID();
+			id = createDeviceId();
 			localStorage.setItem(this.deviceKey(), id);
 		}
 		return id;
@@ -75,6 +99,10 @@ export class LiveController {
 	}
 
 	private async runCommand(label: string, action: () => Promise<unknown>) {
+		if (!this.online) {
+			this.notify('Offline — showing the last synchronized session state.');
+			return false;
+		}
 		this.pending = label;
 		try {
 			await action();
@@ -86,7 +114,7 @@ export class LiveController {
 				await this.refresh();
 				this.notify('Session control moved to another device.');
 			} else {
-				this.notify(error instanceof Error ? error.message : 'Could not update the live session.');
+				this.notify(errorMessage(error, 'Could not update the live session.'));
 			}
 			return false;
 		} finally {
@@ -95,6 +123,10 @@ export class LiveController {
 	}
 
 	async claim(pin: string, takeover = false) {
+		if (!this.online) {
+			this.notify('Offline — session control cannot be claimed.');
+			return { ok: false, requiresTakeover: false };
+		}
 		if (!this.session || !pin) return { ok: false, requiresTakeover: false };
 		this.pending = takeover ? 'Taking over…' : 'Checking PIN…';
 		try {
@@ -110,6 +142,30 @@ export class LiveController {
 			this.notify(
 				/invalid session pin/i.test(message) ? "That PIN isn't correct. Try again." : message
 			);
+			return { ok: false, requiresTakeover: false };
+		} finally {
+			this.pending = '';
+		}
+	}
+
+	async claimAsAdmin(takeover = false) {
+		if (!this.online) {
+			this.notify('Offline — session control cannot be claimed.');
+			return { ok: false, requiresTakeover: false };
+		}
+		if (!this.session) return { ok: false, requiresTakeover: false };
+		this.pending = takeover ? 'Taking over…' : 'Claiming session control…';
+		try {
+			const lease = await claimAdminOperatorLease(this.session.id, this.getDeviceId(), takeover);
+			localStorage.setItem(this.leaseKey(this.session.id), lease);
+			this.operatorLease = lease;
+			this.notify('You’re operating this session.');
+			return { ok: true, requiresTakeover: false };
+		} catch (error) {
+			const message = errorMessage(error, 'Could not claim session control.');
+			if (/another device/i.test(message) && !takeover)
+				return { ok: false, requiresTakeover: true };
+			this.notify(message);
 			return { ok: false, requiresTakeover: false };
 		} finally {
 			this.pending = '';
@@ -151,6 +207,13 @@ export class LiveController {
 		);
 	}
 
+	correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
+		if (!this.session || !this.operatorLease) return Promise.resolve(false);
+		return this.runCommand('Correcting score…', () =>
+			correctCompletedSet(this.session!.id, this.operatorLease!, setNumber, teamA, teamB)
+		);
+	}
+
 	substitute(
 		outgoingPlayerId: string,
 		replacementPlayerId: string,
@@ -184,6 +247,10 @@ export class LiveController {
 
 	async close() {
 		if (!this.session || !this.operatorLease) return false;
+		if (!this.online) {
+			this.notify('Offline — the session cannot be closed yet.');
+			return false;
+		}
 		this.pending = 'Menutup sesi…';
 		try {
 			this.closedSummary = await closeSession(this.session.id, this.operatorLease);
@@ -196,8 +263,31 @@ export class LiveController {
 		}
 	}
 
+	async suggestFee() {
+		if (!this.session || !this.operatorLease) return null;
+		try {
+			return await suggestSessionFee(this.session.id, this.operatorLease);
+		} catch (error) {
+			this.notify(error instanceof Error ? error.message : 'Biaya sebelumnya tidak dapat dimuat.');
+			return null;
+		}
+	}
+
+	async reopen() {
+		if (!this.session || !this.operatorLease) return Promise.resolve(false);
+		const reopened = await this.runCommand('Reopening session…', () =>
+			reopenSession(this.session!.id, this.operatorLease!)
+		);
+		if (reopened) this.closedSummary = null;
+		return reopened;
+	}
+
 	async confirmFee(fee: number) {
 		if (!this.session || !this.operatorLease) return false;
+		if (!this.online) {
+			this.notify('Offline — the fee cannot be saved yet.');
+			return false;
+		}
 		this.pending = 'Menyimpan biaya…';
 		try {
 			await confirmSessionFee(this.session.id, this.operatorLease, fee);
@@ -208,5 +298,12 @@ export class LiveController {
 		} finally {
 			this.pending = '';
 		}
+	}
+
+	async submitFinance(courtCost: number | null, shuttlecockCost: number | null, notes: string) {
+		if (!this.session || !this.operatorLease) return false;
+		return this.runCommand('Mengirim laporan biaya…', () =>
+			submitSessionFinance(this.session!.id, this.operatorLease!, courtCost, shuttlecockCost, notes)
+		);
 	}
 }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const api = vi.hoisted(() => ({
 	loadLiveSession: vi.fn(),
 	claimOperatorLease: vi.fn(),
+	claimAdminOperatorLease: vi.fn(),
 	checkInPlayer: vi.fn(),
 	addGuestAndCheckIn: vi.fn(),
 	changeParticipantStatus: vi.fn(),
@@ -63,5 +64,38 @@ describe('LiveController', () => {
 			'RESTING'
 		);
 		expect(api.loadLiveSession).toHaveBeenCalledOnce();
+	});
+
+	it('does not send mutations while offline', async () => {
+		controller.setOnline(false);
+
+		await controller.checkIn('member-1');
+
+		expect(api.checkInPlayer).not.toHaveBeenCalled();
+		expect(notice).toHaveBeenCalledWith('Offline — showing the last synchronized session state.');
+	});
+
+	it('surfaces Supabase object errors when an admin cannot claim control', async () => {
+		api.claimAdminOperatorLease.mockRejectedValue({ message: 'Database function is missing' });
+
+		const result = await controller.claimAsAdmin();
+
+		expect(result).toEqual({ ok: false, requiresTakeover: false });
+		expect(notice).toHaveBeenCalledWith('Database function is missing');
+	});
+
+	it('surfaces Supabase RPC details when starting a match fails', async () => {
+		api.startMatch.mockRejectedValue({
+			message: 'Could not find the function public.start_match',
+			details: 'No matching function was found in the schema cache.',
+			hint: 'Reload the schema cache.'
+		});
+
+		const result = await controller.startMatch(['p1', 'p2'], ['p3', 'p4']);
+
+		expect(result).toBe(false);
+		expect(notice).toHaveBeenCalledWith(
+			'Could not find the function public.start_match — No matching function was found in the schema cache. — Reload the schema cache.'
+		);
 	});
 });

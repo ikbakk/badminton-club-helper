@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import type { RosterPlayer } from '$lib/data/dashboard';
 
 	let {
@@ -29,15 +30,8 @@
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-30 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
-	role="presentation"
->
-	<dialog
-		open
-		class="max-h-[85dvh] w-full max-w-lg overflow-y-auto border border-[#b9c5bb] bg-[#fffaf0] p-5 shadow-2xl"
-		aria-labelledby="checkin-title"
-	>
+<CourtSheet open title="Check in pemain" onOpenChange={(open) => !open && onclose()}>
+	<div class="max-h-[85dvh] w-full max-w-lg overflow-y-auto p-5">
 		<div class="flex items-center justify-between gap-3">
 			<div>
 				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">KEDATANGAN</p>
@@ -87,5 +81,5 @@
 					</li>{/each}
 			</ul>
 		</div>
-	</dialog>
-</div>
+	</div>
+</CourtSheet>

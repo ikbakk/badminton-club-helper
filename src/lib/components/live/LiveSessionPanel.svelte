@@ -11,12 +11,14 @@
 		participants,
 		activeMatch,
 		isOperator = false,
+		online = true,
 		pending = '',
 		onoperate,
 		oncheckin,
 		onselect,
 		onstartmatch,
 		oncompleteset,
+		oncorrectset,
 		onabandonmatch,
 		onsubstitute
 	}: {
@@ -24,12 +26,14 @@
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
 		isOperator?: boolean;
+		online?: boolean;
 		pending?: string;
 		onoperate: () => void;
 		oncheckin: () => void;
 		onselect: (participant: Participant) => void;
 		onstartmatch: (teamA: string[], teamB: string[]) => void;
 		oncompleteset: (teamA: number, teamB: number) => void;
+		oncorrectset: (setNumber: 1 | 2, teamA: number, teamB: number) => void;
 		onabandonmatch: () => void;
 		onsubstitute: (
 			outgoingPlayerId: string,
@@ -104,23 +108,34 @@
 				<div class="mt-6 border-y border-[#85a097]/45 py-4">
 					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
 				</div>
-				{#if isOperator || ready.length === 0}
-					<div class="mt-5">
-						{#if isOperator}<AppButton onclick={oncheckin}>Check in pemain</AppButton>
-						{:else}<AppButton onclick={onoperate}>Operasikan sesi</AppButton>{/if}
-					</div>
-				{/if}
+				<div class="mt-5 flex flex-col items-start gap-2">
+					{#if isOperator}<AppButton disabled={!online} onclick={oncheckin}
+							>Check in pemain</AppButton
+						>
+					{:else}<AppButton onclick={onoperate}>Operasikan sesi</AppButton>{/if}
+					{#if !isOperator}<p class="text-xs leading-5 text-[#d4e1db]">
+							Masukkan PIN sesi untuk check-in pemain dan mengelola match.
+						</p>{/if}
+				</div>
 			</div>
 		</div>
 	</section>
+	{#if !online}<p
+			class="mt-4 border border-[#e7b8aa] bg-[#fff1ec] p-3 text-sm font-bold text-[#9a3d25]"
+		>
+			Offline — menampilkan kondisi sesi terakhir yang tersinkron. Kontrol lapangan tidak tersedia.
+		</p>
+	{/if}
 	<div class="mt-5">
 		<MatchCourt
 			{participants}
 			{activeMatch}
 			{isOperator}
+			{online}
 			{pending}
 			onstart={onstartmatch}
 			oncomplete={oncompleteset}
+			oncorrect={oncorrectset}
 			onabandon={onabandonmatch}
 			{onsubstitute}
 		/>

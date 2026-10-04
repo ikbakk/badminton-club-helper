@@ -1,5 +1,35 @@
 @import 'tailwindcss';
 
+:root {
+	--sve-color-primary: #e2653e;
+	--sve-color-primary-foreground: #fffaf0;
+	--sve-color-primary-surface: #fff1ec;
+	--sve-color-primary-border: #e7b8aa;
+	--sve-color-primary-hover: #b44c30;
+	--sve-color-primary-active: #9a3d25;
+	--sve-color-secondary: #163630;
+	--sve-color-secondary-foreground: #fffaf0;
+	--sve-color-secondary-surface: #e5ece5;
+	--sve-color-secondary-border: #b9c5bb;
+	--sve-color-secondary-hover: #38675b;
+	--sve-color-secondary-active: #163630;
+	--sve-color-danger: #9a3d25;
+	--sve-color-danger-foreground: #fffaf0;
+	--sve-color-danger-surface: #fff1ec;
+	--sve-color-danger-border: #e7b8aa;
+	--sve-color-danger-hover: #873d2d;
+	--sve-color-danger-active: #672c20;
+	--sve-color-default: #e5ece5;
+	--sve-color-default-foreground: #163630;
+	--sve-color-default-surface: #fffaf0;
+	--sve-color-default-border: #b9c5bb;
+	--sve-color-default-hover: #dceadf;
+	--sve-color-default-active: #b9c5bb;
+	--sve-color-overlay: rgb(22 54 48 / 55%);
+	--sve-radius-lg: 0;
+	--sve-font-family-sans: 'Court Sans', Arial, sans-serif;
+}
+
 @font-face {
 	font-family: 'Court Sans';
 	src: local('Arial');
@@ -34,4 +64,42 @@ input:focus-visible,
 select:focus-visible {
 	outline: 3px solid #e2653e;
 	outline-offset: 2px;
+}
+
+.sve-sheet.court-sheet {
+	left: 50%;
+	width: min(100vw, 40rem);
+	height: auto;
+	max-height: 85dvh;
+	transform: translateX(-50%);
+	gap: 0;
+	padding: 0 0 max(1rem, env(safe-area-inset-bottom));
+	border: 1px solid #b9c5bb;
+	border-top: 1px solid #163630;
+	border-radius: 0;
+	background: #fffaf0;
+	box-shadow: 0 -12px 28px rgb(22 54 48 / 18%);
+}
+
+.sve-sheet.court-sheet.prepare-match-sheet {
+	height: auto;
+	max-height: 94dvh;
+	overflow: hidden;
+	padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.sve-dialog-content.court-dialog {
+	width: min(90vw, 32rem);
+	max-height: 90dvh;
+	padding: 0;
+	border: 1px solid #b9c5bb;
+	border-radius: 0;
+	background: #fffaf0;
+	box-shadow: 0 12px 28px rgb(22 54 48 / 18%);
+}
+
+.sve-dialog-content.court-dialog--ink {
+	border-color: #163630;
+	background: #163630;
+	color: #fffaf0;
 }

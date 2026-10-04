@@ -4,7 +4,9 @@
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
-	import CourtLoading from '$lib/components/ui/CourtLoading.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
+	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
+	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import { currentUser, signInWithPassword } from '$lib/auth';
 	import {
 		addPlayer,
@@ -42,6 +44,7 @@
 	let participants = $derived(live.participants);
 	let activeMatch = $derived(live.activeMatch);
 	let loading = $state(true);
+	let online = $state(true);
 	let notice = $state('');
 	let clubName = $state('');
 	let playerName = $state('');
@@ -50,22 +53,49 @@
 	let operatorPin = $state('');
 	let showOperatorSheet = $state(false);
 	let showTakeover = $state(false);
+	let adminTakeover = $state(false);
 	let showCheckIn = $state(false);
 	let showSessionMenu = $state(false);
 	let showEndSession = $state(false);
 	let showFeeSheet = $state(false);
 	let showRecap = $state(false);
 	let fee = $state('15000');
+	let reportedCourtCost = $state('');
+	let reportedShuttlecockCost = $state('');
+	let financeNotes = $state('');
 	let selectedParticipant = $state<Participant | null>(null);
 	let pending = $derived(live.pending);
 
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
 	let isOperator = $derived(live.isOperator);
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
-
 	async function refreshLive() {
 		await live.refresh();
 	}
+
+	function syncConnection() {
+		if (!browser) return;
+		online = navigator.onLine;
+		live.setOnline(online);
+		if (online) {
+			notice = 'Koneksi kembali. Memperbarui kondisi lapangan…';
+			void refreshLive();
+		} else {
+			notice = 'Offline — menampilkan kondisi sesi terakhir yang tersinkron.';
+		}
+	}
+
+	function refreshWhenVisible() {
+		if (browser && document.visibilityState === 'visible' && navigator.onLine) {
+			void refreshLive();
+		}
+	}
+
+	$effect(() => {
+		if (!session || !online) return;
+		const interval = window.setInterval(() => void refreshLive(), 15_000);
+		return () => window.clearInterval(interval);
+	});
 
 	async function refreshAccount() {
 		loading = true;
@@ -139,6 +169,8 @@
 	async function claimOperator(takeover = false) {
 		const result = await live.claim(operatorPin, takeover);
 		if (result.requiresTakeover) {
+			adminTakeover = false;
+			showOperatorSheet = false;
 			showTakeover = true;
 			return;
 		}
@@ -147,6 +179,31 @@
 			showOperatorSheet = false;
 			showTakeover = false;
 		}
+	}
+
+	async function claimAdminOperator(takeover = false) {
+		const result = await live.claimAsAdmin(takeover);
+		if (result.requiresTakeover) {
+			adminTakeover = true;
+			showOperatorSheet = false;
+			showTakeover = true;
+			return;
+		}
+		if (result.ok) {
+			showOperatorSheet = false;
+			showTakeover = false;
+			adminTakeover = false;
+		}
+	}
+
+	function continueTakeover() {
+		if (adminTakeover) void claimAdminOperator(true);
+		else void claimOperator(true);
+	}
+
+	function dismissTakeover() {
+		showTakeover = false;
+		showOperatorSheet = true;
 	}
 
 	async function checkIn(player: RosterPlayer) {
@@ -179,6 +236,10 @@
 		await live.completeSet(teamA, teamB);
 	}
 
+	async function correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
+		await live.correctSet(setNumber, teamA, teamB);
+	}
+
 	async function stopMatch() {
 		if (!confirm('Abandon this match? Completed sets remain in history.')) return;
 		await live.abandon();
@@ -188,6 +249,8 @@
 		if (await live.close()) {
 			showEndSession = false;
 			showSessionMenu = false;
+			const suggestedFee = await live.suggestFee();
+			if (suggestedFee) fee = String(suggestedFee);
 			showFeeSheet = true;
 		}
 	}
@@ -198,6 +261,27 @@
 			showFeeSheet = false;
 			showRecap = true;
 		}
+	}
+
+	async function submitFinanceReport() {
+		const court = reportedCourtCost ? Number(reportedCourtCost) : null;
+		const shuttlecock = reportedShuttlecockCost ? Number(reportedShuttlecockCost) : null;
+		if (
+			(court !== null && (!Number.isInteger(court) || court <= 0)) ||
+			(shuttlecock !== null && (!Number.isInteger(shuttlecock) || shuttlecock <= 0))
+		)
+			return;
+		if (await live.submitFinance(court, shuttlecock, financeNotes)) {
+			reportedCourtCost = '';
+			reportedShuttlecockCost = '';
+			financeNotes = '';
+			notice = 'Laporan biaya terkirim untuk ditinjau Finance Admin.';
+		}
+	}
+
+	async function reopenSession() {
+		if (!confirm('Buka kembali sesi ini? Biaya belum akan dicatat.')) return;
+		if (await live.reopen()) showFeeSheet = false;
 	}
 
 	async function shareRecap() {
@@ -216,6 +300,8 @@
 
 	if (browser) {
 		void (async () => {
+			online = navigator.onLine;
+			live.setOnline(online);
 			await refreshPublic();
 			userEmail = (await currentUser())?.email ?? null;
 			if (userEmail) await refreshAccount();
@@ -232,6 +318,9 @@
 		})();
 	}
 </script>
+
+<svelte:window ononline={syncConnection} onoffline={syncConnection} />
+<svelte:document onvisibilitychange={refreshWhenVisible} />
 
 <svelte:head
 	><title>{displayName} — Courtside</title><meta
@@ -254,15 +343,18 @@
 					></span
 				>
 			</div>
-			{#if isOperator}<span
-					class="inline-flex shrink-0 items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
-					><span class="size-2 rounded-full bg-[#e2653e]"></span>MENGOPERASIKAN</span
-				>
-			{:else if session}<button
-					class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
-					onclick={() => (showSessionMenu = true)}
-					aria-label="Menu sesi">•••</button
-				>
+			{#if session}
+				<div class="flex shrink-0 items-center gap-2">
+					{#if isOperator}<span
+							class="inline-flex items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
+							><span class="size-2 rounded-full bg-[#e2653e]"></span>MENGOPERASIKAN</span
+						>{/if}
+					<button
+						class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
+						onclick={() => (showSessionMenu = true)}
+						aria-label="Menu sesi">•••</button
+					>
+				</div>
 			{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
 			{:else}<AppButton variant="secondary" onclick={() => (adminLoginOpen = true)}
 					>Kelola</AppButton
@@ -306,10 +398,60 @@
 			</section>
 		{/if}
 
-		{#if loading}<div class="grid gap-4">
-				<CourtLoading label="Membaca kondisi lapangan…" />
-				<CourtLoading label="Menyusun daftar pemain…" compact />
-			</div>
+		{#if loading}
+			{#if session}
+				<section
+					class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
+				>
+					<div
+						class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
+					>
+						<span class="text-[#d4e1db]">MALAM INI · MULAI</span>
+						<span class="inline-flex items-center gap-2 text-[#f5bb61]">
+							<span class="size-2 rounded-full bg-[#f5bb61]"></span>{isOperator
+								? 'MENGOPERASIKAN'
+								: 'BERLANGSUNG'}
+						</span>
+					</div>
+					<div
+						class="relative overflow-hidden px-5 pt-7 pb-5 sm:px-6"
+						role="status"
+						aria-busy="true"
+						aria-label="Memuat kondisi lapangan"
+					>
+						<div
+							aria-hidden="true"
+							class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
+						></div>
+						<div class="relative">
+							<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
+							<div class={`mt-2 ${activeMatch ? 'max-w-sm' : 'max-w-lg'}`}>
+								<LoadingSkeleton height="2.25rem" />
+							</div>
+							<div class="mt-6 border-y border-[#85a097]/45 py-4">
+								<div class="max-w-md"><LoadingSkeleton height="1.5rem" /></div>
+							</div>
+							<div class="mt-5 flex flex-col items-start gap-2">
+								<AppButton disabled>{isOperator ? 'Check in pemain' : 'Operasikan sesi'}</AppButton>
+								{#if !isOperator}<p class="text-xs leading-5 text-[#d4e1db]">
+										Masukkan PIN sesi untuk check-in pemain dan mengelola match.
+									</p>{/if}
+							</div>
+						</div>
+					</div>
+				</section>
+			{:else}
+				<section
+					class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
+					role="status"
+					aria-busy="true"
+					aria-label="Memeriksa sesi aktif"
+				>
+					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
+					<div class="mt-3 max-w-lg"><LoadingSkeleton height="2.25rem" /></div>
+					<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
+				</section>
+			{/if}
 		{:else if userEmail && !club}
 			<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
 				<p class="text-xs font-black tracking-[0.16em] text-lime-300">FIRST TIME SETUP</p>
@@ -336,12 +478,14 @@
 				{participants}
 				{activeMatch}
 				{isOperator}
+				{online}
 				{pending}
 				onoperate={() => (showOperatorSheet = true)}
 				oncheckin={() => (showCheckIn = true)}
 				onselect={(participant) => (selectedParticipant = participant)}
 				onstartmatch={beginMatch}
 				oncompleteset={saveSet}
+				oncorrectset={correctSet}
 				onabandonmatch={stopMatch}
 				onsubstitute={substitute}
 			/>
@@ -516,22 +660,22 @@
 </main>
 
 {#if showOperatorSheet}
-	<div
-		class="fixed inset-0 z-30 flex items-end bg-slate-950/45 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtSheet
+		open={showOperatorSheet}
+		title="Operate this session"
+		onOpenChange={(open) => {
+			showOperatorSheet = open;
+			if (!open) operatorPin = '';
+		}}
 	>
-		<section
-			class="w-full max-w-md bg-white p-6 shadow-2xl"
-			role="document"
-			aria-labelledby="operator-title"
-		>
+		<div class="w-full max-w-md p-6 text-[#163630]">
 			<div class="flex items-start justify-between gap-4">
 				<div>
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">COURTSIDE CONTROL</p>
 					<h2 id="operator-title" class="mt-1 text-2xl font-black">Operate this session</h2>
 				</div>
 				<button
-					class="text-xl text-slate-400"
+					class="grid size-11 shrink-0 place-items-center text-xl text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
 					onclick={() => {
 						showOperatorSheet = false;
 						operatorPin = '';
@@ -540,8 +684,16 @@
 				>
 			</div>
 			<p class="mt-3 text-sm leading-6 text-slate-600">
-				Anyone with the PIN can check players in and manage tonight’s session.
+				Club Admin bisa langsung masuk dengan akunnya. Operator lain memakai PIN sesi.
 			</p>
+			{#if club?.is_club_admin}<div class="mt-5 border-b border-[#b9c5bb] pb-5">
+					<AppButton onclick={() => claimAdminOperator()} disabled={Boolean(pending)}>
+						{pending || 'Operasikan dengan akun admin'}
+					</AppButton>
+					<p class="mt-2 text-xs leading-5 text-[#527169]">
+						Tidak perlu PIN sesi untuk akun Club Admin.
+					</p>
+				</div>{/if}
 			<label class="mt-5 block text-sm font-bold"
 				>Enter session PIN<input
 					class="mt-2 min-h-12 w-full border border-slate-200 px-3 text-center text-lg tracking-[0.35em] outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
@@ -556,33 +708,31 @@
 					>{pending || 'Continue'}</AppButton
 				>
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtSheet>
 {/if}
 
 {#if showTakeover}
-	<div
-		class="fixed inset-0 z-40 flex items-end bg-slate-950/45 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtDialog
+		open={showTakeover}
+		title="Another device is operating"
+		onOpenChange={(open) => (open ? (showTakeover = true) : dismissTakeover())}
 	>
-		<section
-			class="w-full max-w-md bg-white p-6 shadow-2xl"
-			role="document"
-			aria-labelledby="takeover-title"
-		>
+		<div class="p-6 text-[#163630]">
 			<p class="text-xs font-black tracking-[0.15em] text-amber-600">SESSION IN USE</p>
 			<h2 id="takeover-title" class="mt-1 text-2xl font-black">Another device is operating.</h2>
 			<p class="mt-3 text-sm leading-6 text-slate-600">
 				Taking over will make that device read-only. Are you sure you want to continue?
 			</p>
 			<div class="mt-6 flex flex-wrap justify-end gap-3">
-				<AppButton variant="secondary" onclick={() => (showTakeover = false)}>Cancel</AppButton
-				><AppButton variant="danger" onclick={() => claimOperator(true)} disabled={Boolean(pending)}
-					>{pending || 'Take over'}</AppButton
+				<AppButton variant="secondary" onclick={dismissTakeover}>Cancel</AppButton><AppButton
+					variant="danger"
+					onclick={continueTakeover}
+					disabled={Boolean(pending)}>{pending || 'Take over'}</AppButton
 				>
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtDialog>
 {/if}
 
 {#if showCheckIn}
@@ -597,15 +747,12 @@
 {/if}
 
 {#if selectedParticipant}
-	<div
-		class="fixed inset-0 z-30 flex items-end bg-slate-950/45 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtDialog
+		open={Boolean(selectedParticipant)}
+		title={`${selectedParticipant.name} status`}
+		onOpenChange={(open) => !open && (selectedParticipant = null)}
 	>
-		<section
-			class="w-full max-w-md bg-white p-6 shadow-2xl"
-			role="document"
-			aria-labelledby="player-title"
-		>
+		<div class="p-6 text-[#163630]">
 			<div class="flex items-start justify-between gap-3">
 				<div>
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">PLAYER STATUS</p>
@@ -615,7 +762,7 @@
 					</p>
 				</div>
 				<button
-					class="text-xl text-slate-400"
+					class="grid size-11 shrink-0 place-items-center text-xl text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
 					onclick={() => (selectedParticipant = null)}
 					aria-label="Close">×</button
 				>
@@ -647,24 +794,21 @@
 					Pulang setelah match berikutnya
 				</label>
 			{/if}
-		</section>
-	</div>
+		</div>
+	</CourtDialog>
 {/if}
 
 {#if showSessionMenu}
-	<div
-		class="fixed inset-0 z-30 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtSheet
+		open={showSessionMenu}
+		title="Sesi malam ini"
+		onOpenChange={(open) => (showSessionMenu = open)}
 	>
-		<section
-			class="w-full max-w-md border border-[#b9c5bb] bg-[#fffaf0] p-5 shadow-2xl"
-			role="document"
-			aria-label="Menu sesi"
-		>
+		<div class="w-full max-w-md p-5">
 			<div class="flex items-center justify-between">
 				<h2 class="text-xl font-black tracking-[-0.04em] text-[#163630]">Sesi malam ini</h2>
 				<button
-					class="text-xl text-[#527169]"
+					class="grid size-11 shrink-0 place-items-center text-xl text-[#527169] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
 					onclick={() => (showSessionMenu = false)}
 					aria-label="Tutup">×</button
 				>
@@ -678,7 +822,10 @@
 						}}>Check in pemain</button
 					><button
 						class="min-h-12 border border-[#e7b8aa] bg-[#fff1ec] px-4 text-left font-bold text-[#9a3d25]"
-						onclick={() => (showEndSession = true)}>Akhiri sesi</button
+						onclick={() => {
+							showSessionMenu = false;
+							showEndSession = true;
+						}}>Akhiri sesi</button
 					>
 				{:else}<button
 						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
@@ -695,48 +842,49 @@
 						}}>Masuk sebagai admin</button
 					>{/if}
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtSheet>
 {/if}
 
 {#if showEndSession}
-	<div
-		class="fixed inset-0 z-40 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtDialog
+		open={showEndSession}
+		title="Malam ini selesai?"
+		onOpenChange={(open) => (showEndSession = open)}
 	>
-		<section
-			class="w-full max-w-md border border-[#b9c5bb] bg-[#fffaf0] p-6 shadow-2xl"
-			role="document"
-			aria-labelledby="end-session-title"
-		>
+		<div class="p-6 text-[#163630]">
 			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">AKHIRI SESI?</p>
 			<h2 id="end-session-title" class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">
 				Malam ini selesai?
 			</h2>
 			<p class="mt-3 text-sm leading-6 text-[#527169]">
-				{participants.length} pemain tercatat. Pastikan tidak ada match yang masih berjalan.
+				{participants.length} pemain tercatat.
+				{#if activeMatch}
+					Selesaikan atau batalkan match yang sedang berjalan sebelum mengakhiri sesi.
+				{:else}
+					Pastikan malam ini benar-benar selesai sebelum ditutup.
+				{/if}
 			</p>
 			<div class="mt-6 flex flex-wrap gap-3">
 				<AppButton variant="secondary" onclick={() => (showEndSession = false)}
 					>Lanjut bermain</AppButton
-				><AppButton variant="danger" disabled={Boolean(pending)} onclick={endSession}
-					>{pending || 'Akhiri sesi'}</AppButton
+				><AppButton
+					variant="danger"
+					disabled={Boolean(pending) || Boolean(activeMatch)}
+					onclick={endSession}>{pending || 'Akhiri sesi'}</AppButton
 				>
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtDialog>
 {/if}
 
 {#if showFeeSheet && live.closedSummary}
-	<div
-		class="fixed inset-0 z-40 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtSheet
+		open={showFeeSheet}
+		title="Biaya hari ini"
+		onOpenChange={(open) => (showFeeSheet = open)}
 	>
-		<section
-			class="w-full max-w-md border border-[#b9c5bb] bg-[#fffaf0] p-6 shadow-2xl"
-			role="document"
-			aria-labelledby="fee-title"
-		>
+		<div class="max-h-[90dvh] w-full max-w-md overflow-y-auto overscroll-contain p-6">
 			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">SESI SELESAI</p>
 			<h2 id="fee-title" class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">
 				Biaya hari ini
@@ -754,25 +902,61 @@
 			<p class="mt-3 text-sm font-bold text-[#527169]">
 				Perkiraan Rp{(Number(fee || 0) * live.closedSummary.attendance).toLocaleString('id-ID')}
 			</p>
-			<div class="mt-6">
-				<AppButton disabled={Boolean(pending) || Number(fee) <= 0} onclick={saveFee}
+			<fieldset class="mt-6 border-t border-[#b9c5bb] pt-5">
+				<legend class="font-black text-[#163630]">Laporkan biaya aktual (opsional)</legend>
+				<p class="mt-1 text-xs leading-5 text-[#527169]">
+					Belum menjadi pengeluaran resmi sampai dikonfirmasi Finance Admin.
+				</p>
+				<div class="mt-3 grid grid-cols-2 gap-3">
+					<label class="text-sm font-bold text-[#163630]"
+						>Lapangan<input
+							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+							inputmode="numeric"
+							bind:value={reportedCourtCost}
+							placeholder="120000"
+						/></label
+					>
+					<label class="text-sm font-bold text-[#163630]"
+						>Kok<input
+							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+							inputmode="numeric"
+							bind:value={reportedShuttlecockCost}
+							placeholder="30000"
+						/></label
+					>
+				</div>
+				<label class="mt-3 block text-sm font-bold text-[#163630]"
+					>Catatan<textarea
+						class="mt-2 min-h-20 w-full border border-[#b9c5bb] bg-[#fffaf0] p-3"
+						bind:value={financeNotes}
+						placeholder="Catatan untuk Finance Admin"></textarea></label
+				>
+				<AppButton
+					variant="secondary"
+					disabled={Boolean(pending) ||
+						(!reportedCourtCost && !reportedShuttlecockCost && !financeNotes.trim())}
+					onclick={submitFinanceReport}>Kirim laporan biaya</AppButton
+				>
+			</fieldset>
+			<div class="mt-6 flex flex-wrap gap-3">
+				<AppButton variant="secondary" disabled={Boolean(pending)} onclick={reopenSession}
+					>Buka lagi sesi</AppButton
+				><AppButton disabled={Boolean(pending) || Number(fee) <= 0} onclick={saveFee}
 					>{pending || 'Konfirmasi biaya'}</AppButton
 				>
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtSheet>
 {/if}
 
 {#if showRecap && live.closedSummary}
-	<div
-		class="fixed inset-0 z-40 flex items-end bg-[#163630]/55 p-3 sm:items-center sm:justify-center"
-		role="presentation"
+	<CourtDialog
+		open={showRecap}
+		title="Sesi selesai"
+		panelClass="court-dialog--ink"
+		onOpenChange={(open) => (showRecap = open)}
 	>
-		<section
-			class="w-full max-w-md border border-[#b9c5bb] bg-[#163630] p-6 text-[#fffaf0] shadow-2xl"
-			role="document"
-			aria-labelledby="recap-title"
-		>
+		<div class="p-6 text-[#fffaf0]">
 			<p class="text-xs font-black tracking-[0.14em] text-[#a7c5b9]">PB NEWBIE</p>
 			<h2 id="recap-title" class="mt-2 text-3xl font-black tracking-[-0.05em]">Sesi selesai.</h2>
 			<div class="mt-6 grid grid-cols-2 gap-px bg-[#85a097]/45">
@@ -792,8 +976,8 @@
 					onclick={shareRecap}>Bagikan WhatsApp</AppButton
 				>
 			</div>
-		</section>
-	</div>
+		</div>
+	</CourtDialog>
 {/if}
 
 {#if notice}<div

@@ -9,6 +9,7 @@
 		class?: string;
 		itemClass?: string;
 		displayScrollbar?: boolean;
+		maxHeight?: string;
 	};
 
 	let {
@@ -18,7 +19,8 @@
 		enableArrowNavigation = true,
 		class: className = '',
 		itemClass = '',
-		displayScrollbar = true
+		displayScrollbar = true,
+		maxHeight
 	}: Props = $props();
 
 	let listRef: HTMLDivElement;
@@ -78,6 +80,7 @@
 	<div
 		bind:this={listRef}
 		class={`max-h-[min(52dvh,26rem)] overflow-y-auto ${displayScrollbar ? 'court-scrollbar' : ''}`}
+		style:max-height={maxHeight}
 	>
 		{#each items as item, index (item)}
 			<button
