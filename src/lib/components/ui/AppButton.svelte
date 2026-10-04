@@ -6,13 +6,15 @@
 		variant = 'primary',
 		type = 'button',
 		disabled = false,
-		onclick
+		onclick,
+		class: className = ''
 	}: {
 		children: Snippet;
 		variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
 		type?: 'button' | 'submit' | 'reset';
 		disabled?: boolean;
 		onclick?: () => void;
+		class?: string;
 	} = $props();
 
 	const styles = {
@@ -30,7 +32,7 @@
 	{type}
 	{disabled}
 	{onclick}
-	class={`inline-flex min-h-11 items-center justify-center gap-2 px-4 py-3 text-sm font-extrabold transition focus:ring-4 focus:ring-[#f2c6b9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]}`}
+	class={`inline-flex min-h-11 items-center justify-center gap-2 px-4 py-3 text-sm font-extrabold transition focus:ring-4 focus:ring-[#f2c6b9] focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${styles[variant]} ${className}`}
 >
 	{@render children()}
 </button>

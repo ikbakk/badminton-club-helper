@@ -2,15 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const api = vi.hoisted(() => ({
 	loadLiveSession: vi.fn(),
-	claimOperatorLease: vi.fn(),
-	claimAdminOperatorLease: vi.fn(),
 	checkInPlayer: vi.fn(),
+	checkInPlayers: vi.fn(),
 	addGuestAndCheckIn: vi.fn(),
 	changeParticipantStatus: vi.fn(),
 	startMatch: vi.fn(),
 	completeSet: vi.fn(),
+	correctCompletedSet: vi.fn(),
 	substitutePlayer: vi.fn(),
-	abandonMatch: vi.fn()
+	abandonMatch: vi.fn(),
+	closeSession: vi.fn(),
+	suggestSessionFee: vi.fn(),
+	setLeaveAfterMatch: vi.fn()
 }));
 
 vi.mock('$lib/data/live', () => api);
@@ -29,17 +32,16 @@ describe('LiveController', () => {
 		api.loadLiveSession.mockResolvedValue(liveState);
 		controller = new LiveController(notice);
 		controller.session = session;
-		controller.operatorLease = 'lease-a';
+		controller.setAdminAuthorized(true);
 	});
 
-	it('turns a revoked-lease rejection into viewer state and an explicit takeover message', async () => {
-		api.checkInPlayer.mockRejectedValue(new Error('Valid operator lease required'));
+	it('surfaces the backend authorization error without dropping the signed-in admin', async () => {
+		api.checkInPlayer.mockRejectedValue(new Error('Club Admin authority is required'));
 
 		await controller.checkIn('member-1');
 
-		expect(controller.isOperator).toBe(false);
-		expect(api.loadLiveSession).toHaveBeenCalledOnce();
-		expect(notice).toHaveBeenCalledWith('Session control moved to another device.');
+		expect(controller.canManage).toBe(true);
+		expect(notice).toHaveBeenCalledWith('Club Admin authority is required');
 	});
 
 	it('checks a guest in through the dedicated transactional RPC', async () => {
@@ -47,7 +49,21 @@ describe('LiveController', () => {
 
 		await controller.addGuest('Rafi');
 
-		expect(api.addGuestAndCheckIn).toHaveBeenCalledWith('session-1', 'lease-a', 'Rafi');
+		expect(api.addGuestAndCheckIn).toHaveBeenCalledWith('session-1', 'Rafi');
+		expect(api.loadLiveSession).toHaveBeenCalledOnce();
+	});
+
+	it('checks multiple players in with one batched command', async () => {
+		api.checkInPlayers.mockResolvedValue(undefined);
+
+		await controller.checkInMany(['member-1', 'member-2', 'member-3']);
+
+		expect(api.checkInPlayers).toHaveBeenCalledOnce();
+		expect(api.checkInPlayers).toHaveBeenCalledWith('session-1', [
+			'member-1',
+			'member-2',
+			'member-3'
+		]);
 		expect(api.loadLiveSession).toHaveBeenCalledOnce();
 	});
 
@@ -56,13 +72,7 @@ describe('LiveController', () => {
 
 		await controller.substitute('iqbal', 'rafi', 'RESTING');
 
-		expect(api.substitutePlayer).toHaveBeenCalledWith(
-			'session-1',
-			'lease-a',
-			'iqbal',
-			'rafi',
-			'RESTING'
-		);
+		expect(api.substitutePlayer).toHaveBeenCalledWith('session-1', 'iqbal', 'rafi', 'RESTING');
 		expect(api.loadLiveSession).toHaveBeenCalledOnce();
 	});
 
@@ -75,13 +85,13 @@ describe('LiveController', () => {
 		expect(notice).toHaveBeenCalledWith('Offline — showing the last synchronized session state.');
 	});
 
-	it('surfaces Supabase object errors when an admin cannot claim control', async () => {
-		api.claimAdminOperatorLease.mockRejectedValue({ message: 'Database function is missing' });
+	it('does not allow live writes without an authenticated Club Admin', async () => {
+		controller.setAdminAuthorized(false);
 
-		const result = await controller.claimAsAdmin();
+		const result = await controller.checkIn('member-1');
 
-		expect(result).toEqual({ ok: false, requiresTakeover: false });
-		expect(notice).toHaveBeenCalledWith('Database function is missing');
+		expect(result).toBe(false);
+		expect(api.checkInPlayer).not.toHaveBeenCalled();
 	});
 
 	it('surfaces Supabase RPC details when starting a match fails', async () => {
@@ -97,5 +107,32 @@ describe('LiveController', () => {
 		expect(notice).toHaveBeenCalledWith(
 			'Could not find the function public.start_match — No matching function was found in the schema cache. — Reload the schema cache.'
 		);
+	});
+
+	it('keeps score completion unsuccessful when the server rejects it', async () => {
+		api.completeSet.mockRejectedValue({ message: 'Score save failed', details: 'Try again.' });
+
+		const result = await controller.completeSet(21, 17);
+
+		expect(result).toBe(false);
+		expect(notice).toHaveBeenCalledWith('Score save failed — Try again.');
+	});
+
+	it('surfaces the backend reason when session close fails', async () => {
+		api.closeSession.mockRejectedValue({ message: 'Complete or abandon the active match first' });
+
+		const result = await controller.close();
+
+		expect(result).toBe(false);
+		expect(notice).toHaveBeenCalledWith('Complete or abandon the active match first');
+	});
+
+	it('returns success when the server closes the session', async () => {
+		api.closeSession.mockResolvedValue({ attendance: 4, sets: 2, startedAt: session.started_at });
+
+		const result = await controller.close();
+
+		expect(result).toBe(true);
+		expect(api.closeSession).toHaveBeenCalledWith(session.id);
 	});
 });

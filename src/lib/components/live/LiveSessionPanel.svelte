@@ -10,11 +10,12 @@
 		session,
 		participants,
 		activeMatch,
-		isOperator = false,
+		canManage = false,
 		online = true,
 		pending = '',
-		onoperate,
+		onadminlogin,
 		oncheckin,
+		onendsession,
 		onselect,
 		onstartmatch,
 		oncompleteset,
@@ -25,21 +26,22 @@
 		session: LiveSession | null;
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
-		isOperator?: boolean;
+		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
-		onoperate: () => void;
+		onadminlogin: () => void;
 		oncheckin: () => void;
+		onendsession: () => void;
 		onselect: (participant: Participant) => void;
-		onstartmatch: (teamA: string[], teamB: string[]) => void;
-		oncompleteset: (teamA: number, teamB: number) => void;
-		oncorrectset: (setNumber: 1 | 2, teamA: number, teamB: number) => void;
+		onstartmatch: (teamA: string[], teamB: string[]) => Promise<boolean>;
+		oncompleteset: (teamA: number, teamB: number) => Promise<boolean>;
+		oncorrectset: (setNumber: 1 | 2, teamA: number, teamB: number) => Promise<boolean>;
 		onabandonmatch: () => void;
 		onsubstitute: (
 			outgoingPlayerId: string,
 			replacementPlayerId: string,
 			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
-		) => void;
+		) => Promise<boolean>;
 	} = $props();
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
@@ -88,8 +90,8 @@
 		>
 			<span>MALAM INI · MULAI {startedAt}</span>
 			<span class="inline-flex items-center gap-2 text-[#f5bb61]"
-				><span class="size-2 rounded-full bg-[#f5bb61]"></span>{isOperator
-					? 'MENGOPERASIKAN'
+				><span class="size-2 rounded-full bg-[#f5bb61]"></span>{canManage
+					? 'ADMIN AKTIF'
 					: 'BERLANGSUNG'}</span
 			>
 		</div>
@@ -108,13 +110,17 @@
 				<div class="mt-6 border-y border-[#85a097]/45 py-4">
 					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
 				</div>
-				<div class="mt-5 flex flex-col items-start gap-2">
-					{#if isOperator}<AppButton disabled={!online} onclick={oncheckin}
+				<div class="mt-5 flex flex-wrap items-center gap-3">
+					{#if canManage}<AppButton disabled={!online} onclick={oncheckin}
 							>Check in pemain</AppButton
 						>
-					{:else}<AppButton onclick={onoperate}>Operasikan sesi</AppButton>{/if}
-					{#if !isOperator}<p class="text-xs leading-5 text-[#d4e1db]">
-							Masukkan PIN sesi untuk check-in pemain dan mengelola match.
+					{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
+					{#if canManage}<AppButton
+							variant="danger"
+							disabled={!online || Boolean(pending)}
+							onclick={onendsession}>Akhiri sesi</AppButton
+						>{:else}<p class="w-full text-xs leading-5 text-[#d4e1db]">
+							Login Club Admin diperlukan untuk check-in pemain dan mengelola match.
 						</p>{/if}
 				</div>
 			</div>
@@ -130,7 +136,7 @@
 		<MatchCourt
 			{participants}
 			{activeMatch}
-			{isOperator}
+			{canManage}
 			{online}
 			{pending}
 			onstart={onstartmatch}
@@ -147,7 +153,7 @@
 				title={group.title}
 				status={group.status}
 				participants={participants.filter((participant) => participant.status === group.status)}
-				interactive={isOperator && group.status !== 'OUT'}
+				interactive={canManage && group.status !== 'OUT'}
 				{onselect}
 			/>
 		{/each}

@@ -9,8 +9,8 @@ web
 ## Users
 
 - Club members open a public link to understand the current court state immediately.
-- A rotating Session Operator uses a phone one-handed at courtside, with limited attention between play, to check players in and run a one-court badminton session.
-- Permanent Club and Finance Admins manage the roster, session setup, and finance outside the frequent courtside loop.
+- A Club Admin uses a phone courtside to check players in and run a one-court badminton session.
+- Club and Finance Admins manage the roster, session setup, attendance payments, and finance.
 
 ## Product Purpose
 
@@ -18,12 +18,12 @@ PB NEWBIE is a mobile-first helper for a casual one-court badminton club. It mak
 
 ## Positioning
 
-The product is a public, live courtside view that becomes the same operator control surface after a PIN-protected session lease; it is not a role-separated admin app or a tournament system.
+The product is a public, live courtside view that becomes writable after an Admin signs in with their account; session PINs and rotating operator leases are not part of the workflow.
 
 ## Operating Context
 
 - A session is operated on a phone at the side of one badminton court, often while the operator is also playing.
-- Viewer mode is public and read-only; operator control belongs to exactly one device at a time.
+- Viewer mode is public and read-only; Club Admins sign in to make session changes from any device.
 - The core loop is check in, prepare four players, play Set 1, optionally substitute, play Set 2, then prepare the next match.
 - Smart Rotation and team-pairing algorithms augment the existing prepare flow later; manual selection and assignment are required now.
 
@@ -31,8 +31,8 @@ The product is a public, live courtside view that becomes the same operator cont
 
 - SvelteKit, TypeScript, Supabase/Postgres, TanStack Query, and thin Realtime invalidation are the confirmed stack.
 - One court, one live session, one active operator device, two normal sets per match, and only between-set substitutions.
-- Fee appears only after a session is closed. Finance authority stays separate from session operation.
-- Public viewers never see PINs, operator secrets, individual debt, algorithm diagnostics, or rating uncertainty.
+- Fee appears only after a session is closed; admins confirm the per-person fee and track payment against that session's attendance list.
+- Public viewers may see attendance and per-attendee payment status in closed-session history as color-only indicators with a legend; balances, credentials, algorithm diagnostics, and rating uncertainty remain private.
 - No RSVP, self check-in, multiple courts, tournament mechanics, payment gateway, chat, or leaderboard-centered experience in V1.
 
 ## Brand Commitments
@@ -51,7 +51,7 @@ The product is a public, live courtside view that becomes the same operator cont
 ## Product Principles
 
 - Live is the default and dominant surface; the next safe action is obvious.
-- Preserve the operator's session context: use sheets and focused, short decision steps rather than an administration tree.
+- Preserve the admin's courtside context: use sheets and focused, short decision steps rather than an administration tree.
 - Make current court state legible at a glance, then make frequent actions fast and low-risk.
 - Viewer and operator share one source of truth and one screen; capabilities add affordances rather than separate information architecture.
 - Algorithms assist manual human decisions instead of creating a parallel workflow.

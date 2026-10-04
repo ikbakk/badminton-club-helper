@@ -1,21 +1,35 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { prefetchPublicSurface } from '$lib/data/dashboard';
+	import { History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
 
 	let {
 		children,
 		current,
-		clubName = 'PB NEWBIE'
-	}: { children: Snippet; current: string; clubName?: string } = $props();
+		clubName = 'PB NEWBIE',
+		historyConfirmationSessionId
+	}: {
+		children: Snippet;
+		current: string;
+		clubName?: string;
+		historyConfirmationSessionId?: string;
+	} = $props();
 
 	const links = [
-		{ href: '/live', label: 'Live' },
-		{ href: '/players', label: 'Pemain' },
-		{ href: '/history', label: 'Riwayat' },
-		{ href: '/fund', label: 'Dana' },
-		{ href: '/settings', label: 'Pengaturan' }
+		{ href: '/live', label: 'Live', icon: House },
+		{ href: '/players', label: 'Pemain', icon: UsersRound },
+		{ href: '/history', label: 'Riwayat', icon: History },
+		{ href: '/fund', label: 'Dana', icon: Wallet },
+		{ href: '/settings', label: 'Pengaturan', icon: Settings }
 	] as const;
+
+	function confirmBeforeHistory(event: MouseEvent) {
+		if (!historyConfirmationSessionId) return;
+		event.preventDefault();
+		void goto(resolve('/session-close/[id]/confirm', { id: historyConfirmationSessionId }));
+	}
 </script>
 
 <main class="min-h-dvh bg-[#f4f1e8] pb-28 text-[#163630]">
@@ -54,14 +68,18 @@
 	>
 		<div class="mx-auto grid max-w-2xl grid-cols-5 gap-1">
 			{#each links as link (link.href)}
+				{@const Icon = link.icon}
 				<a
 					href={resolve(link.href)}
+					onclick={link.href === '/history' ? confirmBeforeHistory : undefined}
 					data-sveltekit-preload-data="hover"
 					onmouseenter={() => void prefetchPublicSurface(link.href)}
 					onfocus={() => void prefetchPublicSurface(link.href)}
 					aria-current={current === link.href ? 'page' : undefined}
 					class={`flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black transition ${current === link.href ? 'bg-[#163630] text-[#fffaf0]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
-					>{link.label}</a
+					><span class="flex flex-col items-center gap-1"
+						><Icon size={16} strokeWidth={2.25} /><span>{link.label}</span></span
+					></a
 				>
 			{/each}
 		</div>

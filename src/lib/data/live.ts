@@ -27,6 +27,28 @@ export type ActiveMatch = {
 	sequence_number: number;
 	sets: MatchSet[];
 };
+
+const liveTopic = (sessionId: string) => `live:${sessionId}`;
+
+export function subscribeToLiveUpdates(sessionId: string, onUpdate: () => void) {
+	const client = supabase;
+	if (!client) return () => {};
+	const channel = client
+		.channel(liveTopic(sessionId))
+		.on('broadcast', { event: 'state_changed' }, onUpdate)
+		.subscribe();
+	return () => void client.removeChannel(channel);
+}
+
+function broadcastLiveUpdate(sessionId: string) {
+	if (!supabase) return;
+	const channel = supabase.channel(liveTopic(sessionId));
+	void channel
+		.send({ type: 'broadcast', event: 'state_changed', payload: {} })
+		.catch(() => {})
+		.finally(() => void supabase?.removeChannel(channel));
+}
+
 export async function loadLiveSession(): Promise<{
 	session: LiveSession | null;
 	participants: Participant[];
@@ -77,116 +99,92 @@ export async function loadLiveSession(): Promise<{
 	};
 }
 
-export async function claimOperatorLease(
-	sessionId: string,
-	pin: string,
-	deviceId: string,
-	takeover = false
-) {
-	if (!supabase) throw new Error('Supabase is not configured.');
-	const { data, error } = await supabase.rpc('claim_operator_lease', {
-		p_session_id: sessionId,
-		p_pin: pin,
-		p_device_id: deviceId,
-		p_takeover: takeover
-	});
-	if (error) throw error;
-	return data as string;
-}
-
-export async function claimAdminOperatorLease(
-	sessionId: string,
-	deviceId: string,
-	takeover = false
-) {
-	if (!supabase) throw new Error('Supabase is not configured.');
-	const { data, error } = await supabase.rpc('claim_admin_operator_lease', {
-		p_session_id: sessionId,
-		p_device_id: deviceId,
-		p_takeover: takeover
-	});
-	if (error) throw error;
-	return data as string;
-}
-
-export async function checkInPlayer(sessionId: string, leaseId: string, playerId: string) {
+export async function checkInPlayer(sessionId: string, playerId: string) {
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { error } = await supabase.rpc('check_in_player', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_player_id: playerId
 	});
 	if (error) throw error;
+	broadcastLiveUpdate(sessionId);
+}
+
+export async function checkInPlayers(sessionId: string, playerIds: string[]) {
+	if (!supabase) throw new Error('Supabase is not configured.');
+	if (!playerIds.length) return;
+	const { error } = await supabase.rpc('check_in_players', {
+		p_session_id: sessionId,
+		p_player_ids: playerIds
+	});
+	if (error) throw error;
+	broadcastLiveUpdate(sessionId);
 }
 
 export async function changeParticipantStatus(
 	sessionId: string,
-	leaseId: string,
 	participantId: string,
 	status: ParticipantStatus
 ) {
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { error } = await supabase.rpc('change_participant_status', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_participant_id: participantId,
 		p_status: status
 	});
 	if (error) throw error;
+	broadcastLiveUpdate(sessionId);
 }
 
 async function command(name: string, args: Record<string, unknown>) {
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { data, error } = await supabase.rpc(name, args);
 	if (error) throw error;
+	const sessionId = args.p_session_id;
+	if (typeof sessionId === 'string') broadcastLiveUpdate(sessionId);
 	return data;
 }
 
-export function startMatch(sessionId: string, leaseId: string, teamA: string[], teamB: string[]) {
+export function startMatch(sessionId: string, teamA: string[], teamB: string[]) {
 	return command('start_match', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_team_a: teamA,
 		p_team_b: teamB
 	});
 }
 
-export function completeSet(
-	sessionId: string,
-	leaseId: string,
-	teamAScore: number,
-	teamBScore: number
-) {
+export function completeSet(sessionId: string, teamAScore: number, teamBScore: number) {
 	return command('complete_set', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_team_a_score: teamAScore,
 		p_team_b_score: teamBScore
 	});
 }
 
-export function abandonMatch(sessionId: string, leaseId: string) {
-	return command('abandon_match', { p_session_id: sessionId, p_lease_id: leaseId });
+export function abandonMatch(sessionId: string) {
+	return command('abandon_match', { p_session_id: sessionId, p_lease_id: null });
 }
 
-export function addGuestAndCheckIn(sessionId: string, leaseId: string, name: string) {
+export function addGuestAndCheckIn(sessionId: string, name: string) {
 	return command('add_guest_and_check_in', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_name: name
 	});
 }
 
 export function substitutePlayer(
 	sessionId: string,
-	leaseId: string,
 	outgoingPlayerId: string,
 	replacementPlayerId: string,
 	outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 ) {
 	return command('substitute_player', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_outgoing_player_id: outgoingPlayerId,
 		p_replacement_player_id: replacementPlayerId,
 		p_outgoing_status: outgoingStatus
@@ -195,72 +193,69 @@ export function substitutePlayer(
 
 export function setLeaveAfterMatch(
 	sessionId: string,
-	leaseId: string,
 	participantId: string,
 	leaveAfterMatch: boolean
 ) {
 	return command('set_leave_after_match', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_participant_id: participantId,
 		p_leave_after_match: leaveAfterMatch
 	});
 }
 
-export function closeSession(sessionId: string, leaseId: string) {
-	return command('close_session', { p_session_id: sessionId, p_lease_id: leaseId }) as Promise<{
+export function closeSession(sessionId: string) {
+	return command('close_session', { p_session_id: sessionId, p_lease_id: null }) as Promise<{
 		attendance: number;
 		sets: number;
 		startedAt: string;
 	}>;
 }
 
-export function reopenSession(sessionId: string, leaseId: string) {
-	return command('reopen_session', { p_session_id: sessionId, p_lease_id: leaseId });
+export function reopenSession(sessionId: string) {
+	return command('reopen_session', { p_session_id: sessionId, p_lease_id: null });
 }
 
-export async function suggestSessionFee(sessionId: string, leaseId: string) {
+export async function suggestSessionFee(sessionId: string) {
 	const result = await command('suggest_session_fee', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId
+		p_lease_id: null
 	});
 	return result === null ? null : Number(result);
 }
 
 export function correctCompletedSet(
 	sessionId: string,
-	leaseId: string,
 	setNumber: 1 | 2,
 	teamAScore: number,
 	teamBScore: number
 ) {
 	return command('correct_completed_set', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_set_number: setNumber,
 		p_team_a_score: teamAScore,
 		p_team_b_score: teamBScore
 	});
 }
 
-export function confirmSessionFee(sessionId: string, leaseId: string, fee: number) {
+export function confirmSessionFee(sessionId: string, fee: number) {
 	return command('confirm_session_fee', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_fee: fee
 	}) as Promise<number>;
 }
 
 export function submitSessionFinance(
 	sessionId: string,
-	leaseId: string,
 	courtCost: number | null,
 	shuttlecockCost: number | null,
 	notes: string
 ) {
 	return command('submit_session_finance', {
 		p_session_id: sessionId,
-		p_lease_id: leaseId,
+		p_lease_id: null,
 		p_reported_court_cost: courtCost,
 		p_reported_shuttlecock_cost: shuttlecockCost,
 		p_notes: notes || null

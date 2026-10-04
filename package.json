@@ -42,6 +42,7 @@
 		"vitest": "^4.1.8"
 	},
 	"dependencies": {
+		"@lucide/svelte": "1.52.0",
 		"@supabase/supabase-js": "^2.117.2",
 		"@tanstack/svelte-query": "^6.3.0",
 		"sve-ui": "^0.15.0"

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
+	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
-	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import { currentUser, signInWithPassword } from '$lib/auth';
 	import {
 		addPlayer,
@@ -16,6 +17,7 @@
 		getPublicFundSummary,
 		getPublicRoster,
 		getPublicSessionHistory,
+		invalidatePublicData,
 		prefetchPublicSurface,
 		getRoster,
 		startSession,
@@ -25,8 +27,11 @@
 		type RosterPlayer
 	} from '$lib/data/dashboard';
 	import { LiveController } from '$lib/features/live/live-controller.svelte';
+	import { subscribeToLiveUpdates } from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
+	import { toast } from 'sve-ui';
+	import { Ellipsis, History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
 	let tab = $state<Tab>('live');
@@ -39,35 +44,40 @@
 	let publicHistory = $state<PublicSessionHistory[]>([]);
 	let fundSummary = $state<PublicFundSummary | null>(null);
 	let roster = $state<RosterPlayer[]>([]);
-	let live = new LiveController((message) => (notice = message));
+	let live = new LiveController((message) => toast.error(message));
 	let session = $derived(live.session);
 	let participants = $derived(live.participants);
 	let activeMatch = $derived(live.activeMatch);
 	let loading = $state(true);
 	let online = $state(true);
-	let notice = $state('');
 	let clubName = $state('');
 	let playerName = $state('');
-	let sessionPin = $state('');
 	let adminLoginOpen = $state(false);
-	let operatorPin = $state('');
-	let showOperatorSheet = $state(false);
-	let showTakeover = $state(false);
-	let adminTakeover = $state(false);
 	let showCheckIn = $state(false);
 	let showSessionMenu = $state(false);
 	let showEndSession = $state(false);
-	let showFeeSheet = $state(false);
-	let showRecap = $state(false);
-	let fee = $state('15000');
-	let reportedCourtCost = $state('');
-	let reportedShuttlecockCost = $state('');
-	let financeNotes = $state('');
 	let selectedParticipant = $state<Participant | null>(null);
 	let pending = $derived(live.pending);
 
+	function notify(message: string) {
+		toast(message);
+	}
+
+	function notifyError(error: unknown, fallback: string) {
+		const message =
+			error instanceof Error
+				? error.message
+				: error &&
+					  typeof error === 'object' &&
+					  'message' in error &&
+					  typeof error.message === 'string'
+					? error.message
+					: fallback;
+		toast.error(message);
+	}
+
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
-	let isOperator = $derived(live.isOperator);
+	let canManageLive = $derived(Boolean(userEmail && club?.is_club_admin));
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
 	async function refreshLive() {
 		await live.refresh();
@@ -78,10 +88,10 @@
 		online = navigator.onLine;
 		live.setOnline(online);
 		if (online) {
-			notice = 'Koneksi kembali. Memperbarui kondisi lapangan…';
+			notify('Koneksi kembali. Memperbarui kondisi lapangan…');
 			void refreshLive();
 		} else {
-			notice = 'Offline — menampilkan kondisi sesi terakhir yang tersinkron.';
+			notify('Offline — menampilkan kondisi sesi terakhir yang tersinkron.');
 		}
 	}
 
@@ -97,13 +107,20 @@
 		return () => window.clearInterval(interval);
 	});
 
+	$effect(() => {
+		const activeSession = session;
+		if (!activeSession || !online) return;
+		return subscribeToLiveUpdates(activeSession.id, () => void refreshLive());
+	});
+
 	async function refreshAccount() {
 		loading = true;
 		try {
 			club = await getClub();
 			roster = club ? await getRoster(club.id) : [];
+			live.setAdminAuthorized(Boolean(club?.is_club_admin));
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not load club settings.';
+			notifyError(error, 'Could not load club settings.');
 		} finally {
 			loading = false;
 		}
@@ -124,9 +141,9 @@
 		try {
 			await signInWithPassword(email, password);
 			adminLoginOpen = false;
-			notice = 'Signed in.';
+			notify('Signed in.');
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not sign in.';
+			notifyError(error, 'Could not sign in.');
 		} finally {
 			pending = '';
 		}
@@ -136,10 +153,10 @@
 		try {
 			await bootstrapClub(clubName);
 			clubName = '';
-			notice = 'Club created. Add your first players.';
+			notify('Club created. Add your first players.');
 			await refreshAccount();
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not create club.';
+			notifyError(error, 'Could not create club.');
 		}
 	}
 
@@ -150,64 +167,23 @@
 			playerName = '';
 			await refreshAccount();
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not add player.';
+			notifyError(error, 'Could not add player.');
 		}
 	}
 
 	async function createSession() {
 		if (!club) return;
 		try {
-			await startSession(club.id, sessionPin);
-			sessionPin = '';
-			notice = 'Session started. Share the PIN only with tonight’s operator.';
+			await startSession(club.id);
+			notify('Sesi dimulai.');
 			await refreshLive();
 		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Could not start the session.';
+			notifyError(error, 'Could not start the session.');
 		}
 	}
 
-	async function claimOperator(takeover = false) {
-		const result = await live.claim(operatorPin, takeover);
-		if (result.requiresTakeover) {
-			adminTakeover = false;
-			showOperatorSheet = false;
-			showTakeover = true;
-			return;
-		}
-		if (result.ok) {
-			operatorPin = '';
-			showOperatorSheet = false;
-			showTakeover = false;
-		}
-	}
-
-	async function claimAdminOperator(takeover = false) {
-		const result = await live.claimAsAdmin(takeover);
-		if (result.requiresTakeover) {
-			adminTakeover = true;
-			showOperatorSheet = false;
-			showTakeover = true;
-			return;
-		}
-		if (result.ok) {
-			showOperatorSheet = false;
-			showTakeover = false;
-			adminTakeover = false;
-		}
-	}
-
-	function continueTakeover() {
-		if (adminTakeover) void claimAdminOperator(true);
-		else void claimOperator(true);
-	}
-
-	function dismissTakeover() {
-		showTakeover = false;
-		showOperatorSheet = true;
-	}
-
-	async function checkIn(player: RosterPlayer) {
-		await live.checkIn(player.id);
+	async function checkInPlayers(playerIds: string[]) {
+		return live.checkInMany(playerIds);
 	}
 
 	async function addGuest(name: string) {
@@ -219,7 +195,7 @@
 		replacementPlayerId: string,
 		outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 	) {
-		await live.substitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
+		return live.substitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
 	}
 
 	async function setStatus(status: ParticipantStatus) {
@@ -229,68 +205,28 @@
 	}
 
 	async function beginMatch(teamA: string[], teamB: string[]) {
-		await live.startMatch(teamA, teamB);
+		return live.startMatch(teamA, teamB);
 	}
 
 	async function saveSet(teamA: number, teamB: number) {
-		await live.completeSet(teamA, teamB);
+		return live.completeSet(teamA, teamB);
 	}
 
 	async function correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
-		await live.correctSet(setNumber, teamA, teamB);
+		return live.correctSet(setNumber, teamA, teamB);
 	}
 
 	async function stopMatch() {
-		if (!confirm('Abandon this match? Completed sets remain in history.')) return;
-		await live.abandon();
+		if (!confirm('Abandon this match? Completed sets remain in history.')) return false;
+		return live.abandon();
 	}
 
 	async function endSession() {
 		if (await live.close()) {
 			showEndSession = false;
 			showSessionMenu = false;
-			const suggestedFee = await live.suggestFee();
-			if (suggestedFee) fee = String(suggestedFee);
-			showFeeSheet = true;
-		}
-	}
-
-	async function saveFee() {
-		const amount = Number(fee);
-		if (Number.isInteger(amount) && amount > 0 && (await live.confirmFee(amount))) {
-			showFeeSheet = false;
-			showRecap = true;
-		}
-	}
-
-	async function submitFinanceReport() {
-		const court = reportedCourtCost ? Number(reportedCourtCost) : null;
-		const shuttlecock = reportedShuttlecockCost ? Number(reportedShuttlecockCost) : null;
-		if (
-			(court !== null && (!Number.isInteger(court) || court <= 0)) ||
-			(shuttlecock !== null && (!Number.isInteger(shuttlecock) || shuttlecock <= 0))
-		)
-			return;
-		if (await live.submitFinance(court, shuttlecock, financeNotes)) {
-			reportedCourtCost = '';
-			reportedShuttlecockCost = '';
-			financeNotes = '';
-			notice = 'Laporan biaya terkirim untuk ditinjau Finance Admin.';
-		}
-	}
-
-	async function reopenSession() {
-		if (!confirm('Buka kembali sesi ini? Biaya belum akan dicatat.')) return;
-		if (await live.reopen()) showFeeSheet = false;
-	}
-
-	async function shareRecap() {
-		if (!live.closedSummary || !browser) return;
-		const text = `${displayName}\n${live.closedSummary.attendance} pemain · ${live.closedSummary.sets} set\nBiaya Rp${Number(fee).toLocaleString('id-ID')} / orang`;
-		if (navigator.share) await navigator.share({ title: `${displayName} — Recap`, text });
-		else {
-			await navigator.clipboard?.writeText(text);
-			notice = 'Ringkasan disalin. Tempelkan ke WhatsApp.';
+			invalidatePublicData();
+			if (session) await goto(resolve('/session-close/[id]', { id: session.id }));
 		}
 	}
 
@@ -305,13 +241,17 @@
 			await refreshPublic();
 			userEmail = (await currentUser())?.email ?? null;
 			if (userEmail) await refreshAccount();
-			else loading = false;
+			else {
+				live.setAdminAuthorized(false);
+				loading = false;
+			}
 			supabase?.auth.onAuthStateChange(async (_event, authSession) => {
 				userEmail = authSession?.user.email ?? null;
 				if (userEmail) await refreshAccount();
 				else {
 					club = null;
 					roster = [];
+					live.setAdminAuthorized(false);
 					loading = false;
 				}
 			});
@@ -345,14 +285,14 @@
 			</div>
 			{#if session}
 				<div class="flex shrink-0 items-center gap-2">
-					{#if isOperator}<span
+					{#if canManageLive}<span
 							class="inline-flex items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
-							><span class="size-2 rounded-full bg-[#e2653e]"></span>MENGOPERASIKAN</span
+							><span class="size-2 rounded-full bg-[#e2653e]"></span>ADMIN AKTIF</span
 						>{/if}
 					<button
 						class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
 						onclick={() => (showSessionMenu = true)}
-						aria-label="Menu sesi">•••</button
+						aria-label="Menu sesi"><Ellipsis size={21} /></button
 					>
 				</div>
 			{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
@@ -365,13 +305,13 @@
 			<section class="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
 				<div class="flex items-start justify-between gap-3">
 					<div>
-						<p class="text-xs font-black tracking-[0.15em] text-slate-500">ADMIN ACCESS</p>
-						<h2 class="mt-1 text-xl font-black">Sign in to manage the club</h2>
+						<p class="text-xs font-black tracking-[0.15em] text-slate-500">AKSES ADMIN</p>
+						<h2 class="mt-1 text-xl font-black">Masuk untuk mengelola klub</h2>
 					</div>
 					<button
 						class="text-lg text-slate-400"
 						onclick={() => (adminLoginOpen = false)}
-						aria-label="Close sign in">×</button
+						aria-label="Tutup login">×</button
 					>
 				</div>
 				<label class="mt-5 block text-sm font-bold"
@@ -392,7 +332,7 @@
 				>
 				<div class="mt-5">
 					<AppButton onclick={passwordLogin} disabled={!email || !password}
-						>{pending || 'Sign in'}</AppButton
+						>{pending || 'Masuk'}</AppButton
 					>
 				</div>
 			</section>
@@ -408,8 +348,8 @@
 					>
 						<span class="text-[#d4e1db]">MALAM INI · MULAI</span>
 						<span class="inline-flex items-center gap-2 text-[#f5bb61]">
-							<span class="size-2 rounded-full bg-[#f5bb61]"></span>{isOperator
-								? 'MENGOPERASIKAN'
+							<span class="size-2 rounded-full bg-[#f5bb61]"></span>{canManageLive
+								? 'ADMIN AKTIF'
 								: 'BERLANGSUNG'}
 						</span>
 					</div>
@@ -432,10 +372,9 @@
 								<div class="max-w-md"><LoadingSkeleton height="1.5rem" /></div>
 							</div>
 							<div class="mt-5 flex flex-col items-start gap-2">
-								<AppButton disabled>{isOperator ? 'Check in pemain' : 'Operasikan sesi'}</AppButton>
-								{#if !isOperator}<p class="text-xs leading-5 text-[#d4e1db]">
-										Masukkan PIN sesi untuk check-in pemain dan mengelola match.
-									</p>{/if}
+								<AppButton disabled
+									>{canManageLive ? 'Check in pemain' : 'Masuk sebagai admin'}</AppButton
+								>
 							</div>
 						</div>
 					</div>
@@ -477,11 +416,12 @@
 				{session}
 				{participants}
 				{activeMatch}
-				{isOperator}
+				canManage={canManageLive}
 				{online}
 				{pending}
-				onoperate={() => (showOperatorSheet = true)}
+				onadminlogin={() => (adminLoginOpen = true)}
 				oncheckin={() => (showCheckIn = true)}
+				onendsession={() => (showEndSession = true)}
 				onselect={(participant) => (selectedParticipant = participant)}
 				onstartmatch={beginMatch}
 				oncompleteset={saveSet}
@@ -493,23 +433,12 @@
 					class="mt-5 border border-slate-200 bg-white p-5 shadow-sm"
 				>
 					<p class="text-xs font-black tracking-[0.15em] text-slate-500">CLUB ADMIN</p>
-					<h2 class="mt-1 text-xl font-black">Start tonight’s session</h2>
+					<h2 class="mt-1 text-xl font-black">Mulai sesi malam ini</h2>
 					<p class="mt-2 text-sm leading-6 text-slate-600">
-						The PIN gives one device courtside control. Don’t share it publicly.
+						Sesi dikelola oleh Club Admin yang masuk dengan akun.
 					</p>
-					<label class="mt-4 block text-sm font-bold"
-						>Session PIN<input
-							class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-							type="password"
-							inputmode="numeric"
-							bind:value={sessionPin}
-							placeholder="At least 4 characters"
-						/></label
-					>
 					<div class="mt-5">
-						<AppButton onclick={createSession} disabled={sessionPin.length < 4}
-							>Start session</AppButton
-						>
+						<AppButton onclick={createSession}>Mulai sesi</AppButton>
 					</div>
 				</section>{/if}
 		{:else if tab === 'players'}
@@ -621,7 +550,8 @@
 				data-sveltekit-preload-data="hover"
 				aria-current="page"
 				class="flex min-h-12 items-center justify-center bg-[#163630] px-1 text-center text-[11px] font-black text-[#fffaf0]"
-				>Live</a
+				><span class="flex flex-col items-center gap-1"><House size={16} /><span>Live</span></span
+				></a
 			>
 			<a
 				href={resolve('/players')}
@@ -629,7 +559,9 @@
 				onmouseenter={() => void prefetchPublicSurface('/players')}
 				onfocus={() => void prefetchPublicSurface('/players')}
 				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				>Pemain</a
+				><span class="flex flex-col items-center gap-1"
+					><UsersRound size={16} /><span>Pemain</span></span
+				></a
 			>
 			<a
 				href={resolve('/history')}
@@ -637,7 +569,9 @@
 				onmouseenter={() => void prefetchPublicSurface('/history')}
 				onfocus={() => void prefetchPublicSurface('/history')}
 				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				>Riwayat</a
+				><span class="flex flex-col items-center gap-1"
+					><History size={16} /><span>Riwayat</span></span
+				></a
 			>
 			<a
 				href={resolve('/fund')}
@@ -645,7 +579,8 @@
 				onmouseenter={() => void prefetchPublicSurface('/fund')}
 				onfocus={() => void prefetchPublicSurface('/fund')}
 				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				>Dana</a
+				><span class="flex flex-col items-center gap-1"><Wallet size={16} /><span>Dana</span></span
+				></a
 			>
 			<a
 				href={resolve('/settings')}
@@ -653,94 +588,20 @@
 				onmouseenter={() => void prefetchPublicSurface('/settings')}
 				onfocus={() => void prefetchPublicSurface('/settings')}
 				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				>Atur</a
+				><span class="flex flex-col items-center gap-1"
+					><Settings size={16} /><span>Atur</span></span
+				></a
 			>
 		</div>
 	</nav>
 </main>
-
-{#if showOperatorSheet}
-	<CourtSheet
-		open={showOperatorSheet}
-		title="Operate this session"
-		onOpenChange={(open) => {
-			showOperatorSheet = open;
-			if (!open) operatorPin = '';
-		}}
-	>
-		<div class="w-full max-w-md p-6 text-[#163630]">
-			<div class="flex items-start justify-between gap-4">
-				<div>
-					<p class="text-xs font-black tracking-[0.15em] text-slate-500">COURTSIDE CONTROL</p>
-					<h2 id="operator-title" class="mt-1 text-2xl font-black">Operate this session</h2>
-				</div>
-				<button
-					class="grid size-11 shrink-0 place-items-center text-xl text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
-					onclick={() => {
-						showOperatorSheet = false;
-						operatorPin = '';
-					}}
-					aria-label="Close">×</button
-				>
-			</div>
-			<p class="mt-3 text-sm leading-6 text-slate-600">
-				Club Admin bisa langsung masuk dengan akunnya. Operator lain memakai PIN sesi.
-			</p>
-			{#if club?.is_club_admin}<div class="mt-5 border-b border-[#b9c5bb] pb-5">
-					<AppButton onclick={() => claimAdminOperator()} disabled={Boolean(pending)}>
-						{pending || 'Operasikan dengan akun admin'}
-					</AppButton>
-					<p class="mt-2 text-xs leading-5 text-[#527169]">
-						Tidak perlu PIN sesi untuk akun Club Admin.
-					</p>
-				</div>{/if}
-			<label class="mt-5 block text-sm font-bold"
-				>Enter session PIN<input
-					class="mt-2 min-h-12 w-full border border-slate-200 px-3 text-center text-lg tracking-[0.35em] outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-					type="password"
-					inputmode="numeric"
-					autocomplete="one-time-code"
-					bind:value={operatorPin}
-				/></label
-			>
-			<div class="mt-6">
-				<AppButton onclick={() => claimOperator()} disabled={!operatorPin || Boolean(pending)}
-					>{pending || 'Continue'}</AppButton
-				>
-			</div>
-		</div>
-	</CourtSheet>
-{/if}
-
-{#if showTakeover}
-	<CourtDialog
-		open={showTakeover}
-		title="Another device is operating"
-		onOpenChange={(open) => (open ? (showTakeover = true) : dismissTakeover())}
-	>
-		<div class="p-6 text-[#163630]">
-			<p class="text-xs font-black tracking-[0.15em] text-amber-600">SESSION IN USE</p>
-			<h2 id="takeover-title" class="mt-1 text-2xl font-black">Another device is operating.</h2>
-			<p class="mt-3 text-sm leading-6 text-slate-600">
-				Taking over will make that device read-only. Are you sure you want to continue?
-			</p>
-			<div class="mt-6 flex flex-wrap justify-end gap-3">
-				<AppButton variant="secondary" onclick={dismissTakeover}>Cancel</AppButton><AppButton
-					variant="danger"
-					onclick={continueTakeover}
-					disabled={Boolean(pending)}>{pending || 'Take over'}</AppButton
-				>
-			</div>
-		</div>
-	</CourtDialog>
-{/if}
 
 {#if showCheckIn}
 	<CheckInSheet
 		{roster}
 		{checkedInIds}
 		{pending}
-		oncheckin={checkIn}
+		oncheckin={checkInPlayers}
 		onaddguest={addGuest}
 		onclose={() => (showCheckIn = false)}
 	/>
@@ -814,33 +675,32 @@
 				>
 			</div>
 			<div class="mt-5 grid gap-2">
-				{#if isOperator}<button
+				{#if canManageLive}
+					<button
 						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
 						onclick={() => {
 							showCheckIn = true;
 							showSessionMenu = false;
 						}}>Check in pemain</button
-					><button
-						class="min-h-12 border border-[#e7b8aa] bg-[#fff1ec] px-4 text-left font-bold text-[#9a3d25]"
-						onclick={() => {
-							showSessionMenu = false;
-							showEndSession = true;
-						}}>Akhiri sesi</button
 					>
-				{:else}<button
-						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
-						onclick={() => {
-							showOperatorSheet = true;
-							showSessionMenu = false;
-						}}>Operasikan sesi</button
-					>{/if}
-				{#if !userEmail}<button
+				{:else if !userEmail}
+					<button
 						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
 						onclick={() => {
 							adminLoginOpen = true;
 							showSessionMenu = false;
 						}}>Masuk sebagai admin</button
-					>{/if}
+					>
+				{/if}
+				{#if userEmail}
+					<button
+						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
+						onclick={() => {
+							signOut();
+							showSessionMenu = false;
+						}}>Keluar dari akun</button
+					>
+				{/if}
 			</div>
 		</div>
 	</CourtSheet>
@@ -877,115 +737,3 @@
 		</div>
 	</CourtDialog>
 {/if}
-
-{#if showFeeSheet && live.closedSummary}
-	<CourtSheet
-		open={showFeeSheet}
-		title="Biaya hari ini"
-		onOpenChange={(open) => (showFeeSheet = open)}
-	>
-		<div class="max-h-[90dvh] w-full max-w-md overflow-y-auto overscroll-contain p-6">
-			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">SESI SELESAI</p>
-			<h2 id="fee-title" class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">
-				Biaya hari ini
-			</h2>
-			<p class="mt-3 text-sm text-[#527169]">
-				{live.closedSummary.attendance} pemain · {live.closedSummary.sets} set
-			</p>
-			<label class="mt-6 block text-sm font-bold text-[#163630]"
-				>Biaya per orang<input
-					class="mt-2 min-h-14 w-full border border-[#163630] bg-[#fffaf0] px-4 text-xl font-black"
-					inputmode="numeric"
-					bind:value={fee}
-				/></label
-			>
-			<p class="mt-3 text-sm font-bold text-[#527169]">
-				Perkiraan Rp{(Number(fee || 0) * live.closedSummary.attendance).toLocaleString('id-ID')}
-			</p>
-			<fieldset class="mt-6 border-t border-[#b9c5bb] pt-5">
-				<legend class="font-black text-[#163630]">Laporkan biaya aktual (opsional)</legend>
-				<p class="mt-1 text-xs leading-5 text-[#527169]">
-					Belum menjadi pengeluaran resmi sampai dikonfirmasi Finance Admin.
-				</p>
-				<div class="mt-3 grid grid-cols-2 gap-3">
-					<label class="text-sm font-bold text-[#163630]"
-						>Lapangan<input
-							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-							inputmode="numeric"
-							bind:value={reportedCourtCost}
-							placeholder="120000"
-						/></label
-					>
-					<label class="text-sm font-bold text-[#163630]"
-						>Kok<input
-							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-							inputmode="numeric"
-							bind:value={reportedShuttlecockCost}
-							placeholder="30000"
-						/></label
-					>
-				</div>
-				<label class="mt-3 block text-sm font-bold text-[#163630]"
-					>Catatan<textarea
-						class="mt-2 min-h-20 w-full border border-[#b9c5bb] bg-[#fffaf0] p-3"
-						bind:value={financeNotes}
-						placeholder="Catatan untuk Finance Admin"></textarea></label
-				>
-				<AppButton
-					variant="secondary"
-					disabled={Boolean(pending) ||
-						(!reportedCourtCost && !reportedShuttlecockCost && !financeNotes.trim())}
-					onclick={submitFinanceReport}>Kirim laporan biaya</AppButton
-				>
-			</fieldset>
-			<div class="mt-6 flex flex-wrap gap-3">
-				<AppButton variant="secondary" disabled={Boolean(pending)} onclick={reopenSession}
-					>Buka lagi sesi</AppButton
-				><AppButton disabled={Boolean(pending) || Number(fee) <= 0} onclick={saveFee}
-					>{pending || 'Konfirmasi biaya'}</AppButton
-				>
-			</div>
-		</div>
-	</CourtSheet>
-{/if}
-
-{#if showRecap && live.closedSummary}
-	<CourtDialog
-		open={showRecap}
-		title="Sesi selesai"
-		panelClass="court-dialog--ink"
-		onOpenChange={(open) => (showRecap = open)}
-	>
-		<div class="p-6 text-[#fffaf0]">
-			<p class="text-xs font-black tracking-[0.14em] text-[#a7c5b9]">PB NEWBIE</p>
-			<h2 id="recap-title" class="mt-2 text-3xl font-black tracking-[-0.05em]">Sesi selesai.</h2>
-			<div class="mt-6 grid grid-cols-2 gap-px bg-[#85a097]/45">
-				<p class="bg-[#163630] p-4 text-sm">
-					<b class="block text-2xl">{live.closedSummary.attendance}</b>pemain
-				</p>
-				<p class="bg-[#163630] p-4 text-sm">
-					<b class="block text-2xl">{live.closedSummary.sets}</b>set
-				</p>
-			</div>
-			<p class="mt-5 text-sm text-[#d4e1db]">
-				Biaya Rp{Number(fee).toLocaleString('id-ID')} / orang
-			</p>
-			<div class="mt-6 flex flex-wrap gap-3">
-				<AppButton onclick={() => (showRecap = false)}>Lihat Live</AppButton><AppButton
-					variant="secondary"
-					onclick={shareRecap}>Bagikan WhatsApp</AppButton
-				>
-			</div>
-		</div>
-	</CourtDialog>
-{/if}
-
-{#if notice}<div
-		class="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-md items-center justify-between gap-3 bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-xl"
-	>
-		<span>{notice}</span><button
-			class="text-xl text-lime-300"
-			onclick={() => (notice = '')}
-			aria-label="Dismiss message">×</button
-		>
-	</div>{/if}

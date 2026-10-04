@@ -1,14 +1,14 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
-	import AnimatedList from '$lib/components/svelte-bits/AnimatedList.svelte';
+	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
 	import type { ActiveMatch } from '$lib/data/live';
 	import type { Participant } from '$lib/domain/types';
 
 	let {
 		participants,
 		activeMatch,
-		isOperator = false,
+		canManage = false,
 		online = true,
 		pending = '',
 		onstart,
@@ -19,18 +19,18 @@
 	}: {
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
-		isOperator?: boolean;
+		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
-		onstart: (teamA: string[], teamB: string[]) => void;
-		oncomplete: (a: number, b: number) => void;
-		oncorrect: (setNumber: 1 | 2, a: number, b: number) => void;
+		onstart: (teamA: string[], teamB: string[]) => Promise<boolean>;
+		oncomplete: (a: number, b: number) => Promise<boolean>;
+		oncorrect: (setNumber: 1 | 2, a: number, b: number) => Promise<boolean>;
 		onabandon: () => void;
 		onsubstitute: (
 			outgoingPlayerId: string,
 			replacementPlayerId: string,
 			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
-		) => void;
+		) => Promise<boolean>;
 	} = $props();
 
 	let stage = $state<'idle' | 'select' | 'teams'>('idle');
@@ -55,19 +55,14 @@
 	let selectedPlayers = $derived(
 		selected.map((id) => ready.find((player) => player.id === id)).filter(Boolean)
 	);
+	let readyPlayerOptions = $derived(
+		ready.map((player) => ({ value: player.id, label: player.name }))
+	);
 	let betweenSets = $derived(
 		playingSet?.setNumber === 2 &&
 			completedSets.some((set) => set.setNumber === 1) &&
 			!setTwoStarted
 	);
-
-	function toggle(playerId: string) {
-		selected = selected.includes(playerId)
-			? selected.filter((id) => id !== playerId)
-			: selected.length < 4
-				? [...selected, playerId]
-				: selected;
-	}
 
 	function continueToTeams() {
 		if (selected.length === 4) stage = 'teams';
@@ -83,13 +78,14 @@
 		selected = [selected[0], selected[3], selected[2], selected[1]];
 	}
 
-	function submitScore() {
+	async function submitScore() {
 		const a = Number(scoreA);
 		const b = Number(scoreB);
 		if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return;
-		oncomplete(a, b);
-		scoreA = '';
-		scoreB = '';
+		if (await oncomplete(a, b)) {
+			scoreA = '';
+			scoreB = '';
+		}
 	}
 
 	function resetSubstitution() {
@@ -108,13 +104,12 @@
 		matchMenuOpen = false;
 	}
 
-	function submitCorrection() {
+	async function submitCorrection() {
 		if (!correctionSet) return;
 		const a = Number(correctionA);
 		const b = Number(correctionB);
 		if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return;
-		oncorrect(correctionSet, a, b);
-		correctionSet = null;
+		if (await oncorrect(correctionSet, a, b)) correctionSet = null;
 	}
 </script>
 
@@ -135,7 +130,7 @@
 					aria-label="Menu match">•••</button
 				>
 			</div>
-			{#if matchMenuOpen && isOperator}
+			{#if matchMenuOpen && canManage}
 				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3">
 					<div class="flex flex-wrap gap-3">
 						{#if completedSets.length}<AppButton
@@ -205,7 +200,7 @@
 						>{/each}
 				</div>
 			{/if}
-			{#if betweenSets}
+			{#if betweenSets && substituteStep === 0}
 				<div class="px-5 py-6">
 					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">SET 1 SELESAI</p>
 					<h3 class="mt-2 text-xl font-black tracking-[-0.04em] text-[#163630]">
@@ -280,16 +275,17 @@
 							<AppButton variant="secondary" onclick={() => (substituteStep = 2)}>Kembali</AppButton
 							><AppButton
 								disabled={Boolean(pending) || !online}
-								onclick={() => {
-									onsubstitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
-									resetSubstitution();
-									setTwoStarted = true;
+								onclick={async () => {
+									if (await onsubstitute(outgoingPlayerId, replacementPlayerId, outgoingStatus)) {
+										resetSubstitution();
+										setTwoStarted = true;
+									}
 								}}>{pending || 'Konfirmasi'}</AppButton
 							>
 						</div>
 					{/if}
 				</div>
-			{:else if isOperator}
+			{:else if canManage}
 				<div class="px-5 pt-5 pb-5">
 					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
 						SET {playingSet.setNumber}
@@ -330,7 +326,7 @@
 				</div>{/if}
 		</section>
 	{/key}
-{:else if isOperator && ready.length >= 4}
+{:else if canManage && ready.length >= 4}
 	<section class="border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.08)]">
 		<div class="bg-[#e5ece5] p-5">
 			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
@@ -371,13 +367,13 @@
 					<p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p>
 				</div>
 				<div class="px-5 py-4">
-					<AnimatedList
-						maxHeight="min(52dvh, 26rem, calc(94dvh - 13rem))"
-						items={ready.map((player) => player.name)}
-						selectedIndices={ready
-							.map((player, index) => (selected.includes(player.id) ? index : -1))
-							.filter((index) => index >= 0)}
-						onItemSelect={(_item, index) => toggle(ready[index].id)}
+					<MultiSelect
+						options={readyPlayerOptions}
+						{selected}
+						onSelectionChange={(value) => (selected = value)}
+						label="Pilih empat pemain untuk match"
+						maxSelected={4}
+						emptyMessage="Belum ada pemain berstatus READY."
 					/>
 				</div>
 			{:else}
@@ -419,9 +415,8 @@
 				<div class="flex flex-wrap gap-3 border-t border-[#b9c5bb] px-5 py-4">
 					<AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton
 						disabled={Boolean(pending)}
-						onclick={() => {
-							onstart(selected.slice(0, 2), selected.slice(2));
-							stage = 'idle';
+						onclick={async () => {
+							if (await onstart(selected.slice(0, 2), selected.slice(2))) stage = 'idle';
 						}}>{pending || 'Mulai match'}</AppButton
 					>
 				</div>

@@ -3,6 +3,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
+	import { Toast } from 'sve-ui';
 
 	let { children } = $props();
 
@@ -13,4 +14,7 @@
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
-<QueryClientProvider client={queryClient}>{@render children()}</QueryClientProvider>
+<QueryClientProvider client={queryClient}>
+	{@render children()}
+	<Toast.Viewport position="bottom-right" max={5} label="Notifications" />
+</QueryClientProvider>

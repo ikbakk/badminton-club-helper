@@ -266,15 +266,38 @@
 				pemain
 			</p>
 			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Hadir ({attendees.length})</h2>
+				<h2 class="text-xl font-black">Hadir & pembayaran ({attendees.length})</h2>
+				<div
+					class="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-[#38675b]"
+					aria-label="Keterangan warna status pembayaran"
+				>
+					<span class="inline-flex items-center gap-2"
+						><span class="size-3 bg-[#286847]"></span>Hijau: lunas</span
+					>
+					<span class="inline-flex items-center gap-2"
+						><span class="size-3 bg-[#b44c30]"></span>Terakota: belum bayar</span
+					>
+					<span class="inline-flex items-center gap-2"
+						><span class="size-3 bg-[#9aa79f]"></span>Abu-abu: iuran belum ditetapkan</span
+					>
+				</div>
 				{#if attendees.length}<ul
 						class="mt-3 grid gap-x-6 border-y border-[#b9c5bb] bg-[#fffaf0] px-4 sm:grid-cols-2"
 					>
 						{#each attendees as attendee (attendee.player_id)}<li
 								class="flex min-h-12 items-center justify-between gap-3 border-b border-[#e5ece5] text-sm last:border-0"
 							>
-								<b>{attendee.display_name}</b><span class="text-xs font-bold text-[#527169]"
-									>{attendee.membership_type === 'GUEST' ? 'Tamu' : 'Member'}</span
+								<b>{attendee.display_name}</b><span
+									class="flex items-center gap-3 text-xs font-bold text-[#527169]"
+									>{attendee.membership_type === 'GUEST' ? 'Tamu' : 'Member'}<span
+										class={`size-3 shrink-0 ${attendee.is_paid === null ? 'bg-[#9aa79f]' : attendee.is_paid ? 'bg-[#286847]' : 'bg-[#b44c30]'}`}
+										role="img"
+										aria-label={attendee.is_paid === null
+											? 'Iuran belum ditetapkan'
+											: attendee.is_paid
+												? 'Lunas'
+												: 'Belum bayar'}
+									></span></span
 								>
 							</li>{/each}
 					</ul>{:else}<p class="mt-2 text-sm text-[#527169]">
