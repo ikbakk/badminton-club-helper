@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Live experiment — Court Call</title>
+		<style>
+			:root {
+				--ink: #163630;
+				--chalk: #fffaf0;
+				--ground: #f4f1e8;
+				--line: #b9c5bb;
+				--clay: #e2653e;
+				--gold: #f5bb61;
+				--muted: #49635c;
+				font-family: Arial, sans-serif;
+				color: var(--ink);
+				background: var(--ground);
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+			}
+			button {
+				font: inherit;
+			}
+			button:focus-visible {
+				outline: 3px solid var(--clay);
+				outline-offset: 3px;
+			}
+			.app {
+				min-height: 100dvh;
+				display: grid;
+				grid-template-columns: 15rem 1fr;
+			}
+			.rail {
+				display: flex;
+				flex-direction: column;
+				min-height: 100dvh;
+				background: var(--chalk);
+				border-right: 1px solid var(--line);
+			}
+			nav {
+				padding: 28px 16px;
+				display: grid;
+				gap: 2px;
+			}
+			nav a {
+				min-height: 50px;
+				padding: 0 12px;
+				display: flex;
+				align-items: center;
+				color: var(--muted);
+				font-size: 13px;
+				font-weight: 800;
+				text-decoration: none;
+			}
+			nav a.active {
+				background: var(--ink);
+				color: var(--chalk);
+			}
+			.signature {
+				margin-top: auto;
+				padding: 22px;
+				border-top: 1px solid var(--line);
+				font-size: 12px;
+				font-weight: 800;
+			}
+			.signature b {
+				display: block;
+				font-size: 15px;
+			}
+			.signature span {
+				display: block;
+				margin-top: 4px;
+				color: var(--muted);
+				font-size: 11px;
+				letter-spacing: 0.14em;
+			}
+			main {
+				position: relative;
+				overflow: hidden;
+				padding: 56px clamp(24px, 7vw, 100px);
+			}
+			.watermark {
+				position: absolute;
+				right: -0.08em;
+				top: 24px;
+				margin: 0;
+				color: rgb(22 54 48 / 7%);
+				font-size: clamp(96px, 19vw, 270px);
+				line-height: 0.72;
+				font-weight: 900;
+				letter-spacing: -0.09em;
+				pointer-events: none;
+			}
+			.content {
+				position: relative;
+				max-width: 930px;
+				margin: auto;
+			}
+			.state {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				color: var(--muted);
+				font-size: 12px;
+				font-weight: 800;
+			}
+			.state i {
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				background: var(--clay);
+				box-shadow: 0 0 0 5px rgb(226 101 62 / 18%);
+			}
+			h1 {
+				max-width: 720px;
+				margin: 34px 0 12px;
+				font-size: clamp(45px, 7vw, 86px);
+				line-height: 0.9;
+				letter-spacing: -0.04em;
+			}
+			.intro {
+				max-width: 52ch;
+				margin: 0;
+				color: var(--muted);
+				font-weight: 700;
+				line-height: 1.55;
+			}
+			.action {
+				min-height: 52px;
+				margin-top: 30px;
+				border: 0;
+				background: var(--clay);
+				padding: 0 20px;
+				color: #0a211d;
+				font-weight: 900;
+				cursor: pointer;
+			}
+			.action:hover {
+				background: #ef825e;
+			}
+			.active {
+				display: grid;
+				grid-template-columns: 1.35fr 0.65fr;
+				min-height: 390px;
+				margin-top: 50px;
+				background: var(--ink);
+				color: var(--chalk);
+				box-shadow: 0 18px 34px rgb(0 0 0 / 14%);
+			}
+			.court {
+				position: relative;
+				padding: 34px;
+				overflow: hidden;
+			}
+			.court:before {
+				content: '';
+				position: absolute;
+				inset: 26px;
+				border: 1px solid rgb(255 250 240 / 28%);
+			}
+			.court:after {
+				content: '';
+				position: absolute;
+				inset: 26px 50% 26px auto;
+				border-left: 1px solid rgb(255 250 240 / 28%);
+			}
+			.court > * {
+				position: relative;
+			}
+			.match-label {
+				font-size: 11px;
+				font-weight: 900;
+				letter-spacing: 0.15em;
+				color: var(--gold);
+			}
+			.teams {
+				display: grid;
+				grid-template-columns: 1fr auto 1fr;
+				align-items: center;
+				gap: 10px;
+				margin-top: 96px;
+				text-align: center;
+				font-size: clamp(23px, 4vw, 39px);
+				font-weight: 900;
+				line-height: 1.1;
+				letter-spacing: -0.04em;
+			}
+			.teams span {
+				color: var(--gold);
+				font-size: 13px;
+				letter-spacing: 0.1em;
+			}
+			.scores {
+				display: flex;
+				justify-content: center;
+				gap: 10px;
+				margin-top: 30px;
+			}
+			.scores b {
+				padding: 9px 11px;
+				border: 1px solid rgb(255 250 240 / 30%);
+				font-size: 14px;
+			}
+			.bench {
+				padding: 30px;
+				border-left: 1px solid rgb(255 250 240 / 24%);
+			}
+			.bench h2 {
+				margin: 0;
+				font-size: 12px;
+				letter-spacing: 0.12em;
+			}
+			.bench p {
+				color: #c8d9d0;
+				font-size: 14px;
+				line-height: 1.5;
+			}
+			.names {
+				margin-top: 22px;
+				border-top: 1px solid rgb(255 250 240 / 24%);
+			}
+			.names div {
+				display: flex;
+				justify-content: space-between;
+				padding: 13px 0;
+				border-bottom: 1px solid rgb(255 250 240 / 16%);
+				font-weight: 800;
+			}
+			.names small {
+				color: var(--gold);
+			}
+			@media (max-width: 760px) {
+				.app {
+					display: block;
+				}
+				.rail {
+					min-height: 0;
+					border-right: 0;
+					border-bottom: 1px solid var(--line);
+				}
+				nav {
+					display: flex;
+					overflow: auto;
+					padding: 0;
+				}
+				nav a {
+					flex: 0 0 auto;
+					border-right: 1px solid var(--line);
+				}
+				.signature {
+					display: none;
+				}
+				main {
+					padding: 32px 18px 50px;
+				}
+				.active {
+					grid-template-columns: 1fr;
+				}
+				.bench {
+					border-left: 0;
+					border-top: 1px solid rgb(255 250 240 / 24%);
+				}
+				.court {
+					min-height: 350px;
+				}
+				.teams {
+					margin-top: 88px;
+				}
+				.watermark {
+					font-size: 118px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<aside class="rail">
+				<nav aria-label="Navigasi utama">
+					<a class="active" href="#empty">Live</a><a href="#">Pemain</a><a href="#">Riwayat</a
+					><a href="#">Kas</a><a href="#">Pengaturan</a>
+				</nav>
+				<div class="signature"><b>PB NEWBIE</b><span>KLUB BULUTANGKIS</span></div>
+			</aside>
+			<main>
+				<p class="watermark" aria-hidden="true">COURT<br />CALL</p>
+				<div class="content">
+					<div class="state"><i></i> TIDAK ADA SESI BERJALAN</div>
+					<h1>Lapangan belum menyala.</h1>
+					<p class="intro">
+						Mulai sesi ketika pemain pertama datang. Begitu sesi aktif, halaman ini berubah menjadi
+						call-board yang hanya menampilkan siapa bermain dan siapa berikutnya.
+					</p>
+					<button class="action">Mulai sesi malam ini</button>
+					<section class="active" aria-label="Contoh sesi aktif">
+						<div class="court">
+							<p class="match-label">MATCH 04 · SET 2</p>
+							<div class="teams">
+								<div>Bima<br />Fajar</div>
+								<span>VS</span>
+								<div>Nadia<br />Raka</div>
+							</div>
+							<div class="scores"><b>SET 1 · 21–17</b><b>SET 2 · 12–08</b></div>
+						</div>
+						<aside class="bench">
+							<h2>BERIKUTNYA DI LAPANGAN</h2>
+							<p>Empat pemain siap. Buat pasangan berikutnya saat match ini selesai.</p>
+							<div class="names">
+								<div><span>Adit</span><small>SIAP</small></div>
+								<div><span>Gita</span><small>SIAP</small></div>
+								<div><span>Rio</span><small>SIAP</small></div>
+								<div><span>Salsa</span><small>SIAP</small></div>
+							</div>
+						</aside>
+					</section>
+				</div>
+			</main>
+		</div>
+	</body>
+</html>

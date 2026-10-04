@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import { ArrowLeft } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import {
@@ -18,12 +19,7 @@
 		type FinanceSessionAttendee,
 		type PublicSessionHistory
 	} from '$lib/data/dashboard';
-	import {
-		confirmSessionFee,
-		reopenSession,
-		submitSessionFinance,
-		suggestSessionFee
-	} from '$lib/data/live';
+	import { confirmSessionFee, reopenSession, suggestSessionFee } from '$lib/data/live';
 
 	let { params }: { params: { id: string } } = $props();
 	let club = $state<Club | null>(null);
@@ -32,17 +28,12 @@
 	let attendees = $state<FinanceSessionAttendee[]>([]);
 	let matchCount = $state(0);
 	let fee = $state('');
-	let courtCost = $state('');
-	let shuttlecockCost = $state('');
-	let notes = $state('');
 	let loading = $state(true);
 	let savingFee = $state(false);
-	let savingExpense = $state(false);
 	let savingPlayers = $state<Record<string, boolean>>({});
 	let queuedPlayers = $state<Record<string, boolean>>({});
 	let paidOverrides = $state<Record<string, boolean>>({});
 	let notice = $state('');
-	let hasReportedExpenses = $state(false);
 	let isAdmin = $derived(Boolean(club?.is_club_admin));
 	let totalDue = $derived(Number(fee || session?.fee_per_person || 0) * (session?.attendance ?? 0));
 	let paidCount = $derived(
@@ -206,33 +197,6 @@
 		}
 	}
 
-	async function sendExpenseReport(event: SubmitEvent) {
-		event.preventDefault();
-		if (!session) return;
-		const court = courtCost ? Number(courtCost) : null;
-		const shuttle = shuttlecockCost ? Number(shuttlecockCost) : null;
-		if (
-			(court !== null && (!Number.isSafeInteger(court) || court <= 0)) ||
-			(shuttle !== null && (!Number.isSafeInteger(shuttle) || shuttle <= 0)) ||
-			(court === null && shuttle === null && !notes.trim())
-		)
-			return;
-		savingExpense = true;
-		notice = '';
-		try {
-			await submitSessionFinance(session.id, court, shuttle, notes);
-			courtCost = '';
-			shuttlecockCost = '';
-			notes = '';
-			hasReportedExpenses = true;
-			notice = 'Laporan pengeluaran terkirim ke Dana untuk ditinjau.';
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Laporan pengeluaran gagal dikirim.';
-		} finally {
-			savingExpense = false;
-		}
-	}
-
 	async function reopen() {
 		if (
 			!session ||
@@ -250,8 +214,12 @@
 </script>
 
 <svelte:head><title>Tutup sesi — {clubName}</title></svelte:head>
-<AppShell current="/live" {clubName} historyConfirmationSessionId={params.id}>
-	<a href={resolve('/live')} class="text-sm font-black text-[#38675b]">‹ Kembali ke Live</a>
+<AppShell current="" mode="REKAP SESI" {clubName}>
+	<a
+		href={resolve('/live')}
+		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+		><ArrowLeft size={18} />Kembali ke Live</a
+	>
 	{#if loading}
 		<section class="mt-6 border-y border-[#b9c5bb] py-6" role="status" aria-busy="true">
 			<p class="text-sm font-bold text-[#527169]">Memuat rekap malam ini…</p>
@@ -265,22 +233,24 @@
 			</p>
 		</section>
 	{:else}
-		<header class="mt-6 border-b border-[#b9c5bb] pb-6">
+		<header
+			class="mt-6 border-y border-[#163630] bg-[#163630] px-5 py-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.16)]"
+		>
 			<div class="flex flex-wrap items-start justify-between gap-3">
-				<h1 class="text-3xl font-black tracking-[-0.05em]">Rekap penutupan sesi</h1>
+				<h1 class="text-3xl font-black tracking-[-0.05em]">Rekap sesi selesai</h1>
 				{#if isAdmin}
 					<a
-						class="inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+						class="inline-flex min-h-11 items-center bg-[#e2653e] px-4 text-sm font-black text-[#fffaf0]"
 						href={resolve('/session-close/[id]/confirm', { id: params.id })}>Konfirmasi rekap</a
 					>
 				{/if}
 			</div>
-			<p class="mt-2 text-base font-bold">{date(session.started_at)}</p>
-			<p class="mt-1 text-sm text-[#527169]">
+			<p class="mt-3 text-base font-bold">{date(session.started_at)}</p>
+			<p class="mt-1 text-sm text-[#d4e1db]">
 				{session.attendance} pemain hadir · {matchCount} match · sesi sudah ditutup
 			</p>
 			{#if session.fee_per_person === null}
-				<p class="mt-3 text-xs font-bold text-[#9a3d25]">
+				<p class="mt-3 text-xs font-bold text-[#f5bb61]">
 					Rekap belum final — tetapkan iuran untuk menyelesaikan rekap ini.
 				</p>
 			{/if}
@@ -398,57 +368,6 @@
 					{/if}
 				</section>
 			{/if}
-
-			<section class="mt-8 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Pengeluaran aktual sesi</h2>
-				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
-					Ini berbeda dari iuran pemain: laporkan biaya lapangan/kok yang benar-benar dibayar.
-					Laporan masuk ke Dana untuk ditinjau sebelum menjadi pengeluaran resmi.
-				</p>
-				{#if hasReportedExpenses}
-					<p class="mt-4 border-y border-[#b9c5bb] py-3 text-sm font-bold text-[#38675b]">
-						Laporan berhasil dikirim untuk ditinjau.
-					</p>
-				{:else}
-					<form class="mt-4 grid gap-4" onsubmit={sendExpenseReport}>
-						<div class="grid grid-cols-2 gap-3">
-							<label class="text-sm font-bold" for="court-cost"
-								>Lapangan<input
-									id="court-cost"
-									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-									inputmode="numeric"
-									bind:value={courtCost}
-									placeholder="120000"
-								/></label
-							>
-							<label class="text-sm font-bold" for="shuttle-cost"
-								>Kok<input
-									id="shuttle-cost"
-									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-									inputmode="numeric"
-									bind:value={shuttlecockCost}
-									placeholder="30000"
-								/></label
-							>
-						</div>
-						<label class="text-sm font-bold" for="finance-notes"
-							>Catatan<textarea
-								id="finance-notes"
-								class="mt-2 min-h-20 w-full border border-[#b9c5bb] bg-[#fffaf0] p-3"
-								bind:value={notes}
-								placeholder="Opsional"></textarea></label
-						>
-						<div>
-							<AppButton
-								type="submit"
-								variant="secondary"
-								disabled={savingExpense || (!courtCost && !shuttlecockCost && !notes.trim())}
-								>{savingExpense ? 'Mengirim…' : 'Kirim laporan pengeluaran'}</AppButton
-							>
-						</div>
-					</form>
-				{/if}
-			</section>
 		{/if}
 	{/if}
 

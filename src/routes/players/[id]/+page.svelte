@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowRight } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
@@ -43,8 +45,12 @@
 </script>
 
 <svelte:head><title>{player?.display_name ?? 'Pemain'} — PB NEWBIE</title></svelte:head>
-<AppShell current="/players" {clubName}>
-	<a href={resolve('/players')} class="text-sm font-black text-[#38675b]">‹ Kembali ke pemain</a>
+<AppShell current="/players" mode={player?.display_name ?? 'PEMAIN'} {clubName}>
+	<a
+		href={resolve('/players')}
+		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+		><ArrowLeft size={18} />Kembali ke pemain</a
+	>
 	{#if loading}<section
 			class="mt-6"
 			role="status"
@@ -80,51 +86,68 @@
 			</section>
 		</section>
 	{:else if player}<section class="mt-6">
-			<h1 class="text-4xl font-black tracking-[-0.06em]">{player.display_name}</h1>
-			<p class="mt-2 text-sm font-bold text-[#527169]">Anggota klub</p>
-			{#if statisticsAvailable}<div
-					class="mt-7 grid grid-cols-2 border border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-4"
-				>
-					<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
-						<b class="block text-2xl">{player.sessions}</b>Sesi
-					</p>
-					<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
-						<b class="block text-2xl">{player.sets}</b>Set
-					</p>
-					<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
-						<b class="block text-2xl">{player.wins}</b>Menang
-					</p>
-					<p class="border-b border-[#b9c5bb] p-4 text-sm">
-						<b class="block text-2xl">{player.losses}</b>Kalah
-					</p>
-				</div>{:else}<p
-					class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-4 text-sm leading-6 text-[#527169]"
-				>
-					Statistik akan tersedia setelah read model profil pemain diterapkan.
-				</p>{/if}
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Rating</h2>
-				<p class="mt-2 text-sm leading-6 text-[#527169]">
-					Belum cukup data match untuk menampilkan rating.
-				</p>
-			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Sesi terbaru</h2>
-				{#if sessions.length}<ul class="mt-3 border border-[#b9c5bb] bg-[#fffaf0]">
-						{#each sessions as session (session.id)}<li
-								class="border-b border-[#b9c5bb] last:border-b-0"
-							>
+			<h1 class="max-w-[12ch] text-5xl font-black tracking-[-0.065em] text-[#163630] sm:text-6xl">
+				{player.display_name}
+			</h1>
+			<p class="mt-3 text-xs font-black tracking-[0.12em] text-[#527169]">
+				{player.membership_type === 'MEMBER' ? 'ANGGOTA KLUB' : 'TAMU KLUB'}
+			</p>
+			<section class="mt-9 border-y border-[#b9c5bb]">
+				<div class="flex items-baseline justify-between gap-4 px-1 py-4">
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Jejak sesi</h2>
+					{#if statisticsAvailable}<span class="text-sm font-black text-[#38675b]"
+							>{player.sessions} hadir</span
+						>{/if}
+				</div>
+				{#if sessions.length}<ul>
+						{#each sessions as session, index (session.id)}<li class="border-t border-[#b9c5bb]">
 								<a
-									class="flex min-h-12 items-center justify-between px-4 font-bold hover:bg-[#e5ece5]"
+									class="group grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 px-1 py-3 hover:bg-[#e5ece5]"
 									href={resolve('/history/[id]', { id: session.id })}
-									>{date(session.started_at)}<span class="text-[#38675b]">›</span></a
+									><span class="text-2xl font-black text-[#38675b] tabular-nums"
+										>{String(index + 1).padStart(2, '0')}</span
+									><span
+										><b class="block text-xl tracking-[-0.03em]">{date(session.started_at)}</b><span
+											class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]"
+											>SESI KLUB</span
+										></span
+									><ArrowRight
+										class="shrink-0 text-[#38675b] transition-transform group-hover:translate-x-1"
+										size={18}
+									/></a
 								>
 							</li>{/each}
-					</ul>{:else}<p class="mt-2 text-sm text-[#527169]">
+					</ul>{:else}<p class="border-t border-[#b9c5bb] py-5 text-sm leading-6 text-[#527169]">
 						{statisticsAvailable
 							? 'Belum ada sesi yang tercatat.'
 							: 'Riwayat personal akan tersedia setelah read model diterapkan.'}
 					</p>{/if}
+			</section>
+			{#if statisticsAvailable}<section class="mt-9 border-y border-[#b9c5bb]">
+					<div class="grid grid-cols-2 sm:grid-cols-4">
+						<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
+							<b class="block text-2xl tabular-nums">{player.sessions}</b>Sesi
+						</p>
+						<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
+							<b class="block text-2xl tabular-nums">{player.sets}</b>Set
+						</p>
+						<p class="border-r border-[#b9c5bb] p-4 text-sm">
+							<b class="block text-2xl tabular-nums">{player.wins}</b>Menang
+						</p>
+						<p class="p-4 text-sm">
+							<b class="block text-2xl tabular-nums">{player.losses}</b>Kalah
+						</p>
+					</div>
+				</section>{:else}<p
+					class="mt-9 border-y border-[#b9c5bb] py-4 text-sm leading-6 text-[#527169]"
+				>
+					Statistik akan tersedia setelah read model profil pemain diterapkan.
+				</p>{/if}
+			<section class="mt-9 border-t border-[#b9c5bb] pt-5">
+				<h2 class="text-xl font-black">Rating</h2>
+				<p class="mt-2 text-sm leading-6 text-[#527169]">
+					Belum cukup data match untuk menampilkan rating.
+				</p>
 			</section>
 		</section>
 	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">

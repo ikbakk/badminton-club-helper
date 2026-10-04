@@ -8,6 +8,7 @@
 	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
+	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import { currentUser, signInWithPassword } from '$lib/auth';
 	import {
 		addPlayer,
@@ -18,7 +19,6 @@
 		getPublicRoster,
 		getPublicSessionHistory,
 		invalidatePublicData,
-		prefetchPublicSurface,
 		getRoster,
 		startSession,
 		type Club,
@@ -31,7 +31,7 @@
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
 	import { toast } from 'sve-ui';
-	import { Ellipsis, History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
+	import { Ellipsis } from '@lucide/svelte';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
 	let tab = $state<Tab>('live');
@@ -185,6 +185,7 @@
 			await startSession(club.id);
 			notify('Sesi dimulai.');
 			await refreshLive();
+			showCheckIn = true;
 		} catch (error) {
 			notifyError(error, 'Sesi belum bisa dimulai. Coba lagi.');
 		}
@@ -278,362 +279,281 @@
 	/></svelte:head
 >
 
-<main class="min-h-dvh bg-[#f4f1e8] pb-28 text-[#163630]">
-	<div class="mx-auto max-w-2xl px-4 py-5 sm:px-6">
-		<header class="mb-5 flex items-center justify-between gap-4 border-b border-[#b9c5bb] pb-4">
-			<div class="flex min-w-0 items-center gap-3">
-				<span
-					class="grid size-11 shrink-0 place-items-center bg-[#163630] text-xl text-[#f5bb61] shadow-[0_6px_14px_rgba(22,54,48,0.18)]"
-					>⌁</span
-				><span class="min-w-0"
-					><span class="block truncate text-lg font-black tracking-tight">{displayName}</span><span
-						class="block text-[10px] font-black tracking-[0.17em] text-[#527169]"
-						>KLUB BULUTANGKIS</span
-					></span
-				>
-			</div>
-			{#if session}
-				<div class="flex shrink-0 items-center gap-2">
-					{#if canManageLive}<span
-							class="inline-flex items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
-							><span class="size-2 rounded-full bg-[#e2653e]"></span>ADMIN AKTIF</span
-						>{/if}
-					<button
-						class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
-						onclick={() => (showSessionMenu = true)}
-						aria-label="Buka menu sesi"><Ellipsis size={21} /></button
-					>
-				</div>
-			{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
-			{:else}<AppButton variant="secondary" onclick={() => (adminLoginOpen = true)}
-					>Kelola</AppButton
+{#snippet headerActions()}
+	{#if session}
+		<div class="flex shrink-0 items-center gap-2">
+			{#if canManageLive}<span
+					class="inline-flex items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
+					><span class="size-2 rounded-full bg-[#e2653e]"></span>ADMIN AKTIF</span
 				>{/if}
-		</header>
-
-		{#if adminLoginOpen}
-			<section class="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
-				<div class="flex items-start justify-between gap-3">
-					<div>
-						<p class="text-xs font-black tracking-[0.15em] text-slate-500">AKSES ADMIN</p>
-						<h2 class="mt-1 text-xl font-black">Masuk untuk mengelola klub</h2>
-					</div>
-					<button
-						class="text-lg text-slate-400"
-						onclick={() => (adminLoginOpen = false)}
-						aria-label="Tutup login">×</button
-					>
-				</div>
-				<label class="mt-5 block text-sm font-bold"
-					>Email<input
-						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-						type="email"
-						bind:value={email}
-						autocomplete="email"
-						placeholder="nama@email.com"
-					/></label
-				><label class="mt-4 block text-sm font-bold"
-					>Kata sandi<input
-						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-						type="password"
-						bind:value={password}
-						autocomplete="current-password"
-					/></label
-				>
-				<div class="mt-5">
-					<AppButton onclick={passwordLogin} disabled={!email || !password}
-						>{pending || 'Masuk'}</AppButton
-					>
-				</div>
-			</section>
-		{/if}
-
-		{#if loading}
-			{#if session}
-				<section
-					class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
-				>
-					<div
-						class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
-					>
-						<span class="text-[#d4e1db]">MALAM INI · MULAI</span>
-						<span class="inline-flex items-center gap-2 text-[#f5bb61]">
-							<span class="size-2 rounded-full bg-[#f5bb61]"></span>{canManageLive
-								? 'ADMIN AKTIF'
-								: 'BERLANGSUNG'}
-						</span>
-					</div>
-					<div
-						class="relative overflow-hidden px-5 pt-7 pb-5 sm:px-6"
-						role="status"
-						aria-busy="true"
-						aria-label="Memuat kondisi lapangan"
-					>
-						<div
-							aria-hidden="true"
-							class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
-						></div>
-						<div class="relative">
-							<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
-							<div class={`mt-2 ${activeMatch ? 'max-w-sm' : 'max-w-lg'}`}>
-								<LoadingSkeleton height="2.25rem" />
-							</div>
-							<div class="mt-6 border-y border-[#85a097]/45 py-4">
-								<div class="max-w-md"><LoadingSkeleton height="1.5rem" /></div>
-							</div>
-							<div class="mt-5 flex flex-col items-start gap-2">
-								<AppButton disabled
-									>{canManageLive ? 'Check in pemain' : 'Masuk sebagai admin'}</AppButton
-								>
-							</div>
-						</div>
-					</div>
-				</section>
-			{:else}
-				<section
-					class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
-					role="status"
-					aria-busy="true"
-					aria-label="Memeriksa sesi aktif"
-				>
-					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
-					<div class="mt-3 max-w-lg"><LoadingSkeleton height="2.25rem" /></div>
-					<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
-				</section>
-			{/if}
-		{:else if userEmail && !club}
-			<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
-				<h1 class="mt-3 text-3xl font-black tracking-tight">Buat klubmu.</h1>
-				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Kamu akan menjadi admin klub. Setelah itu, tambahkan pemain dan mulai sesi pertama.
-				</p>
-				<label class="mt-6 block text-sm font-bold"
-					>Nama klub<input
-						class="mt-2 min-h-12 w-full border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
-						bind:value={clubName}
-						placeholder="PB NEWBIE"
-					/></label
-				>
-				<div class="mt-5">
-					<AppButton onclick={createClub} disabled={clubName.trim().length < 2}>Buat klub</AppButton
-					>
-				</div>
-			</section>
-		{:else if tab === 'live'}
-			<LiveSessionPanel
-				{session}
-				{participants}
-				{activeMatch}
-				canManage={canManageLive}
-				{online}
-				{pending}
-				onadminlogin={() => (adminLoginOpen = true)}
-				oncheckin={() => (showCheckIn = true)}
-				onendsession={() => (showEndSession = true)}
-				onselect={(participant) => (selectedParticipant = participant)}
-				onstartmatch={beginMatch}
-				oncompleteset={saveSet}
-				oncorrectset={correctSet}
-				onabandonmatch={stopMatch}
-				onsubstitute={substitute}
-			/>
-			{#if userEmail && club?.is_club_admin && !session}<section
-					class="mt-5 border border-slate-200 bg-white p-5 shadow-sm"
-				>
-					<p class="text-xs font-black tracking-[0.15em] text-slate-500">CLUB ADMIN</p>
-					<h2 class="mt-1 text-xl font-black">Mulai sesi malam ini</h2>
-					<p class="mt-2 text-sm leading-6 text-slate-600">
-						Admin klub yang masuk dengan akun bisa mengelola sesi.
-					</p>
-					<div class="mt-5">
-						<AppButton onclick={createSession}>Mulai sesi</AppButton>
-					</div>
-				</section>{/if}
-			{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
-				<section class="mt-5 border-y border-[#b9c5bb] py-5">
-					<h2 class="text-xl font-black">Rekap sesi belum dikonfirmasi</h2>
-					<p class="mt-1 text-sm leading-5 text-[#527169]">
-						Sesi yang belum ditetapkan iurannya bisa dilanjutkan di sini.
-					</p>
-					<ul class="mt-3 divide-y divide-[#d6ddd5] border-y border-[#b9c5bb]">
-						{#each publicHistory.filter((item) => item.closed_at && item.fee_per_person === null) as item (item.id)}
-							<li class="flex items-center justify-between gap-3 py-3">
-								<span class="min-w-0">
-									<b class="block"
-										>{new Intl.DateTimeFormat('id-ID', {
-											day: 'numeric',
-											month: 'long',
-											year: 'numeric'
-										}).format(new Date(item.started_at))}</b
-									>
-									<span class="text-xs text-[#527169]"
-										>{item.attendance} pemain hadir · iuran belum ditetapkan</span
-									>
-								</span>
-								<a
-									class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-									href={resolve('/session-close/[id]', { id: item.id })}>Lanjutkan rekap</a
-								>
-							</li>
-						{/each}
-					</ul>
-				</section>
-			{/if}
-		{:else if tab === 'players'}
-			<section class=" bg-slate-950 p-6 text-white">
-				<p class="text-xs font-black tracking-[0.16em] text-lime-300">ROSTER</p>
-				<h1 class="mt-2 text-3xl font-black tracking-tight">
-					{publicRoster.length ? `${publicRoster.length} pemain terdaftar` : 'Belum ada pemain.'}
-				</h1>
-				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Daftarkan pemain tetap di sini. Pemain tamu bisa ditambahkan langsung dari halaman Live.
-				</p>
-			</section>
-			{#if userEmail && club?.is_club_admin}<section
-					class="mt-4 border border-slate-200 bg-white p-4 shadow-sm"
-				>
-					<label class="block text-sm font-bold"
-						>Tambah pemain<input
-							class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-							bind:value={playerName}
-							placeholder="Nama pemain"
-						/></label
-					>
-					<div class="mt-4">
-						<AppButton onclick={createPlayer} disabled={!playerName.trim()}>Tambah pemain</AppButton
-						>
-					</div>
-				</section>{/if}
-			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
-				<ul class="divide-y divide-slate-100">
-					{#each userEmail ? roster : publicRoster as player (player.id)}<li
-							class="flex min-h-14 items-center gap-3 px-4 py-3"
-						>
-							<span
-								class="grid size-9 place-items-center bg-lime-200 text-sm font-black text-lime-950"
-								>{player.display_name.slice(0, 1)}</span
-							><span class="font-bold">{player.display_name}</span>
-						</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
-							Belum ada pemain terdaftar.
-						</li>{/each}
-				</ul>
-			</section>
-		{:else if tab === 'history'}
-			<section class=" bg-slate-950 p-6 text-white">
-				<h1 class="text-3xl font-black tracking-tight">Riwayat sesi</h1>
-				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Sesi yang sudah selesai bisa dilihat semua orang. Rincian pembayaran tiap pemain hanya
-					untuk admin.
-				</p>
-			</section>
-			<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
-				<ul class="divide-y divide-slate-100">
-					{#each publicHistory.filter((item) => item.closed_at) as item (item.id)}<li
-							class="flex items-center justify-between gap-4 px-4 py-4"
-						>
-							<div>
-								<p class="font-black">
-									{new Intl.DateTimeFormat(undefined, {
-										month: 'short',
-										day: 'numeric',
-										year: 'numeric'
-									}).format(new Date(item.started_at))}
-								</p>
-								<p class="mt-1 text-sm text-slate-500">
-									{item.attendance} pemain · Iuran {item.fee_per_person
-										? `Rp${item.fee_per_person.toLocaleString('id-ID')}`
-										: 'belum ditetapkan'}
-								</p>
-							</div>
-							<span class="rounded-full bg-lime-100 px-3 py-1 text-xs font-black text-lime-800"
-								>Selesai</span
-							>
-						</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
-							Belum ada sesi yang selesai.
-						</li>{/each}
-				</ul>
-			</section>
-		{:else}
-			<section class=" bg-slate-950 p-6 text-white">
-				<h1 class="text-3xl font-black tracking-tight">Dana klub</h1>
-				<p class="mt-3 text-sm leading-6 text-slate-300">
-					Ringkasan iuran yang tercatat dan pengeluaran yang disetujui. Saldo per pemain hanya
-					terlihat oleh admin.
-				</p>
-				<div class="mt-6 grid grid-cols-3 gap-2 text-center">
-					<div>
-						<p class="text-xs font-bold text-slate-400">MASUK</p>
-						<p class="mt-1 font-black">Rp{(fundSummary?.received ?? 0).toLocaleString('id-ID')}</p>
-					</div>
-					<div>
-						<p class="text-xs font-bold text-slate-400">KELUAR</p>
-						<p class="mt-1 font-black">Rp{(fundSummary?.expenses ?? 0).toLocaleString('id-ID')}</p>
-					</div>
-					<div>
-						<p class="text-xs font-bold text-lime-300">SALDO</p>
-						<p class="mt-1 font-black text-lime-300">
-							Rp{(fundSummary?.balance ?? 0).toLocaleString('id-ID')}
-						</p>
-					</div>
-				</div>
-			</section>
-		{/if}
-	</div>
-
-	<nav
-		class="fixed inset-x-0 bottom-0 z-20 border-t border-[#b9c5bb] bg-[#fffaf0]/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur"
-		aria-label="Navigasi utama"
-	>
-		<div class="mx-auto grid max-w-2xl grid-cols-5 gap-1">
-			<a
-				href={resolve('/live')}
-				data-sveltekit-preload-data="hover"
-				aria-current="page"
-				class="flex min-h-12 items-center justify-center bg-[#163630] px-1 text-center text-[11px] font-black text-[#fffaf0]"
-				><span class="flex flex-col items-center gap-1"><House size={16} /><span>Live</span></span
-				></a
-			>
-			<a
-				href={resolve('/players')}
-				data-sveltekit-preload-data="hover"
-				onmouseenter={() => void prefetchPublicSurface('/players')}
-				onfocus={() => void prefetchPublicSurface('/players')}
-				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				><span class="flex flex-col items-center gap-1"
-					><UsersRound size={16} /><span>Pemain</span></span
-				></a
-			>
-			<a
-				href={resolve('/history')}
-				data-sveltekit-preload-data="hover"
-				onmouseenter={() => void prefetchPublicSurface('/history')}
-				onfocus={() => void prefetchPublicSurface('/history')}
-				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				><span class="flex flex-col items-center gap-1"
-					><History size={16} /><span>Riwayat</span></span
-				></a
-			>
-			<a
-				href={resolve('/fund')}
-				data-sveltekit-preload-data="hover"
-				onmouseenter={() => void prefetchPublicSurface('/fund')}
-				onfocus={() => void prefetchPublicSurface('/fund')}
-				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				><span class="flex flex-col items-center gap-1"><Wallet size={16} /><span>Dana</span></span
-				></a
-			>
-			<a
-				href={resolve('/settings')}
-				data-sveltekit-preload-data="hover"
-				onmouseenter={() => void prefetchPublicSurface('/settings')}
-				onfocus={() => void prefetchPublicSurface('/settings')}
-				class="flex min-h-12 items-center justify-center px-1 text-center text-[11px] font-black text-[#527169] hover:bg-[#e5ece5]"
-				><span class="flex flex-col items-center gap-1"
-					><Settings size={16} /><span>Atur</span></span
-				></a
+			<button
+				class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
+				onclick={() => (showSessionMenu = true)}
+				aria-label="Buka menu sesi"><Ellipsis size={21} /></button
 			>
 		</div>
-	</nav>
-</main>
+	{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
+	{:else}<AppButton variant="secondary" onclick={() => (adminLoginOpen = true)}>Kelola</AppButton
+		>{/if}
+{/snippet}
+
+<AppShell current="/live" clubName={displayName} {headerActions}>
+	{#if adminLoginOpen}
+		<section class="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
+			<div class="flex items-start justify-between gap-3">
+				<div>
+					<p class="text-xs font-black tracking-[0.15em] text-slate-500">AKSES ADMIN</p>
+					<h2 class="mt-1 text-xl font-black">Masuk untuk mengelola klub</h2>
+				</div>
+				<button
+					class="text-lg text-slate-400"
+					onclick={() => (adminLoginOpen = false)}
+					aria-label="Tutup login">×</button
+				>
+			</div>
+			<label class="mt-5 block text-sm font-bold"
+				>Email<input
+					class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+					type="email"
+					bind:value={email}
+					autocomplete="email"
+					placeholder="nama@email.com"
+				/></label
+			><label class="mt-4 block text-sm font-bold"
+				>Kata sandi<input
+					class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+					type="password"
+					bind:value={password}
+					autocomplete="current-password"
+				/></label
+			>
+			<div class="mt-5">
+				<AppButton onclick={passwordLogin} disabled={!email || !password}
+					>{pending || 'Masuk'}</AppButton
+				>
+			</div>
+		</section>
+	{/if}
+
+	{#if loading}
+		{#if session}
+			<section
+				class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
+			>
+				<div
+					class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
+				>
+					<span class="text-[#d4e1db]">MALAM INI · MULAI</span>
+					<span class="inline-flex items-center gap-2 text-[#f5bb61]">
+						<span class="size-2 rounded-full bg-[#f5bb61]"></span>{canManageLive
+							? 'ADMIN AKTIF'
+							: 'BERLANGSUNG'}
+					</span>
+				</div>
+				<div
+					class="relative overflow-hidden px-5 pt-7 pb-5 sm:px-6"
+					role="status"
+					aria-busy="true"
+					aria-label="Memuat kondisi lapangan"
+				>
+					<div
+						aria-hidden="true"
+						class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
+					></div>
+					<div class="relative">
+						<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
+						<div class={`mt-2 ${activeMatch ? 'max-w-sm' : 'max-w-lg'}`}>
+							<LoadingSkeleton height="2.25rem" />
+						</div>
+						<div class="mt-6 border-y border-[#85a097]/45 py-4">
+							<div class="max-w-md"><LoadingSkeleton height="1.5rem" /></div>
+						</div>
+						<div class="mt-5 flex flex-col items-start gap-2">
+							<AppButton disabled
+								>{canManageLive ? 'Check in pemain' : 'Masuk sebagai admin'}</AppButton
+							>
+						</div>
+					</div>
+				</div>
+			</section>
+		{:else}
+			<section
+				class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
+				role="status"
+				aria-busy="true"
+				aria-label="Memeriksa sesi aktif"
+			>
+				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
+				<div class="mt-3 max-w-lg"><LoadingSkeleton height="2.25rem" /></div>
+				<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
+			</section>
+		{/if}
+	{:else if userEmail && !club}
+		<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
+			<h1 class="mt-3 text-3xl font-black tracking-tight">Buat klubmu.</h1>
+			<p class="mt-3 text-sm leading-6 text-slate-300">
+				Kamu akan menjadi admin klub. Setelah itu, tambahkan pemain dan mulai sesi pertama.
+			</p>
+			<label class="mt-6 block text-sm font-bold"
+				>Nama klub<input
+					class="mt-2 min-h-12 w-full border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
+					bind:value={clubName}
+					placeholder="PB NEWBIE"
+				/></label
+			>
+			<div class="mt-5">
+				<AppButton onclick={createClub} disabled={clubName.trim().length < 2}>Buat klub</AppButton>
+			</div>
+		</section>
+	{:else if tab === 'live'}
+		<LiveSessionPanel
+			{session}
+			{participants}
+			{activeMatch}
+			canManage={canManageLive}
+			{online}
+			{pending}
+			recentSessions={publicHistory}
+			onadminlogin={() => (adminLoginOpen = true)}
+			onstartsession={createSession}
+			oncheckin={() => (showCheckIn = true)}
+			onendsession={() => (showEndSession = true)}
+			onselect={(participant) => (selectedParticipant = participant)}
+			onstartmatch={beginMatch}
+			oncompleteset={saveSet}
+			oncorrectset={correctSet}
+			onabandonmatch={stopMatch}
+			onsubstitute={substitute}
+		/>
+		{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
+			<section class="mt-5 border-y border-[#b9c5bb] py-5">
+				<h2 class="text-xl font-black">Rekap sesi belum dikonfirmasi</h2>
+				<p class="mt-1 text-sm leading-5 text-[#527169]">
+					Sesi yang belum ditetapkan iurannya bisa dilanjutkan di sini.
+				</p>
+				<ul class="mt-3 divide-y divide-[#d6ddd5] border-y border-[#b9c5bb]">
+					{#each publicHistory.filter((item) => item.closed_at && item.fee_per_person === null) as item (item.id)}
+						<li class="flex items-center justify-between gap-3 py-3">
+							<span class="min-w-0">
+								<b class="block"
+									>{new Intl.DateTimeFormat('id-ID', {
+										day: 'numeric',
+										month: 'long',
+										year: 'numeric'
+									}).format(new Date(item.started_at))}</b
+								>
+								<span class="text-xs text-[#527169]"
+									>{item.attendance} pemain hadir · iuran belum ditetapkan</span
+								>
+							</span>
+							<a
+								class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+								href={resolve('/session-close/[id]', { id: item.id })}>Lanjutkan rekap</a
+							>
+						</li>
+					{/each}
+				</ul>
+			</section>
+		{/if}
+	{:else if tab === 'players'}
+		<section class=" bg-slate-950 p-6 text-white">
+			<p class="text-xs font-black tracking-[0.16em] text-lime-300">ROSTER</p>
+			<h1 class="mt-2 text-3xl font-black tracking-tight">
+				{publicRoster.length ? `${publicRoster.length} pemain terdaftar` : 'Belum ada pemain.'}
+			</h1>
+			<p class="mt-3 text-sm leading-6 text-slate-300">
+				Daftarkan pemain tetap di sini. Pemain tamu bisa ditambahkan langsung dari halaman Live.
+			</p>
+		</section>
+		{#if userEmail && club?.is_club_admin}<section
+				class="mt-4 border border-slate-200 bg-white p-4 shadow-sm"
+			>
+				<label class="block text-sm font-bold"
+					>Tambah pemain<input
+						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+						bind:value={playerName}
+						placeholder="Nama pemain"
+					/></label
+				>
+				<div class="mt-4">
+					<AppButton onclick={createPlayer} disabled={!playerName.trim()}>Tambah pemain</AppButton>
+				</div>
+			</section>{/if}
+		<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
+			<ul class="divide-y divide-slate-100">
+				{#each userEmail ? roster : publicRoster as player (player.id)}<li
+						class="flex min-h-14 items-center gap-3 px-4 py-3"
+					>
+						<span
+							class="grid size-9 place-items-center bg-lime-200 text-sm font-black text-lime-950"
+							>{player.display_name.slice(0, 1)}</span
+						><span class="font-bold">{player.display_name}</span>
+					</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
+						Belum ada pemain terdaftar.
+					</li>{/each}
+			</ul>
+		</section>
+	{:else if tab === 'history'}
+		<section class=" bg-slate-950 p-6 text-white">
+			<h1 class="text-3xl font-black tracking-tight">Riwayat sesi</h1>
+			<p class="mt-3 text-sm leading-6 text-slate-300">
+				Sesi yang sudah selesai bisa dilihat semua orang. Rincian pembayaran tiap pemain hanya untuk
+				admin.
+			</p>
+		</section>
+		<section class="mt-4 overflow-hidden border border-slate-200 bg-white shadow-sm">
+			<ul class="divide-y divide-slate-100">
+				{#each publicHistory.filter((item) => item.closed_at) as item (item.id)}<li
+						class="flex items-center justify-between gap-4 px-4 py-4"
+					>
+						<div>
+							<p class="font-black">
+								{new Intl.DateTimeFormat(undefined, {
+									month: 'short',
+									day: 'numeric',
+									year: 'numeric'
+								}).format(new Date(item.started_at))}
+							</p>
+							<p class="mt-1 text-sm text-slate-500">
+								{item.attendance} pemain · Iuran {item.fee_per_person
+									? `Rp${item.fee_per_person.toLocaleString('id-ID')}`
+									: 'belum ditetapkan'}
+							</p>
+						</div>
+						<span class="rounded-full bg-lime-100 px-3 py-1 text-xs font-black text-lime-800"
+							>Selesai</span
+						>
+					</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
+						Belum ada sesi yang selesai.
+					</li>{/each}
+			</ul>
+		</section>
+	{:else}
+		<section class=" bg-slate-950 p-6 text-white">
+			<h1 class="text-3xl font-black tracking-tight">Dana klub</h1>
+			<p class="mt-3 text-sm leading-6 text-slate-300">
+				Ringkasan iuran yang tercatat dan pengeluaran yang disetujui. Saldo per pemain hanya
+				terlihat oleh admin.
+			</p>
+			<div class="mt-6 grid grid-cols-3 gap-2 text-center">
+				<div>
+					<p class="text-xs font-bold text-slate-400">MASUK</p>
+					<p class="mt-1 font-black">Rp{(fundSummary?.received ?? 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div>
+					<p class="text-xs font-bold text-slate-400">KELUAR</p>
+					<p class="mt-1 font-black">Rp{(fundSummary?.expenses ?? 0).toLocaleString('id-ID')}</p>
+				</div>
+				<div>
+					<p class="text-xs font-bold text-lime-300">SALDO</p>
+					<p class="mt-1 font-black text-lime-300">
+						Rp{(fundSummary?.balance ?? 0).toLocaleString('id-ID')}
+					</p>
+				</div>
+			</div>
+		</section>
+	{/if}
+</AppShell>
 
 {#if showCheckIn}
 	<CheckInSheet

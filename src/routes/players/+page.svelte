@@ -4,6 +4,7 @@
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
+	import { ArrowRight } from '@lucide/svelte';
 	import { currentUser } from '$lib/auth';
 	import {
 		addPlayer,
@@ -27,6 +28,8 @@
 	let loading = $state(true);
 	let notice = $state('');
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
+	let members = $derived(roster.filter((player) => player.membership_type === 'MEMBER'));
+	let guests = $derived(roster.filter((player) => player.membership_type === 'GUEST'));
 
 	async function load() {
 		try {
@@ -57,7 +60,11 @@
 		}
 	}
 	async function promoteGuest(playerId: string) {
-		if (!club || !confirm('Jadikan pemain ini anggota tetap klub? Riwayat mainnya tetap tersimpan.')) return;
+		if (
+			!club ||
+			!confirm('Jadikan pemain ini anggota tetap klub? Riwayat mainnya tetap tersimpan.')
+		)
+			return;
 		try {
 			await promoteGuestToMember(club.id, playerId);
 			invalidatePublicData();
@@ -81,13 +88,18 @@
 				</p>
 			</div>
 			{#if loading}<span class="w-18 shrink-0"><LoadingSkeleton height="1rem" /></span>
-			{:else}<p class="shrink-0 text-sm font-black text-[#38675b]">{roster.length} member</p>{/if}
+			{:else}<p class="shrink-0 text-right text-sm font-black text-[#38675b]">
+					{members.length} anggota{guests.length ? ` · ${guests.length} tamu` : ''}
+				</p>{/if}
 		</div>
 	</section>
 	{#if club?.is_club_admin}
-		<section class="mt-5 border border-[#b9c5bb] bg-[#e5ece5] p-5">
-			<h2 class="text-lg font-black">Tambah member</h2>
-			<div class="mt-4 flex gap-3">
+		<section class="mt-5 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h2 class="text-lg font-black">Tambah pemain</h2>
+				<p class="text-sm text-[#527169]">Langsung masuk ke roster klub.</p>
+			</div>
+			<div class="mt-3 flex gap-3">
 				<input
 					class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 font-bold"
 					bind:value={name}
@@ -96,7 +108,7 @@
 			</div>
 		</section>
 	{/if}
-	<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0]">
+	<section class="mt-5 border-y border-[#b9c5bb] bg-[#fffaf0]">
 		{#if loading}<div
 				class="divide-y divide-[#b9c5bb]"
 				role="status"
@@ -111,27 +123,44 @@
 					</div>{/each}
 			</div>
 			<span class="sr-only">Membaca roster…</span>
-		{:else if roster.length}<ul>
-				{#each roster as player (player.id)}<li class="border-b border-[#b9c5bb] last:border-b-0">
-						<a
-							class="flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-[#e5ece5]"
-							href={resolve('/players/[id]', { id: player.id })}
-							data-sveltekit-preload-data="hover"
-							onmouseenter={() => void prefetchPublicPlayer(player.id)}
-							onfocus={() => void prefetchPublicPlayer(player.id)}
-							><span
-								><b class="block text-base">{player.display_name}</b><span
-									class="mt-1 block text-sm text-[#527169]"
-					>{player.membership_type === 'MEMBER' ? 'Anggota klub' : 'Tamu'}</span
-								></span
-							><span class="text-lg text-[#38675b]" aria-hidden="true">›</span></a
+		{:else if roster.length}
+			{#snippet rosterGroup(title: string, players: typeof roster)}
+				{#if players.length}<div>
+						<h2
+							class="border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-3 text-xs font-black tracking-[0.12em] text-[#38675b]"
 						>
-						{#if club?.is_club_admin && player.membership_type === 'GUEST'}<button
-								class="mb-3 ml-5 min-h-9 border border-[#b9c5bb] px-3 text-xs font-black text-[#38675b]"
-								onclick={() => void promoteGuest(player.id)}>Jadikan member</button
-							>{/if}
-					</li>{/each}
-			</ul>
+							{title} · {players.length}
+						</h2>
+						<ul>
+							{#each players as player (player.id)}<li
+									class="border-b border-[#b9c5bb] last:border-b-0"
+								>
+									<a
+										class="group flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-[#e5ece5]"
+										href={resolve('/players/[id]', { id: player.id })}
+										data-sveltekit-preload-data="hover"
+										onmouseenter={() => void prefetchPublicPlayer(player.id)}
+										onfocus={() => void prefetchPublicPlayer(player.id)}
+										><span
+											><b class="block text-lg tracking-[-0.02em]">{player.display_name}</b><span
+												class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]"
+												>{player.membership_type === 'MEMBER' ? 'ANGGOTA KLUB' : 'TAMU'}</span
+											></span
+										><ArrowRight
+											class="shrink-0 text-[#38675b] transition-transform group-hover:translate-x-1"
+											size={18}
+										/></a
+									>
+									{#if club?.is_club_admin && player.membership_type === 'GUEST'}<button
+											class="mb-3 ml-5 min-h-9 border border-[#b9c5bb] bg-[#fffaf0] px-3 text-xs font-black text-[#38675b]"
+											onclick={() => void promoteGuest(player.id)}>Jadikan anggota</button
+										>{/if}
+								</li>{/each}
+						</ul>
+					</div>{/if}
+			{/snippet}
+			{@render rosterGroup('ANGGOTA', members)}
+			{@render rosterGroup('TAMU', guests)}
 		{:else}<div class="p-7">
 				<h2 class="text-xl font-black">Belum ada member.</h2>
 				<p class="mt-2 max-w-sm text-sm leading-6 text-[#527169]">

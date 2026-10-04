@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import { ArrowLeft } from '@lucide/svelte';
 	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
 	import type { ActiveMatch } from '$lib/data/live';
@@ -38,7 +39,6 @@
 	let scoreA = $state('');
 	let scoreB = $state('');
 	let setTwoStarted = $state(false);
-	let matchMenuOpen = $state(false);
 	let substituteStep = $state<0 | 1 | 2 | 3>(0);
 	let outgoingPlayerId = $state('');
 	let replacementPlayerId = $state('');
@@ -101,7 +101,6 @@
 		correctionSet = setNumber;
 		correctionA = String(set.teamAScore ?? '');
 		correctionB = String(set.teamBScore ?? '');
-		matchMenuOpen = false;
 	}
 
 	async function submitCorrection() {
@@ -118,33 +117,17 @@
 		<section
 			class="court-score-enter overflow-hidden border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.08)]"
 		>
-			<div
-				class="flex items-center justify-between border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-3"
-			>
-				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
-					MATCH {activeMatch.sequence_number}
-				</p>
-				<button
-					class="grid size-11 place-items-center text-xl text-[#38675b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
-					onclick={() => (matchMenuOpen = !matchMenuOpen)}
-					aria-label="Menu match">•••</button
-				>
-			</div>
-			{#if matchMenuOpen && canManage}
-				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3">
-					<div class="flex flex-wrap gap-3">
-						{#if completedSets.length}<AppButton
-								variant="secondary"
-								onclick={() => openCorrection(completedSets[0].setNumber as 1 | 2)}
-								disabled={Boolean(pending) || !online}>Koreksi skor</AppButton
-							>{/if}<AppButton
-							variant="danger"
-							onclick={onabandon}
-							disabled={Boolean(pending) || !online}>Batalkan match</AppButton
-						>
-					</div>
+			<div class="border-b border-[#b9c5bb] bg-[#163630] px-5 py-4 text-[#fffaf0]">
+				<div class="flex items-center justify-between gap-4">
+					<h2 class="text-xl font-black tracking-[-0.04em]">Match {activeMatch.sequence_number}</h2>
+					<span class="text-xs font-black tracking-[0.12em] text-[#f5bb61]"
+						>SET {playingSet.setNumber}</span
+					>
 				</div>
-			{/if}
+				<p class="mt-2 text-sm text-[#d4e1db]">
+					Hasil set dan pergantian pemain dikendalikan dari sini.
+				</p>
+			</div>
 			{#if correctionSet}
 				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-4">
 					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
@@ -192,25 +175,43 @@
 					</p>
 				</div>
 			</div>
-			{#if completedSets.length}
-				<div class="flex flex-wrap gap-2 border-b border-[#b9c5bb] px-5 py-4">
-					{#each completedSets as set (set.setNumber)}<span
-							class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-xs font-bold text-[#163630]"
-							>Set {set.setNumber}: {set.teamAScore}–{set.teamBScore}</span
-						>{/each}
+			{#if completedSets.length || canManage}
+				<div
+					class="flex flex-wrap items-center gap-2 border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3"
+				>
+					{#each completedSets as set (set.setNumber)}
+						{#if canManage}<AppButton
+								variant="secondary"
+								disabled={Boolean(pending) || !online}
+								onclick={() => openCorrection(set.setNumber as 1 | 2)}
+								>Koreksi Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</AppButton
+							>{:else}<span
+								class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-xs font-bold text-[#163630]"
+								>Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
+							>{/if}
+					{/each}
+					{#if canManage}<AppButton
+							variant="danger"
+							disabled={Boolean(pending) || !online}
+							onclick={onabandon}>Batalkan match</AppButton
+						>{/if}
 				</div>
 			{/if}
 			{#if betweenSets && substituteStep === 0}
 				<div class="px-5 py-6">
-					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">SET 1 SELESAI</p>
-					<h3 class="mt-2 text-xl font-black tracking-[-0.04em] text-[#163630]">
-						Semua lanjut bermain?
-					</h3>
-					<div class="mt-5 flex flex-wrap gap-3">
-						<AppButton disabled={!online} onclick={() => (setTwoStarted = true)}
+					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">Lanjut ke Set 2</h3>
+					<p class="mt-2 text-sm leading-6 text-[#527169]">
+						Pilih lanjut dengan susunan yang sama, atau ganti satu pemain sebelum mulai.
+					</p>
+					<div class="mt-5 grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3">
+						<AppButton class="w-full" disabled={!online} onclick={() => (setTwoStarted = true)}
 							>Mulai Set 2</AppButton
-						><AppButton variant="secondary" disabled={!online} onclick={() => (substituteStep = 1)}
-							>Ganti pemain</AppButton
+						>
+						<AppButton
+							class="w-full px-2"
+							variant="secondary"
+							disabled={!online}
+							onclick={() => (substituteStep = 1)}>Ganti pemain</AppButton
 						>
 					</div>
 				</div>
@@ -286,11 +287,12 @@
 					{/if}
 				</div>
 			{:else if canManage}
-				<div class="px-5 pt-5 pb-5">
-					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
-						SET {playingSet.setNumber}
-					</p>
-					<div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+				<div class="px-5 py-6">
+					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">
+						Catat hasil Set {playingSet.setNumber}
+					</h3>
+					<p class="mt-2 text-sm text-[#527169]">Masukkan skor akhir setelah reli terakhir.</p>
+					<div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
 						<label class="text-xs font-bold text-[#527169]"
 							>Skor Tim A<input
 								class="mt-1 min-h-16 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-3xl font-black text-[#163630]"
@@ -308,6 +310,7 @@
 					</div>
 					<div class="mt-4">
 						<AppButton
+							class="w-full"
 							onclick={submitScore}
 							disabled={Boolean(pending) || !online || !scoreA || !scoreB}
 							>{pending || `Selesaikan Set ${playingSet.setNumber}`}</AppButton
@@ -315,15 +318,6 @@
 					</div>
 				</div>
 			{/if}
-			{#if ready.length}<div class="border-t border-[#b9c5bb] px-5 py-4">
-					<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">MENUNGGU</p>
-					<p class="mt-2 text-sm font-bold text-[#163630]">
-						{ready
-							.slice(0, 3)
-							.map((player) => player.name)
-							.join(' · ')}
-					</p>
-				</div>{/if}
 		</section>
 	{/key}
 {:else if canManage && ready.length >= 4}
@@ -341,32 +335,65 @@
 {/if}
 
 {#if stage !== 'idle'}
+	{#snippet prepareHeader()}
+		<div class="border-b border-[#b9c5bb] bg-[#fffaf0]">
+			<div class="mx-auto w-full max-w-lg px-5 py-4">
+				{#if stage === 'select'}
+					<h3
+						id="prepare-match-title"
+						class="text-2xl font-black tracking-[-0.04em] text-[#163630]"
+					>
+						Pilih 4 pemain
+					</h3>
+					<p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p>
+				{:else}
+					<button
+						class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+						onclick={() => (stage = 'select')}><ArrowLeft size={18} />Pemain</button
+					>
+					<h3
+						id="prepare-match-title"
+						class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#163630]"
+					>
+						Atur tim
+					</h3>
+				{/if}
+			</div>
+		</div>
+	{/snippet}
+
+	{#snippet prepareFooter()}
+		<div class="border-t border-[#b9c5bb] bg-[#fffaf0] p-4">
+			<div class="mx-auto flex w-full max-w-lg flex-wrap gap-3">
+				{#if stage === 'select'}<AppButton
+						class="w-full justify-center"
+						disabled={selected.length !== 4}
+						onclick={continueToTeams}>Lanjutkan</AppButton
+					>
+				{:else}<AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton
+						disabled={Boolean(pending)}
+						onclick={async () => {
+							if (await onstart(selected.slice(0, 2), selected.slice(2))) stage = 'idle';
+						}}>{pending || 'Mulai match'}</AppButton
+					>{/if}
+			</div>
+		</div>
+	{/snippet}
+
 	<CourtSheet
 		open={true}
 		title="Siapkan match"
 		class="prepare-match-sheet"
+		fixedLayout
+		header={prepareHeader}
+		footer={prepareFooter}
 		onOpenChange={(open) => {
 			if (!open) stage = 'idle';
 		}}
 	>
-		<div class="overscroll-contain">
-			<div class="mx-auto w-12 border-t-2 border-[#85a097] pt-4"></div>
+		<div class="mx-auto w-full max-w-lg overscroll-contain">
 			{#if stage === 'select'}
-				<div class="border-b border-[#b9c5bb] px-5 pb-4">
-					<div class="flex items-center justify-between gap-4">
-						<h3
-							id="prepare-match-title"
-							class="text-2xl font-black tracking-[-0.04em] text-[#163630]"
-						>
-							Pilih 4 pemain
-						</h3>
-						<AppButton disabled={selected.length !== 4} onclick={continueToTeams}
-							>Lanjutkan</AppButton
-						>
-					</div>
-					<p class="mt-2 text-sm text-[#527169]">{selected.length} dari 4 pemain dipilih.</p>
-				</div>
-				<div class="px-5 py-4">
+				<div class="p-5">
 					<MultiSelect
 						options={readyPlayerOptions}
 						{selected}
@@ -377,21 +404,7 @@
 					/>
 				</div>
 			{:else}
-				<div class="border-b border-[#b9c5bb] px-5 pb-4">
-					<div class="flex items-center justify-between gap-4">
-						<button
-							class="min-h-11 text-sm font-black text-[#38675b]"
-							onclick={() => (stage = 'select')}>‹ Pemain</button
-						>
-					</div>
-					<h3
-						id="prepare-match-title"
-						class="mt-3 text-2xl font-black tracking-[-0.04em] text-[#163630]"
-					>
-						Atur tim
-					</h3>
-				</div>
-				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-5 py-6 text-center">
+				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-5 text-center">
 					<div>
 						<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM A</p>
 						<p class="mt-3 text-sm font-extrabold whitespace-pre-line text-[#163630]">
@@ -411,14 +424,6 @@
 								.join('\n')}
 						</p>
 					</div>
-				</div>
-				<div class="flex flex-wrap gap-3 border-t border-[#b9c5bb] px-5 py-4">
-					<AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton
-						disabled={Boolean(pending)}
-						onclick={async () => {
-							if (await onstart(selected.slice(0, 2), selected.slice(2))) stage = 'idle';
-						}}>{pending || 'Mulai match'}</AppButton
-					>
 				</div>
 			{/if}
 		</div>

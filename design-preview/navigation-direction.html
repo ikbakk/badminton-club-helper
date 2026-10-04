@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>PB NEWBIE — Arah navigasi</title>
+		<style>
+			:root {
+				--ink: #163630;
+				--chalk: #fffaf0;
+				--ground: #f4f1e8;
+				--sideline: #b9c5bb;
+				--clay: #e2653e;
+				--gold: #f5bb61;
+				--muted: #49635c;
+				--button-ink: #0a211d;
+				font-family: 'Court Sans', Arial, sans-serif;
+				color: var(--ink);
+				background: var(--ground);
+				accent-color: var(--clay);
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+			::selection {
+				background: var(--clay);
+				color: var(--chalk);
+			}
+			:focus-visible {
+				outline: 3px solid var(--clay);
+				outline-offset: 3px;
+			}
+			body {
+				margin: 0;
+				min-width: 320px;
+				background: var(--ground);
+			}
+			button {
+				font: inherit;
+			}
+
+			.app {
+				min-height: 100dvh;
+				display: grid;
+				grid-template-columns: minmax(228px, 0.48fr) minmax(0, 2fr);
+				background:
+					linear-gradient(
+						90deg,
+						transparent 0 49.85%,
+						rgb(22 54 48 / 6%) 49.85% 50.15%,
+						transparent 50.15%
+					),
+					var(--ground);
+			}
+
+			.route-map {
+				position: sticky;
+				top: 0;
+				height: 100dvh;
+				padding: 28px 22px;
+				display: flex;
+				flex-direction: column;
+				border-right: 1px solid var(--sideline);
+				background: var(--chalk);
+			}
+
+			.club-mark {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+			}
+			.monogram {
+				display: grid;
+				place-items: center;
+				width: 46px;
+				height: 46px;
+				background: var(--ink);
+				color: var(--gold);
+				font-weight: 900;
+				letter-spacing: -0.12em;
+				box-shadow: 0 8px 18px rgb(22 54 48 / 18%);
+			}
+			.club-mark strong {
+				display: block;
+				font-size: 15px;
+				letter-spacing: -0.04em;
+			}
+			.club-mark span {
+				display: block;
+				margin-top: 3px;
+				color: var(--muted);
+				font-size: 11px;
+				font-weight: 800;
+				letter-spacing: 0.14em;
+			}
+			.route-map h2 {
+				margin: 44px 0 12px;
+				font-size: 11px;
+				letter-spacing: 0.15em;
+			}
+			.routes {
+				display: grid;
+				gap: 2px;
+			}
+			.route {
+				width: 100%;
+				min-height: 52px;
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 0 12px;
+				border: 0;
+				border-top: 1px solid transparent;
+				border-bottom: 1px solid transparent;
+				background: transparent;
+				color: var(--ink);
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: 800;
+				text-align: left;
+			}
+			.route:hover {
+				background: #e5ece5;
+			}
+			.route[aria-current='page'] {
+				background: var(--ink);
+				border-color: var(--ink);
+				color: var(--chalk);
+			}
+			.route small {
+				font-size: 10px;
+				font-weight: 900;
+				letter-spacing: 0.08em;
+			}
+			.route-map footer {
+				margin-top: auto;
+				padding-top: 24px;
+				border-top: 1px solid var(--sideline);
+				color: var(--muted);
+				font-size: 12px;
+				line-height: 1.5;
+			}
+
+			main {
+				position: relative;
+				overflow: hidden;
+				padding: 28px clamp(20px, 5vw, 72px) 72px;
+			}
+			.watermark {
+				position: absolute;
+				z-index: 0;
+				top: 26px;
+				right: -0.09em;
+				margin: 0;
+				color: rgb(22 54 48 / 7%);
+				font-size: clamp(88px, 18vw, 250px);
+				line-height: 0.78;
+				font-weight: 900;
+				letter-spacing: -0.09em;
+				pointer-events: none;
+				user-select: none;
+				transition:
+					opacity 220ms ease-out,
+					transform 220ms ease-out;
+			}
+			.screen {
+				position: relative;
+				z-index: 1;
+				width: min(100%, 880px);
+				margin: 0 auto;
+			}
+			.utility {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 20px;
+				min-height: 56px;
+				padding-bottom: 12px;
+				border-bottom: 1px solid var(--sideline);
+			}
+			.utility span {
+				color: var(--muted);
+				font-size: 12px;
+				font-weight: 800;
+			}
+			.utility button {
+				border: 0;
+				background: transparent;
+				color: var(--ink);
+				cursor: pointer;
+				font-size: 12px;
+				font-weight: 900;
+				text-decoration: underline;
+				text-underline-offset: 4px;
+			}
+			.status {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--muted);
+				font-size: 12px;
+				font-weight: 800;
+			}
+			.status::before {
+				content: '';
+				width: 8px;
+				height: 8px;
+				background: var(--gold);
+				border-radius: 50%;
+				box-shadow: 0 0 0 4px rgb(245 187 97 / 20%);
+			}
+			h1 {
+				max-width: 700px;
+				margin: 56px 0 14px;
+				font-size: clamp(42px, 7vw, 84px);
+				line-height: 0.92;
+				letter-spacing: -0.04em;
+			}
+			.intro {
+				max-width: 48ch;
+				margin: 0;
+				color: var(--muted);
+				font-size: 17px;
+				font-weight: 700;
+				line-height: 1.55;
+			}
+
+			.court {
+				position: relative;
+				min-height: 370px;
+				margin-top: 42px;
+				padding: 40px;
+				overflow: hidden;
+				background: var(--ink);
+				color: var(--chalk);
+				box-shadow: 0 16px 30px rgb(22 54 48 / 18%);
+			}
+			.court::before,
+			.court::after {
+				content: '';
+				position: absolute;
+				pointer-events: none;
+				opacity: 0.32;
+			}
+			.court::before {
+				inset: 30px;
+				border: 1px solid var(--chalk);
+			}
+			.court::after {
+				top: 30px;
+				bottom: 30px;
+				left: 50%;
+				border-left: 1px solid var(--chalk);
+			}
+			.court-head,
+			.teams,
+			.scoreline,
+			.court-action {
+				position: relative;
+				z-index: 1;
+			}
+			.court-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				font-size: 12px;
+				font-weight: 900;
+				letter-spacing: 0.1em;
+			}
+			.court-head span:last-child {
+				color: var(--gold);
+			}
+			.teams {
+				display: grid;
+				grid-template-columns: 1fr auto 1fr;
+				align-items: center;
+				gap: 14px;
+				margin-top: 58px;
+				text-align: center;
+			}
+			.team {
+				font-size: clamp(21px, 4vw, 36px);
+				line-height: 1.15;
+				font-weight: 900;
+				letter-spacing: -0.045em;
+			}
+			.versus {
+				color: var(--gold);
+				font-size: 14px;
+				font-weight: 900;
+			}
+			.scoreline {
+				display: flex;
+				justify-content: center;
+				gap: 12px;
+				margin-top: 36px;
+			}
+			.set {
+				padding: 9px 12px;
+				border: 1px solid rgb(255 250 240 / 32%);
+				background: rgb(255 250 240 / 8%);
+				font-size: 14px;
+				font-weight: 900;
+			}
+			.court-action {
+				display: flex;
+				justify-content: center;
+				margin-top: 30px;
+			}
+			.primary {
+				min-height: 48px;
+				border: 1px solid var(--clay);
+				background: var(--clay);
+				color: var(--button-ink);
+				padding: 0 20px;
+				cursor: pointer;
+				font-size: 14px;
+				font-weight: 900;
+			}
+			.primary:hover {
+				background: #ef825e;
+			}
+
+			.next-step {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: 16px;
+				align-items: start;
+				margin-top: 28px;
+				padding: 20px 0;
+				border-top: 1px solid var(--sideline);
+				border-bottom: 1px solid var(--sideline);
+			}
+			.next-step strong {
+				color: var(--ink);
+				font-size: 12px;
+				letter-spacing: 0.1em;
+			}
+			.next-step h2 {
+				margin: 0;
+				font-size: 19px;
+				letter-spacing: -0.035em;
+			}
+			.next-step p {
+				margin: 6px 0 0;
+				color: var(--muted);
+				font-size: 14px;
+				line-height: 1.5;
+			}
+
+			.mode-note {
+				margin-top: 40px;
+				color: var(--muted);
+				font-size: 12px;
+				line-height: 1.55;
+			}
+			.mode-note b {
+				color: var(--ink);
+			}
+
+			@media (max-width: 760px) {
+				.app {
+					display: block;
+				}
+				.route-map {
+					position: relative;
+					height: auto;
+					min-height: 0;
+					padding: 16px 16px 0;
+					border-right: 0;
+					border-bottom: 1px solid var(--sideline);
+				}
+				.route-map h2,
+				.route-map footer {
+					display: none;
+				}
+				.routes {
+					display: flex;
+					gap: 0;
+					margin: 16px -16px 0;
+					overflow-x: auto;
+					scrollbar-width: none;
+				}
+				.routes::-webkit-scrollbar {
+					display: none;
+				}
+				.route {
+					flex: 0 0 auto;
+					min-height: 48px;
+					padding: 0 16px;
+					border-right: 1px solid var(--sideline);
+					font-size: 12px;
+				}
+				.route small {
+					display: none;
+				}
+				main {
+					padding: 20px 16px 48px;
+				}
+				.utility {
+					min-height: 40px;
+				}
+				h1 {
+					margin-top: 42px;
+				}
+				.court {
+					min-height: 340px;
+					margin-top: 32px;
+					padding: 28px 24px;
+				}
+				.court::before {
+					inset: 18px;
+				}
+				.court::after {
+					top: 18px;
+					bottom: 18px;
+				}
+				.teams {
+					margin-top: 52px;
+					gap: 8px;
+				}
+				.team {
+					font-size: 22px;
+				}
+				.next-step {
+					grid-template-columns: 1fr;
+					gap: 8px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="app">
+			<aside class="route-map" aria-label="Peta navigasi klub">
+				<div class="club-mark">
+					<div class="monogram">PB</div>
+					<div><strong>PB NEWBIE</strong><span>KLUB BULUTANGKIS</span></div>
+				</div>
+				<h2>PETA KLUB</h2>
+				<nav class="routes" aria-label="Navigasi utama">
+					<button class="route" type="button" data-mode="LIVE COURT" aria-current="page">
+						<span>Live</span><small>MAIN SEKARANG</small>
+					</button>
+					<button class="route" type="button" data-mode="PEMAIN">
+						<span>Pemain</span><small>ROSTER</small>
+					</button>
+					<button class="route" type="button" data-mode="ARSIP SESI">
+						<span>Riwayat</span><small>SELESAI</small>
+					</button>
+					<button class="route" type="button" data-mode="KAS KLUB">
+						<span>Kas</span><small>DANA</small>
+					</button>
+					<button class="route" type="button" data-mode="PENGATURAN">
+						<span>Pengaturan</span><small>KLUB</small>
+					</button>
+				</nav>
+				<footer>
+					Navigasi selalu literal. Rekap sesi adalah mode kerja, bukan tujuan yang menyamar sebagai
+					tab.
+				</footer>
+			</aside>
+
+			<main>
+				<p class="watermark" id="watermark" aria-hidden="true">LIVE<br />COURT</p>
+				<div class="screen">
+					<div class="utility">
+						<span class="status">Sesi sedang berjalan</span
+						><button type="button">Buka operator</button>
+					</div>
+					<h1 id="title">Lapangan aktif.<br />Semua orang tahu langkah berikutnya.</h1>
+					<p class="intro" id="intro">
+						Satu lapangan, satu status yang jelas. Navigasi tetap di atas sebagai peta klub—bukan
+						penghalang di area ibu jari.
+					</p>
+
+					<section class="court" aria-labelledby="match-title">
+						<div class="court-head"><span id="match-title">MATCH 04</span><span>SET 2</span></div>
+						<div class="teams">
+							<div class="team">Bima<br />Fajar</div>
+							<div class="versus">VS</div>
+							<div class="team">Nadia<br />Raka</div>
+						</div>
+						<div class="scoreline">
+							<span class="set">SET 1 · 21–17</span><span class="set">SET 2 · 12–08</span>
+						</div>
+						<div class="court-action">
+							<button class="primary" type="button">Catat skor berikutnya</button>
+						</div>
+					</section>
+
+					<section class="next-step" aria-label="Aksi rekap sesi">
+						<strong>SELESAI MAIN?</strong>
+						<div>
+							<h2>Masuk ke mode Rekap sesi</h2>
+							<p>
+								Konfirmasi kehadiran, iuran, dan pengeluaran dalam workflow khusus. Riwayat tetap
+								membuka arsip, kapan pun.
+							</p>
+						</div>
+					</section>
+					<p class="mode-note">
+						<b>Eksperimen:</b> watermark menandai konteks besar tanpa menggantikan nama halaman atau
+						status aktif pada navigasi.
+					</p>
+				</div>
+			</main>
+		</div>
+		<script>
+			const copy = {
+				'LIVE COURT': [
+					'Lapangan aktif.<br>Semua orang tahu langkah berikutnya.',
+					'Satu lapangan, satu status yang jelas. Navigasi tetap di atas sebagai peta klub—bukan penghalang di area ibu jari.'
+				],
+				PEMAIN: [
+					'Pemain yang hadir.<br>Rotasi tetap terbaca.',
+					'Roster adalah tujuan literal: periksa peserta, status, dan riwayat mereka tanpa kehilangan posisi.'
+				],
+				'ARSIP SESI': [
+					'Sesi yang selesai.<br>Jejak tetap utuh.',
+					'Riwayat selalu membawa ke arsip. Ia tidak pernah berubah menjadi langkah konfirmasi yang tersembunyi.'
+				],
+				'KAS KLUB': [
+					'Kas klub.<br>Angka yang bisa dilacak.',
+					'Iuran dan pengeluaran dikumpulkan dalam satu tujuan yang bernama jelas.'
+				],
+				PENGATURAN: [
+					'Atur klub.<br>Bukan jalan buntu.',
+					'Setiap baris di sini adalah tujuan nyata atau ringkasan yang jujur—tidak ada chevron palsu.'
+				]
+			};
+			const buttons = document.querySelectorAll('.route');
+			const watermark = document.querySelector('#watermark');
+			const title = document.querySelector('#title');
+			const intro = document.querySelector('#intro');
+			buttons.forEach((button) =>
+				button.addEventListener('click', () => {
+					buttons.forEach((item) => item.removeAttribute('aria-current'));
+					button.setAttribute('aria-current', 'page');
+					const mode = button.dataset.mode;
+					watermark.style.opacity = '0';
+					watermark.style.transform = 'translateY(12px)';
+					window.setTimeout(() => {
+						watermark.innerHTML = mode.replace(' ', '<br>');
+						title.innerHTML = copy[mode][0];
+						intro.textContent = copy[mode][1];
+						watermark.style.opacity = '1';
+						watermark.style.transform = 'translateY(0)';
+					}, 160);
+				})
+			);
+		</script>
+	</body>
+</html>

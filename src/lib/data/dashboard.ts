@@ -14,7 +14,7 @@ function cached<T>(key: string, loader: () => Promise<T>) {
 export function invalidatePublicData() {
 	publicCache.clear();
 }
-export type Club = { id: string; name: string; is_club_admin: boolean; is_finance_admin: boolean };
+export type Club = { id: string; name: string; is_club_admin: boolean };
 export type RosterPlayer = {
 	id: string;
 	display_name: string;
@@ -205,16 +205,6 @@ export type FinanceObligation = {
 	remaining: number;
 };
 
-export type FinanceSubmission = {
-	submission_id: string;
-	session_id: string;
-	submitted_at: string;
-	session_started_at: string;
-	reported_court_cost: number | null;
-	reported_shuttlecock_cost: number | null;
-	notes: string | null;
-};
-
 export async function getFinancePlayerBalances(clubId: string) {
 	const { data, error } = await client().rpc('finance_player_balances', { p_club_id: clubId });
 	if (error) throw error;
@@ -298,25 +288,6 @@ export async function allocatePayment(
 		p_payment_id: paymentId,
 		p_obligation_id: obligationId,
 		p_amount: amount
-	});
-	if (error) throw error;
-}
-
-export async function getFinancePendingSubmissions(clubId: string) {
-	const { data, error } = await client().rpc('finance_pending_submissions', { p_club_id: clubId });
-	if (error) throw error;
-	return (data ?? []) as FinanceSubmission[];
-}
-
-export async function reviewFinanceSubmission(
-	clubId: string,
-	submissionId: string,
-	confirm: boolean
-) {
-	const { error } = await client().rpc('review_finance_submission', {
-		p_club_id: clubId,
-		p_submission_id: submissionId,
-		p_confirm: confirm
 	});
 	if (error) throw error;
 }

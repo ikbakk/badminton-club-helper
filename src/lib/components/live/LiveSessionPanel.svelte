@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import type { PublicSessionHistory } from '$lib/data/dashboard';
 	import type { LiveSession } from '$lib/data/live';
 	import type { ActiveMatch } from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
@@ -13,7 +14,9 @@
 		canManage = false,
 		online = true,
 		pending = '',
+		recentSessions = [],
 		onadminlogin,
+		onstartsession,
 		oncheckin,
 		onendsession,
 		onselect,
@@ -29,7 +32,9 @@
 		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
+		recentSessions?: PublicSessionHistory[];
 		onadminlogin: () => void;
+		onstartsession: () => void;
 		oncheckin: () => void;
 		onendsession: () => void;
 		onselect: (participant: Participant) => void;
@@ -61,68 +66,161 @@
 	);
 	let nextAction = $derived(
 		activeMatch
-			? `${ready.length} pemain menunggu match berikutnya.`
+			? 'Catat skor ketika reli terakhir selesai.'
 			: ready.length === 0
 				? 'Belum ada pemain yang datang.'
 				: ready.length < 4
 					? `${ready.length} siap — butuh ${4 - ready.length} pemain lagi untuk main ganda.`
 					: 'Empat pemain siap untuk match berikutnya.'
 	);
+	let recentClosedSessions = $derived(recentSessions.filter((item) => item.closed_at).slice(0, 2));
+	let currentSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
+	let completedSets = $derived(activeMatch?.sets.filter((set) => set.status === 'COMPLETED') ?? []);
+	let teamA = $derived(
+		currentSet?.players.filter((player) => player.team === 'A').map((player) => player.name) ?? []
+	);
+	let teamB = $derived(
+		currentSet?.players.filter((player) => player.team === 'B').map((player) => player.name) ?? []
+	);
+	let playingCount = $derived(
+		participants.filter((participant) => participant.status === 'PLAYING').length
+	);
+	const sessionDate = (value: string) =>
+		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(value));
 </script>
 
 {#if !session}
-	<section
-		class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
-	>
-		<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
-		<h2 class="mt-3 text-3xl font-black tracking-[-0.04em] text-[#163630]">
-			Belum ada sesi yang berjalan.
-		</h2>
-		<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
-			Cek Riwayat untuk sesi sebelumnya, atau kembali saat badminton dimulai.
-		</p>
+	<section class="border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.09)]">
+		<div class="grid lg:grid-cols-[1.2fr_0.8fr]">
+			<div class="p-6 sm:p-9">
+				<h2 class="max-w-[11ch] text-4xl font-black tracking-[-0.04em] text-[#163630] sm:text-5xl">
+					Mulai dari daftar hadir.
+				</h2>
+				<p class="mt-4 max-w-md text-sm leading-6 text-[#527169]">
+					Buka sesi ketika pemain pertama datang. Setelah itu, Live berubah menjadi papan lapangan
+					yang hanya menunjukkan apa yang perlu dilakukan berikutnya.
+				</p>
+				{#if canManage}<AppButton class="mt-7" onclick={onstartsession}
+						>Mulai sesi malam ini</AppButton
+					>
+				{:else}<AppButton class="mt-7" onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
+			</div>
+			<div
+				class="grid content-start gap-6 border-t border-[#b9c5bb] bg-[#e5ece5] p-6 sm:p-9 lg:border-t-0 lg:border-l"
+			>
+				<div>
+					<b class="block text-3xl font-black tabular-nums">{recentClosedSessions.length}</b><span
+						class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]">SESI TERBARU</span
+					>
+				</div>
+				{#if recentClosedSessions.length}<div class="border-t border-[#b9c5bb]">
+						{#each recentClosedSessions as recentSession (recentSession.id)}<div
+								class="flex justify-between gap-3 border-b border-[#b9c5bb] py-3 text-sm"
+							>
+								<b>{sessionDate(recentSession.started_at)}</b><span
+									class="text-right font-bold text-[#527169]"
+									>{recentSession.attendance} pemain</span
+								>
+							</div>{/each}
+					</div>{:else}<p class="border-t border-[#b9c5bb] pt-4 text-sm leading-6 text-[#527169]">
+						Belum ada sesi tercatat. Sesi pertama akan menjadi titik awal arsip klub.
+					</p>{/if}
+			</div>
+		</div>
 	</section>
 {:else}
 	<section
-		class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
+		class="relative isolate overflow-visible border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_18px_34px_rgba(22,54,48,0.18)]"
 	>
-		<div
-			class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
-		>
-			<span>MALAM INI · MULAI {startedAt}</span>
-			<span class="inline-flex items-center gap-2 text-[#f5bb61]"
-				><span class="size-2 rounded-full bg-[#f5bb61]"></span>{canManage
-					? 'ADMIN AKTIF'
-					: 'BERLANGSUNG'}</span
-			>
-		</div>
-		<div class="relative overflow-hidden px-5 pt-7 pb-5 sm:px-6">
+		{#if activeMatch}
 			<div
 				aria-hidden="true"
-				class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
-			></div>
-			<div class="relative">
-				<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
-				<h2 class="mt-2 text-3xl font-black tracking-[-0.055em]">
-					{activeMatch
-						? `Match ${activeMatch.sequence_number} sedang berlangsung.`
-						: 'Lapangan menunggu match pertama.'}
+				class="pointer-events-none absolute top-8 left-1/2 z-0 -translate-x-1/2 text-[clamp(3.5rem,16vw,9rem)] leading-none font-black tracking-[-0.1em] whitespace-nowrap text-[#85a097]/10"
+			>
+				MATCH {activeMatch.sequence_number} · SET {currentSet?.setNumber ?? '—'}
+			</div>
+			<div
+				aria-hidden="true"
+				class="pointer-events-none absolute -right-[0.12em] -bottom-[0.23em] z-0 max-w-[125%] text-right text-[clamp(3rem,13vw,7rem)] leading-[0.72] font-black tracking-[-0.08em] whitespace-nowrap text-[#85a097]/10"
+			>
+				{[...teamA, ...teamB].join(' · ')}
+			</div>
+		{/if}
+		<div
+			aria-hidden="true"
+			class="pointer-events-none absolute inset-x-[10%] top-12 bottom-0 border-x border-[#85a097]/15"
+		></div>
+		<div
+			aria-hidden="true"
+			class="pointer-events-none absolute inset-x-[10%] top-12 border-t border-[#85a097]/15"
+		></div>
+		<div
+			class="relative flex items-center justify-between gap-4 border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
+		>
+			<span>MALAM INI · MULAI {startedAt}</span><span
+				class="inline-flex items-center gap-2 text-[#f5bb61]"
+				><span class="size-2 rounded-full bg-[#f5bb61] shadow-[0_0_0_4px_rgba(245,187,97,0.16)]"
+				></span>{canManage ? 'ADMIN AKTIF' : 'BERLANGSUNG'}</span
+			>
+		</div>
+		<div class="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
+			{#if activeMatch}
+				<h2 class="text-xs font-black tracking-[0.14em] text-[#f5bb61]">
+					MATCH {activeMatch.sequence_number} · SET {currentSet?.setNumber ?? '—'} BERLANGSUNG
 				</h2>
-				<div class="mt-6 border-y border-[#85a097]/45 py-4">
-					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
+				<div
+					class="mt-12 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center text-2xl leading-[0.96] font-black tracking-[-0.04em] sm:mt-16 sm:text-4xl"
+				>
+					<div>
+						{#each teamA as player (player)}<span class="block">{player}</span>{:else}Tim A{/each}
+					</div>
+					<span class="text-xs tracking-[0.14em] text-[#f5bb61]">VS</span>
+					<div>
+						{#each teamB as player (player)}<span class="block">{player}</span>{:else}Tim B{/each}
+					</div>
 				</div>
-				<div class="mt-5 flex flex-wrap items-center gap-3">
-					{#if canManage}<AppButton disabled={!online} onclick={oncheckin}
-							>Check in pemain</AppButton
+				<div class="mt-9 flex flex-wrap justify-center gap-2" aria-label="Riwayat set">
+					{#each completedSets as set (set.setNumber)}
+						<span
+							class="border border-[#85a097]/55 px-3 py-2 text-xs font-black text-[#d4e1db] tabular-nums"
+							>SET {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
 						>
-					{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
+					{/each}
+					<span
+						class="border border-[#f5bb61]/70 bg-[#f5bb61] px-3 py-2 text-xs font-black text-[#163630]"
+						>SET {currentSet?.setNumber ?? '—'} · DI LAPANGAN</span
+					>
+				</div>
+			{:else}
+				<p class="max-w-md text-xs font-black tracking-[0.14em] text-[#f5bb61]">
+					Lapangan siap digunakan.
+				</p>
+				<h2 class="mt-3 max-w-md text-3xl font-black tracking-[-0.04em]">
+					Belum ada peluit pertama.
+				</h2>
+			{/if}
+			<div
+				class="mt-10 flex flex-wrap items-end justify-between gap-5 border-t border-[#85a097]/45 pt-5"
+			>
+				<div>
+					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
+					<p class="mt-2 text-xs font-black tracking-[0.1em] text-[#a7c5b9]">
+						{playingCount ? `${playingCount} PEMAIN DI LAPANGAN` : 'LAPANGAN KOSONG'} · {ready.length}
+						MENUNGGU
+					</p>
+				</div>
+				<div
+					class="grid w-full grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 sm:w-auto sm:min-w-80"
+				>
+					{#if canManage}<AppButton disabled={!online} onclick={oncheckin} class="w-full"
+							>Check in pemain</AppButton
+						>{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
 					{#if canManage}<AppButton
 							variant="danger"
+							class="w-full px-2"
 							disabled={!online || Boolean(pending)}
 							onclick={onendsession}>Akhiri sesi</AppButton
-						>{:else}<p class="w-full text-xs leading-5 text-[#d4e1db]">
-							Masuk sebagai admin klub untuk mencatat pemain hadir dan mengelola match.
-						</p>{/if}
+						>{/if}
 				</div>
 			</div>
 		</div>
@@ -149,28 +247,6 @@
 	</div>
 
 	<div class="mt-5 grid gap-4">
-		<aside class="px-1 py-1" aria-label="Keterangan warna status pemain">
-			<ul class="grid gap-1 text-xs leading-5 text-[#527169]">
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#dceadf]"></span><b>Hijau:</b> siap / menunggu giliran
-				</li>
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#d9e3f6]"></span><b>Biru:</b> sedang bermain
-				</li>
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#dce8eb]"></span><b>Biru muda:</b> istirahat
-				</li>
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#fae2ae]"></span><b>Kuning:</b> pergi sebentar
-				</li>
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#f7d7cf]"></span><b>Terakota:</b> selesai bermain malam ini
-				</li>
-				<li class="flex items-center gap-2">
-					<span class="size-3 shrink-0 bg-[#e4e2da]"></span><b>Abu-abu:</b> sudah pulang
-				</li>
-			</ul>
-		</aside>
 		{#each groups as group (group.status)}
 			<ParticipantGroup
 				title={group.title}

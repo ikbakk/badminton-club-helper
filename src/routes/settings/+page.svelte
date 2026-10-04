@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { ArrowLeft } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
@@ -12,7 +13,7 @@
 	let email = $state<string | null>(null);
 	let loading = $state(true);
 	let clubName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
-	let isAdmin = $derived(Boolean(club?.is_club_admin || club?.is_finance_admin));
+	let isAdmin = $derived(Boolean(club?.is_club_admin));
 	function signOut() {
 		void supabase?.auth.signOut();
 		email = null;
@@ -55,37 +56,25 @@
 		</div>
 	{:else if isAdmin}<div class="mt-5 grid gap-4">
 			<section class="border border-[#b9c5bb] bg-[#fffaf0]">
-				<a
-					href={resolve('/settings')}
-					class="flex min-h-18 items-center justify-between px-5 py-4 hover:bg-[#e5ece5]"
-					><span
-						><b class="block text-lg">Klub</b><span class="mt-1 block text-sm text-[#527169]"
-							>{clubName} · nama dan tampilan klub</span
-						></span
-					><span class="text-lg text-[#38675b]">›</span></a
-				>
+				<div class="min-h-18 px-5 py-4">
+					<b class="block text-lg">Klub</b><span class="mt-1 block text-sm text-[#527169]"
+						>{clubName} · nama dan tampilan klub</span
+					>
+				</div>
 			</section>
 			<section class="border border-[#b9c5bb] bg-[#fffaf0]">
-				<a
-					href={resolve('/settings')}
-					class="flex min-h-18 items-center justify-between px-5 py-4 hover:bg-[#e5ece5]"
-					><span
-						><b class="block text-lg">Pembayaran</b><span class="mt-1 block text-sm text-[#527169]"
-							>Bank, ShopeePay, dan QRIS</span
-						></span
-					><span class="text-lg text-[#38675b]">›</span></a
-				>
+				<div class="min-h-18 px-5 py-4">
+					<b class="block text-lg">Pembayaran</b><span class="mt-1 block text-sm text-[#527169]"
+						>Bank, ShopeePay, dan QRIS akan tampil di sini saat dikonfigurasi.</span
+					>
+				</div>
 			</section>
 			<section class="border border-[#b9c5bb] bg-[#fffaf0]">
-				<a
-					href={resolve('/settings')}
-					class="flex min-h-18 items-center justify-between px-5 py-4 hover:bg-[#e5ece5]"
-					><span
-						><b class="block text-lg">Akses</b><span class="mt-1 block text-sm text-[#527169]"
-							>Admin klub dan admin keuangan</span
-						></span
-					><span class="text-lg text-[#38675b]">›</span></a
-				>
+				<div class="min-h-18 px-5 py-4">
+					<b class="block text-lg">Akses</b><span class="mt-1 block text-sm text-[#527169]"
+						>Admin klub yang masuk dengan akun</span
+					>
+				</div>
 			</section>
 			<section class="border border-[#b9c5bb] bg-[#fffaf0] p-5">
 				<h2 class="text-lg font-black">Akun</h2>
@@ -96,12 +85,11 @@
 	{:else}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-7">
 			<h2 class="text-2xl font-black">Khusus admin klub.</h2>
 			<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
-				Pengaturan klub dan akses admin hanya tersedia setelah kamu masuk dengan akun admin klub
-				atau admin keuangan.
+				Pengaturan klub dan akses admin hanya tersedia setelah kamu masuk dengan akun admin klub.
 			</p>
 			<a
-				class="mt-5 inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-				href={resolve('/live')}>Kembali ke Live</a
+				class="mt-5 inline-flex min-h-11 items-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+				href={resolve('/live')}><ArrowLeft size={18} />Kembali ke Live</a
 			>
 		</section>{/if}
 </AppShell>

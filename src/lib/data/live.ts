@@ -246,18 +246,3 @@ export function confirmSessionFee(sessionId: string, fee: number) {
 		p_fee: fee
 	}) as Promise<number>;
 }
-
-export function submitSessionFinance(
-	sessionId: string,
-	courtCost: number | null,
-	shuttlecockCost: number | null,
-	notes: string
-) {
-	return command('submit_session_finance', {
-		p_session_id: sessionId,
-		p_lease_id: null,
-		p_reported_court_cost: courtCost,
-		p_reported_shuttlecock_cost: shuttlecockCost,
-		p_notes: notes || null
-	});
-}

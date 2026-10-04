@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { ArrowLeft, ArrowRight, CircleDollarSign, ClipboardCheck } from '@lucide/svelte';
+	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import {
 		getPublicSessionAttendance,
 		getPublicSessionHistory,
@@ -35,18 +36,8 @@
 
 <svelte:head><title>Pastikan sebelum keluar — PB NEWBIE</title></svelte:head>
 
-<main class="min-h-dvh bg-[#f4f1e8] px-4 py-6 text-[#163630] sm:py-12">
+<AppShell current="" mode="REKAP SESI">
 	<div class="mx-auto max-w-lg">
-		<header class="flex items-center gap-3 border-b border-[#b9c5bb] pb-5">
-			<span class="grid size-11 place-items-center bg-[#163630] text-[#f5bb61]" aria-hidden="true">
-				<ClipboardCheck size={22} />
-			</span>
-			<div>
-				<p class="text-xs font-black tracking-[0.15em] text-[#527169]">PB NEWBIE</p>
-				<p class="font-black">Rekap penutupan sesi</p>
-			</div>
-		</header>
-
 		{#if loading}
 			<p class="mt-8 text-sm font-bold" role="status">Memeriksa iuran dan pembayaran…</p>
 		{:else if loadError || !session}
@@ -57,11 +48,11 @@
 					class="mt-5 inline-flex min-h-11 items-center font-black text-[#38675b]"
 					href={resolve('/live')}
 				>
-					<ArrowLeft class="mr-2" size={17} /> Kembali ke Live
+					<ArrowLeft class="mr-2" size={18} /> Kembali ke Live
 				</a>
 			</section>
 		{:else}
-			<section class="mt-8">
+			<section>
 				<h1 class="text-3xl font-black tracking-[-0.05em]">Sesi selesai. Lanjut ke riwayat?</h1>
 				<p class="mt-3 text-sm leading-6 text-[#527169]">
 					Pastikan rekap sesi sudah benar. Kamu masih bisa kembali untuk mengubah checklist
@@ -104,16 +95,16 @@
 						class="flex min-h-12 items-center justify-center gap-2 border border-[#163630] bg-[#fffaf0] px-4 text-sm font-black hover:bg-[#e5ece5]"
 						href={resolve('/session-close/[id]', { id: params.id })}
 					>
-						<ArrowLeft size={17} /> Kembali edit iuran & pembayaran
+						<ArrowLeft size={18} /> Kembali edit iuran & pembayaran
 					</a>
 					<a
 						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0] hover:bg-[#38675b]"
 						href={resolve('/history/[id]', { id: params.id })}
 					>
-						Confirm <ArrowRight size={17} />
+						Selesai & lihat riwayat <ArrowRight size={17} />
 					</a>
 				</div>
 			</section>
 		{/if}
 	</div>
-</main>
+</AppShell>
