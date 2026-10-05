@@ -5,10 +5,8 @@
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { ArrowRight } from '@lucide/svelte';
-	import { currentUser } from '$lib/auth';
 	import {
 		addPlayer,
-		getClub,
 		getPublicClub,
 		getPublicRoster,
 		getRoster,
@@ -23,7 +21,6 @@
 	let roster = $state<{ id: string; display_name: string; membership_type: 'MEMBER' | 'GUEST' }[]>(
 		[]
 	);
-	let signedIn = $state(false);
 	let name = $state('');
 	let loading = $state(true);
 	let notice = $state('');
@@ -31,20 +28,29 @@
 	let members = $derived(roster.filter((player) => player.membership_type === 'MEMBER'));
 	let guests = $derived(roster.filter((player) => player.membership_type === 'GUEST'));
 
-	async function load() {
+	async function loadPublicRoster() {
 		try {
 			publicClub = await getPublicClub();
-			club = await getClub();
-			signedIn = Boolean(await currentUser());
-			roster = club
-				? await getRoster(club.id)
-				: publicClub
-					? await getPublicRoster(publicClub.id)
-					: [];
+			roster = publicClub ? await getPublicRoster(publicClub.id) : [];
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Daftar pemain belum bisa dimuat.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadAdminRoster() {
+		if (!club?.is_club_admin) return;
+		roster = await getRoster(club.id);
+	}
+
+	async function handleAccessChange(accountClub: Club | null) {
+		club = accountClub;
+		if (!accountClub?.is_club_admin) return;
+		try {
+			await loadAdminRoster();
+		} catch (error) {
+			notice = error instanceof Error ? error.message : 'Daftar admin pemain belum dapat dimuat.';
 		}
 	}
 	async function createPlayer() {
@@ -53,7 +59,7 @@
 			await addPlayer(club.id, name);
 			invalidatePublicData();
 			name = '';
-			await load();
+			await loadAdminRoster();
 			notice = 'Pemain ditambahkan ke daftar klub.';
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Pemain belum bisa ditambahkan. Coba lagi.';
@@ -68,17 +74,17 @@
 		try {
 			await promoteGuestToMember(club.id, playerId);
 			invalidatePublicData();
-			await load();
+			await loadAdminRoster();
 			notice = 'Tamu dipromosikan menjadi member.';
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Tamu belum dapat dipromosikan.';
 		}
 	}
-	if (browser) void load();
+	if (browser) void loadPublicRoster();
 </script>
 
 <svelte:head><title>Pemain — PB NEWBIE</title></svelte:head>
-<AppShell current="/players" clubName={displayName}>
+<AppShell current="/players" clubName={displayName} onaccesschange={handleAccessChange}>
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<div class="flex items-end justify-between gap-4">
 			<div>
@@ -168,7 +174,7 @@
 				</p>
 			</div>{/if}
 	</section>
-	{#if !signedIn && roster.length}<p class="mt-5 text-sm leading-6 text-[#527169]">
+	{#if !club?.is_club_admin && roster.length}<p class="mt-5 text-sm leading-6 text-[#527169]">
 			Profil pemain bisa dilihat semua orang. Hanya admin klub yang bisa mengelola daftar pemain.
 		</p>{/if}
 	{#if notice}<p

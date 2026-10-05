@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { browser } from '$app/environment';
 	import type { Snippet } from 'svelte';
-	import { prefetchPublicSurface } from '$lib/data/dashboard';
+	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
 	import { History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
 
 	let {
@@ -9,13 +10,15 @@
 		current,
 		clubName = 'PB NEWBIE',
 		mode,
-		headerActions
+		headerActions,
+		onaccesschange
 	}: {
 		children: Snippet;
 		current: string;
 		clubName?: string;
 		mode?: string;
 		headerActions?: Snippet;
+		onaccesschange?: (club: Club | null) => void;
 	} = $props();
 
 	const links = [
@@ -25,6 +28,8 @@
 		{ href: '/fund', label: 'Kas', icon: Wallet },
 		{ href: '/settings', label: 'Pengaturan', icon: Settings }
 	] as const;
+	let isClubAdmin = $state(false);
+	let visibleLinks = $derived(links.filter((link) => link.href !== '/settings' || isClubAdmin));
 
 	const activeMode = $derived(
 		mode ??
@@ -38,6 +43,16 @@
 							? 'PEMAIN'
 							: 'PENGATURAN')
 	);
+
+	function notifyAccessChange(club: Club | null) {
+		isClubAdmin = Boolean(club?.is_club_admin);
+		onaccesschange?.(club);
+	}
+
+	if (browser)
+		void getClub()
+			.then(notifyAccessChange)
+			.catch(() => notifyAccessChange(null));
 </script>
 
 <main class="min-h-dvh bg-[#f4f1e8] text-[#163630] lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -45,10 +60,10 @@
 		class="border-b border-[#b9c5bb] bg-[#fffaf0] lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:border-r lg:border-b-0"
 	>
 		<nav
-			class="flex overflow-x-auto border-b border-[#b9c5bb] lg:grid lg:overflow-visible lg:border-0 lg:px-4 lg:pt-7"
+			class="flex border-b border-[#b9c5bb] lg:grid lg:overflow-visible lg:border-0 lg:px-4 lg:pt-7"
 			aria-label="Navigasi utama"
 		>
-			{#each links as link (link.href)}
+			{#each visibleLinks as link (link.href)}
 				{@const Icon = link.icon}
 				<a
 					href={resolve(link.href)}
@@ -56,13 +71,13 @@
 					onmouseenter={() => void prefetchPublicSurface(link.href)}
 					onfocus={() => void prefetchPublicSurface(link.href)}
 					aria-current={current === link.href ? 'page' : undefined}
-					class={`flex min-h-12 shrink-0 items-center gap-2 border-r border-[#b9c5bb] px-4 text-left text-xs font-black transition lg:border-r-0 lg:border-b lg:px-3 ${current === link.href ? 'bg-[#163630] text-[#fffaf0] lg:border-[#163630]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
+					class={`flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 border-r border-[#b9c5bb] px-2 text-center text-[11px] font-black transition last:border-r-0 lg:justify-start lg:gap-2 lg:border-r-0 lg:border-b lg:px-3 lg:text-left lg:text-xs ${current === link.href ? 'bg-[#163630] text-[#fffaf0] lg:border-[#163630]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
 					><Icon size={16} strokeWidth={2.25} /><span>{link.label}</span></a
 				>
 			{/each}
 		</nav>
 		<div class="px-4 py-4 lg:mt-auto lg:border-t lg:border-[#b9c5bb] lg:px-6 lg:py-6">
-			<div class="flex min-w-0 items-center gap-3 lg:block">
+			<div class="flex min-w-0 items-stretch gap-3 lg:block">
 				<a
 					class="flex min-w-0 flex-1 items-center gap-3"
 					href={resolve('/live')}
@@ -80,7 +95,7 @@
 					>
 				</a>
 				{#if headerActions}<div
-						class="flex min-h-11 shrink-0 items-center lg:mt-4 lg:border-t lg:border-[#b9c5bb] lg:pt-4"
+						class="flex min-h-11 min-w-0 flex-1 items-center lg:mt-4 lg:border-t lg:border-[#b9c5bb] lg:pt-4"
 					>
 						{@render headerActions()}
 					</div>{/if}

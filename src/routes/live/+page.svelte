@@ -5,7 +5,6 @@
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
-	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
@@ -31,7 +30,6 @@
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
 	import { toast } from 'sve-ui';
-	import { Ellipsis } from '@lucide/svelte';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
 	let tab = $state<Tab>('live');
@@ -54,7 +52,6 @@
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
 	let showCheckIn = $state(false);
-	let showSessionMenu = $state(false);
 	let showEndSession = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
 	let pending = $derived(live.pending);
@@ -234,7 +231,6 @@
 	async function endSession() {
 		if (await live.close()) {
 			showEndSession = false;
-			showSessionMenu = false;
 			invalidatePublicData();
 			if (session) await goto(resolve('/session-close/[id]', { id: session.id }));
 		}
@@ -280,59 +276,53 @@
 >
 
 {#snippet headerActions()}
-	{#if session}
-		<div class="flex shrink-0 items-center gap-2">
-			{#if canManageLive}<span
-					class="inline-flex items-center gap-2 bg-[#e5ece5] px-3 py-2 text-xs font-black text-[#163630]"
-					><span class="size-2 rounded-full bg-[#e2653e]"></span>ADMIN AKTIF</span
-				>{/if}
-			<button
-				class="grid size-11 place-items-center border border-[#b9c5bb] bg-[#fffaf0] text-xl text-[#163630]"
-				onclick={() => (showSessionMenu = true)}
-				aria-label="Buka menu sesi"><Ellipsis size={21} /></button
-			>
-		</div>
-	{:else if userEmail}<AppButton variant="ghost" onclick={signOut}>Keluar</AppButton>
-	{:else}<AppButton variant="secondary" onclick={() => (adminLoginOpen = true)}>Kelola</AppButton
+	{#if userEmail}<AppButton class="w-full justify-center" variant="ghost" onclick={signOut}
+			>Keluar</AppButton
 		>{/if}
 {/snippet}
 
 <AppShell current="/live" clubName={displayName} {headerActions}>
 	{#if adminLoginOpen}
-		<section class="mb-5 border border-slate-200 bg-white p-5 shadow-sm">
-			<div class="flex items-start justify-between gap-3">
-				<div>
-					<p class="text-xs font-black tracking-[0.15em] text-slate-500">AKSES ADMIN</p>
-					<h2 class="mt-1 text-xl font-black">Masuk untuk mengelola klub</h2>
-				</div>
-				<button
-					class="text-lg text-slate-400"
-					onclick={() => (adminLoginOpen = false)}
-					aria-label="Tutup login">×</button
-				>
-			</div>
-			<label class="mt-5 block text-sm font-bold"
-				>Email<input
-					class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-					type="email"
-					bind:value={email}
-					autocomplete="email"
-					placeholder="nama@email.com"
-				/></label
-			><label class="mt-4 block text-sm font-bold"
-				>Kata sandi<input
-					class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
-					type="password"
-					bind:value={password}
-					autocomplete="current-password"
-				/></label
+		<CourtDialog
+			open={adminLoginOpen}
+			title="Masuk sebagai admin"
+			onOpenChange={(open) => (adminLoginOpen = open)}
+			onOpenAutoFocus={(event) => event.preventDefault()}
+		>
+			<form
+				class="p-6 text-[#163630]"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void passwordLogin();
+				}}
 			>
-			<div class="mt-5">
-				<AppButton onclick={passwordLogin} disabled={!email || !password}
-					>{pending || 'Masuk'}</AppButton
+				<h2 class="text-2xl font-black tracking-[-0.04em]">Masuk sebagai admin</h2>
+				<p class="mt-2 text-sm leading-6 text-[#527169]">
+					Gunakan akun admin klub untuk mengelola sesi.
+				</p>
+				<label class="mt-5 block text-sm font-bold"
+					>Email<input
+						class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+						type="email"
+						bind:value={email}
+						autocomplete="email"
+						placeholder="nama@email.com"
+					/></label
+				><label class="mt-4 block text-sm font-bold"
+					>Kata sandi<input
+						class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+						type="password"
+						bind:value={password}
+						autocomplete="current-password"
+					/></label
 				>
-			</div>
-		</section>
+				<div class="mt-6">
+					<AppButton class="w-full justify-center" type="submit" disabled={!email || !password}
+						>{pending || 'Masuk'}</AppButton
+					>
+				</div>
+			</form>
+		</CourtDialog>
 	{/if}
 
 	{#if loading}
@@ -615,53 +605,6 @@
 			{/if}
 		</div>
 	</CourtDialog>
-{/if}
-
-{#if showSessionMenu}
-	<CourtSheet
-		open={showSessionMenu}
-		title="Sesi malam ini"
-		onOpenChange={(open) => (showSessionMenu = open)}
-	>
-		<div class="w-full max-w-md p-5">
-			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-black tracking-[-0.04em] text-[#163630]">Sesi malam ini</h2>
-				<button
-					class="grid size-11 shrink-0 place-items-center text-xl text-[#527169] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
-					onclick={() => (showSessionMenu = false)}
-					aria-label="Tutup">×</button
-				>
-			</div>
-			<div class="mt-5 grid gap-2">
-				{#if canManageLive}
-					<button
-						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
-						onclick={() => {
-							showCheckIn = true;
-							showSessionMenu = false;
-						}}>Check in pemain</button
-					>
-				{:else if !userEmail}
-					<button
-						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
-						onclick={() => {
-							adminLoginOpen = true;
-							showSessionMenu = false;
-						}}>Masuk sebagai admin</button
-					>
-				{/if}
-				{#if userEmail}
-					<button
-						class="min-h-12 border border-[#b9c5bb] px-4 text-left font-bold text-[#163630]"
-						onclick={() => {
-							signOut();
-							showSessionMenu = false;
-						}}>Keluar dari akun</button
-					>
-				{/if}
-			</div>
-		</div>
-	</CourtSheet>
 {/if}
 
 {#if showEndSession}

@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
-	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowLeft, Share2 } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
+	import AppButton from '$lib/components/ui/AppButton.svelte';
+	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
 		getPublicClub,
@@ -10,6 +12,7 @@
 		getPublicSessionFinanceRecap,
 		getPublicSessionHistory,
 		getPublicSessionMatches,
+		type Club,
 		type PublicSessionAttendee,
 		type PublicSessionFinanceRecap,
 		type PublicSessionHistory,
@@ -17,13 +20,16 @@
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
 	let clubName = $state('PB NEWBIE');
+	let club = $state<Club | null>(null);
 	let session = $state<PublicSessionHistory | null>(null);
 	let matches = $state<PublicSessionMatch[]>([]);
 	let attendees = $state<PublicSessionAttendee[]>([]);
 	let financeRecap = $state<PublicSessionFinanceRecap | null>(null);
 	let cardUrl = $state('');
 	let shareNotice = $state('');
+	let shareDialogOpen = $state(false);
 	let loading = $state(true);
+	let canManage = $derived(Boolean(club?.is_club_admin));
 	const date = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(
 			new Date(value)
@@ -80,22 +86,38 @@
 			.join('\n');
 	}
 
-	async function shareRecap() {
+	async function copyShareText() {
 		const text = recapText();
 		try {
-			if (navigator.share) await navigator.share({ title: `${clubName} — Recap`, text });
-			else {
-				await navigator.clipboard.writeText(text);
-				shareNotice = 'Ringkasan disalin. Tempelkan ke WhatsApp.';
-			}
-		} catch (error) {
-			if (error instanceof Error && error.name !== 'AbortError')
-				shareNotice = 'Ringkasan belum dapat dibagikan.';
+			await copyRecap(text);
+			shareNotice = 'Teks recap berhasil disalin.';
+		} catch {
+			shareNotice = 'Teks belum dapat disalin. Coba lagi.';
 		}
 	}
 
+	async function copyRecap(text: string) {
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return;
+		}
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.style.position = 'fixed';
+		textarea.style.opacity = '0';
+		document.body.append(textarea);
+		textarea.select();
+		const copied = document.execCommand('copy');
+		textarea.remove();
+		if (!copied) throw new Error('Clipboard unavailable');
+	}
+
+	function handleAccessChange(accountClub: Club | null) {
+		club = accountClub;
+	}
+
 	function createShareCard() {
-		if (!session) return;
+		if (!session || !canManage) return;
 		const canvas = document.createElement('canvas');
 		canvas.width = 1080;
 		canvas.height = 1350;
@@ -205,26 +227,19 @@
 		cardUrl = canvas.toDataURL('image/png');
 	}
 
+	function openShareDialog() {
+		if (!canManage || !session) return;
+		shareNotice = '';
+		createShareCard();
+		shareDialogOpen = true;
+	}
+
 	function downloadCard() {
 		if (!cardUrl) return;
 		const link = document.createElement('a');
 		link.href = cardUrl;
 		link.download = 'pb-newbie-recap.png';
 		link.click();
-	}
-
-	async function shareCard() {
-		if (!cardUrl) return;
-		const response = await fetch(cardUrl);
-		const file = new File([await response.blob()], 'pb-newbie-recap.png', { type: 'image/png' });
-		try {
-			if (navigator.canShare?.({ files: [file] }) && navigator.share)
-				await navigator.share({ files: [file], title: `${clubName} — Recap` });
-			else shareNotice = 'Kartu siap diunduh. Bagikan gambarnya ke WhatsApp.';
-		} catch (error) {
-			if (error instanceof Error && error.name !== 'AbortError')
-				shareNotice = 'Kartu belum dapat dibagikan.';
-		}
 	}
 </script>
 
@@ -233,12 +248,18 @@
 	current="/history"
 	mode={session ? watermarkDate(session.started_at) : 'ARSIP SESI'}
 	{clubName}
+	onaccesschange={handleAccessChange}
 >
-	<a
-		href={resolve('/history')}
-		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
-		><ArrowLeft size={18} />Riwayat</a
-	>
+	<div class="flex items-center justify-between gap-3">
+		<a
+			href={resolve('/history')}
+			class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+			><ArrowLeft size={18} />Riwayat</a
+		>
+		{#if canManage}<AppButton class="shrink-0" onclick={openShareDialog}
+				><Share2 size={17} />Bagikan</AppButton
+			>{/if}
+	</div>
 	{#if loading}<section
 			class="mt-6"
 			role="status"
@@ -417,38 +438,6 @@
 						yang sudah dikonfirmasi.
 					</p>{/if}
 			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Bagikan sesi</h2>
-				<div class="mt-3 grid w-full gap-3 text-center">
-					<button
-						class="min-h-11 w-full bg-[#e2653e] px-4 text-sm font-black text-[#163630] hover:bg-[#ef825e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
-						onclick={shareRecap}>Bagikan ringkasan</button
-					>
-					<button
-						class="min-h-11 w-full border border-[#163630] px-4 text-sm font-black text-[#163630] hover:bg-[#e5ece5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
-						onclick={createShareCard}>Buat kartu recap</button
-					>
-				</div>
-				{#if cardUrl}<div class="mt-4 w-full border border-[#b9c5bb] bg-[#fffaf0] p-3">
-						<img
-							class="h-auto w-full"
-							src={cardUrl}
-							alt={`Kartu recap sesi ${date(session.started_at)}: iuran ${session.fee_per_person ? `${money(session.fee_per_person)} per pemain` : 'belum dikonfirmasi'}, ${session.attendance} pemain, dan ${matches.length} match`}
-						/>
-						<div class="mt-3 flex flex-wrap gap-2">
-							<button
-								class="min-h-11 bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-								onclick={downloadCard}>Unduh kartu</button
-							><button
-								class="min-h-11 border border-[#163630] px-4 text-sm font-black"
-								onclick={shareCard}>Bagikan gambar</button
-							>
-						</div>
-					</div>{/if}
-				{#if shareNotice}<p class="mt-3 text-sm font-bold text-[#38675b]" role="status">
-						{shareNotice}
-					</p>{/if}
-			</section>
 		</section>
 	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
 			<h1 class="text-2xl font-black">Sesi tidak ditemukan.</h1>
@@ -456,4 +445,32 @@
 				Detail hanya tersedia untuk sesi yang sudah selesai.
 			</p>
 		</section>{/if}
+	{#if canManage && session}
+		<CourtDialog
+			open={shareDialogOpen}
+			title="Bagikan hasil sesi"
+			onOpenChange={(open) => (shareDialogOpen = open)}
+			panelClass="max-h-[90dvh] overflow-y-auto"
+		>
+			<div class="p-5 sm:p-6">
+				<h2 class="text-2xl font-black tracking-[-0.04em]">Bagikan hasil sesi</h2>
+				<p class="mt-1 text-sm text-[#527169]">{date(session.started_at)} · {clubName}</p>
+				{#if cardUrl}
+					<img
+						class="mt-4 max-h-[48dvh] w-full border border-[#b9c5bb] object-contain object-top"
+						src={cardUrl}
+						alt={`Kartu recap sesi ${date(session.started_at)}: iuran ${session.fee_per_person ? `${money(session.fee_per_person)} per pemain` : 'belum dikonfirmasi'}, ${session.attendance} pemain, dan ${matches.length} match`}
+					/>
+				{/if}
+				<div class="mt-5 grid gap-3">
+					<AppButton class="w-full justify-center" variant="secondary" onclick={copyShareText}
+						>Copy text</AppButton
+					><AppButton class="w-full justify-center" onclick={downloadCard}>Unduh gambar</AppButton>
+				</div>
+				{#if shareNotice}<p class="mt-3 text-sm font-bold text-[#38675b]" role="status">
+						{shareNotice}
+					</p>{/if}
+			</div>
+		</CourtDialog>
+	{/if}
 </AppShell>

@@ -4,11 +4,10 @@
 	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import {
-		getClub,
 		getFinanceSessionAttendees,
 		getPublicClub,
 		getPublicSessionHistory,
@@ -57,30 +56,42 @@
 		notice = '';
 		try {
 			invalidatePublicData();
-			const [publicClub, accountClub, history, matches] = await Promise.all([
+			const [publicClub, history, matches] = await Promise.all([
 				getPublicClub(),
-				getClub(),
 				getPublicSessionHistory(),
 				getPublicSessionMatches(params.id)
 			]);
-			club = accountClub;
-			clubName = accountClub?.name ?? publicClub?.name ?? clubName;
+			clubName = publicClub?.name ?? clubName;
 			session = history.find((item) => item.id === params.id && item.closed_at) ?? null;
 			matchCount = matches.length;
 			if (!session) return;
 			fee = session.fee_per_person ? String(session.fee_per_person) : '';
-			if (isAdmin) {
-				if (!fee) {
-					const suggestion = await suggestSessionFee(params.id);
-					if (suggestion) fee = String(suggestion);
-				}
-				if (session.fee_per_person)
-					attendees = await getFinanceSessionAttendees(accountClub!.id, params.id);
-			}
+			void loadAdminData().catch((error) => {
+				notice = error instanceof Error ? error.message : 'Data pembayaran belum dapat dimuat.';
+			});
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Data sesi tidak dapat dimuat.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadAdminData() {
+		if (!club?.is_club_admin || !session) return;
+		if (!fee) {
+			const suggestion = await suggestSessionFee(session.id);
+			if (suggestion) fee = String(suggestion);
+		}
+		if (session.fee_per_person) attendees = await getFinanceSessionAttendees(club.id, session.id);
+	}
+
+	async function handleAccessChange(accountClub: Club | null) {
+		club = accountClub;
+		clubName = accountClub?.name ?? clubName;
+		try {
+			await loadAdminData();
+		} catch (error) {
+			notice = error instanceof Error ? error.message : 'Data pembayaran belum dapat dimuat.';
 		}
 	}
 
@@ -214,7 +225,7 @@
 </script>
 
 <svelte:head><title>Tutup sesi — {clubName}</title></svelte:head>
-<AppShell current="" mode="REKAP SESI" {clubName}>
+<AppShell current="" mode="REKAP SESI" {clubName} onaccesschange={handleAccessChange}>
 	<a
 		href={resolve('/live')}
 		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
@@ -257,17 +268,40 @@
 		</header>
 
 		{#if !isAdmin}
-			<section class="mt-6 border border-[#b9c5bb] bg-[#fffaf0] p-5">
-				<h2 class="text-xl font-black">Masuk sebagai admin klub</h2>
-				<p class="mt-2 text-sm leading-6 text-[#527169]">
-					Login admin diperlukan untuk menetapkan iuran dan mengubah checklist pembayaran.
-				</p>
-				<a
-					class="mt-4 inline-flex min-h-11 items-center bg-[#163630] px-4 font-black text-[#fffaf0]"
-					href={resolve('/live')}
-				>
-					Ke Live untuk login
-				</a>
+			<section class="mt-7 border-y border-[#b9c5bb]">
+				<div class="grid grid-cols-2 border-b border-[#b9c5bb] bg-[#e5ece5] sm:grid-cols-3">
+					<p class="border-r border-[#b9c5bb] p-4 text-sm">
+						<span class="block text-[#527169]">Pemain hadir</span><b
+							class="mt-1 block text-2xl tabular-nums">{session.attendance}</b
+						>
+					</p>
+					<p class="p-4 text-sm">
+						<span class="block text-[#527169]">Match selesai</span><b
+							class="mt-1 block text-2xl tabular-nums">{matchCount}</b
+						>
+					</p>
+					<p
+						class="col-span-2 border-t border-[#b9c5bb] p-4 text-sm sm:col-span-1 sm:border-t-0 sm:border-l"
+					>
+						<span class="block text-[#527169]">Iuran sesi</span><b
+							class="mt-1 block text-xl tabular-nums"
+							>{session.fee_per_person === null
+								? 'Belum dikonfirmasi'
+								: `${money(session.fee_per_person)} / orang`}</b
+						>
+					</p>
+				</div>
+				<div class="px-5 py-5">
+					<h2 class="text-xl font-black">Malam ini sudah tercatat.</h2>
+					<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
+						Riwayat pertandingan dan kehadiran tersedia untuk semua member setelah sesi ditutup.
+					</p>
+					<a
+						class="mt-5 inline-flex min-h-11 items-center gap-2 font-black text-[#38675b]"
+						href={resolve('/history/[id]', { id: params.id })}
+						>Lihat riwayat sesi <ArrowRight size={18} /></a
+					>
+				</div>
 			</section>
 		{:else}
 			<section class="mt-6 border-b border-[#b9c5bb] pb-6">

@@ -4,7 +4,6 @@
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
-		getClub,
 		getFinanceSessionAttendees,
 		getFinanceSessions,
 		getPublicClub,
@@ -82,15 +81,18 @@
 			} finally {
 				loading = false;
 			}
-			try {
-				club = await getClub();
-				clubName = club?.name ?? clubName;
-				await refreshAdminFund();
-			} catch (error) {
-				notice =
-					error instanceof Error ? error.message : 'Akses pengelolaan kas belum dapat dimuat.';
-			}
 		})();
+
+	async function handleAccessChange(accountClub: Club | null) {
+		club = accountClub;
+		clubName = accountClub?.name ?? clubName;
+		if (!accountClub?.is_club_admin) return;
+		try {
+			await refreshAdminFund();
+		} catch (error) {
+			notice = error instanceof Error ? error.message : 'Data pengelolaan kas belum dapat dimuat.';
+		}
+	}
 
 	async function refreshPublicFund() {
 		[summary, activity] = await Promise.all([
@@ -172,7 +174,7 @@
 </script>
 
 <svelte:head><title>Dana klub — PB NEWBIE</title></svelte:head>
-<AppShell current="/fund" {clubName}>
+<AppShell current="/fund" {clubName} onaccesschange={handleAccessChange}>
 	{#if loading}<section
 			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0]"
 			role="status"
@@ -340,6 +342,13 @@
 					</section>{/if}
 			</Tabs.Content>
 		</Tabs.Root>
+		{#if !canManage}<section class="mt-8 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-5">
+				<h2 class="text-xl font-black tracking-[-0.04em]">Catatan kas klub</h2>
+				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
+					Kas dihitung dari iuran sesi yang sudah ditandai lunas, dikurangi sewa lapangan dan
+					tambahan kok. Riwayat di atas dapat dilihat semua member.
+				</p>
+			</section>{/if}
 	{/if}
 	{#if notice}<p
 			role="status"
