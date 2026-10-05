@@ -9,6 +9,7 @@
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import { currentUser, signInWithPassword } from '$lib/auth';
+	import { setCachedClub } from '$lib/auth-state.svelte';
 	import {
 		addPlayer,
 		bootstrapClub,
@@ -122,6 +123,7 @@
 		loading = true;
 		try {
 			club = await getClub();
+			setCachedClub(club);
 			roster = club ? await getRoster(club.id) : [];
 			live.setAdminAuthorized(Boolean(club?.is_club_admin));
 		} catch (error) {
@@ -237,6 +239,7 @@
 	}
 
 	function signOut() {
+		setCachedClub(null);
 		void supabase?.auth.signOut();
 	}
 
@@ -255,6 +258,7 @@
 				userEmail = authSession?.user.email ?? null;
 				if (userEmail) await refreshAccount();
 				else {
+					setCachedClub(null);
 					club = null;
 					roster = [];
 					live.setAdminAuthorized(false);

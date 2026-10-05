@@ -2,7 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { browser } from '$app/environment';
 	import type { Snippet } from 'svelte';
-	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
+	import { prefetchPublicSurface, type Club } from '$lib/data/dashboard';
+	import { authState, loadCachedClub } from '$lib/auth-state.svelte';
 	import { History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
 
 	let {
@@ -28,8 +29,9 @@
 		{ href: '/fund', label: 'Kas', icon: Wallet },
 		{ href: '/settings', label: 'Pengaturan', icon: Settings }
 	] as const;
-	let isClubAdmin = $state(false);
-	let visibleLinks = $derived(links.filter((link) => link.href !== '/settings' || isClubAdmin));
+	let visibleLinks = $derived(
+		links.filter((link) => link.href !== '/settings' || Boolean(authState.club?.is_club_admin))
+	);
 
 	const activeMode = $derived(
 		mode ??
@@ -44,15 +46,8 @@
 							: 'PENGATURAN')
 	);
 
-	function notifyAccessChange(club: Club | null) {
-		isClubAdmin = Boolean(club?.is_club_admin);
-		onaccesschange?.(club);
-	}
-
-	if (browser)
-		void getClub()
-			.then(notifyAccessChange)
-			.catch(() => notifyAccessChange(null));
+	if (browser) loadCachedClub();
+	$effect(() => onaccesschange?.(authState.club));
 </script>
 
 <main class="min-h-dvh bg-[#f4f1e8] text-[#163630] lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
