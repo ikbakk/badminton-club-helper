@@ -212,8 +212,17 @@
 			selectedParticipant = null;
 	}
 
-	async function beginMatch(teamA: string[], teamB: string[]) {
-		return live.startMatch(teamA, teamB);
+	async function beginMatch(
+		teamA: string[],
+		teamB: string[],
+		recommendationId: string | null,
+		pairingAudit?: Parameters<typeof live.startMatch>[3]
+	) {
+		return live.startMatch(teamA, teamB, recommendationId, pairingAudit);
+	}
+
+	async function prepareNextMatch() {
+		return live.prepareNextMatch();
 	}
 
 	async function saveSet(teamA: number, teamB: number) {
@@ -414,6 +423,7 @@
 			onendsession={() => (showEndSession = true)}
 			onselect={(participant) => (selectedParticipant = participant)}
 			onstartmatch={beginMatch}
+			onpreparenext={prepareNextMatch}
 			oncompleteset={saveSet}
 			oncorrectset={correctSet}
 			onabandonmatch={stopMatch}

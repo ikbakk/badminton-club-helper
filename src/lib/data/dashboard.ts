@@ -99,6 +99,14 @@ export type PublicPlayerProfile = {
 	losses: number;
 };
 export type PublicPlayerSession = { id: string; started_at: string; closed_at: string | null };
+export type PublicPlayerRating = { rating: number; uncertainty: number; algorithm_version: string };
+
+export async function getPublicPlayerRating(playerId: string): Promise<PublicPlayerRating | null> {
+	const { data, error } = await client().rpc('public_player_rating', { p_player_id: playerId });
+	if (error) throw error;
+	const row = data?.[0] as PublicPlayerRating | undefined;
+	return row ? { ...row, rating: Number(row.rating), uncertainty: Number(row.uncertainty) } : null;
+}
 export type PublicSessionMatch = {
 	id: string;
 	sequence_number: number;

@@ -13,8 +13,20 @@ type LiveParticipantRow = {
 	leave_after_match: boolean;
 };
 
+type RotationFairnessRow = {
+	participant_id: string;
+	player_id: string;
+	eligible_opportunities: number;
+	missed_opportunities: number;
+	current_opportunity_debt: number;
+	rotations_played: number;
+	sets_played: number;
+	consecutive_rotations: number;
+};
+
 export type LiveSession = { id: string; club_id: string; started_at: string };
 export type MatchSet = {
+	id: string;
 	setNumber: number;
 	status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
 	teamAScore: number | null;
@@ -73,10 +85,22 @@ export async function loadLiveSession(): Promise<{
 		.eq('session_id', session.id)
 		.limit(1);
 	if (matchError) throw matchError;
+	let fairnessRows: RotationFairnessRow[] = [];
+	const { data: auth } = await supabase.auth.getSession();
+	if (auth.session) {
+		const { data: fairness, error: fairnessError } = await supabase.rpc(
+			'get_rotation_fairness_state',
+			{ p_session_id: session.id }
+		);
+		if (fairnessError) throw fairnessError;
+		fairnessRows = (fairness ?? []) as RotationFairnessRow[];
+	}
+	const fairnessByPlayer = new Map(fairnessRows.map((row) => [row.player_id, row]));
 	return {
 		session,
 		participants: (data ?? []).map((row) => {
 			const participant = row as LiveParticipantRow;
+			const fairness = fairnessByPlayer.get(participant.player_id);
 			return {
 				sessionParticipantId: participant.participant_id,
 				id: participant.player_id,
@@ -86,12 +110,12 @@ export async function loadLiveSession(): Promise<{
 				uncertainty: Number(participant.uncertainty),
 				status: participant.status,
 				readySince: participant.ready_since ? new Date(participant.ready_since) : undefined,
-				// These compatibility fields are not displayed or used as rotation authority.
-				// Live rotation metrics remain explicitly unavailable until Algorithm 1 is enabled.
-				consecutiveMatches: 0,
-				opportunities: 0,
-				missedOpportunities: 0,
-				setsPlayed: 0,
+				consecutiveMatches: fairness?.consecutive_rotations ?? 0,
+				opportunities: fairness?.eligible_opportunities ?? 0,
+				missedOpportunities: fairness?.missed_opportunities ?? 0,
+				currentOpportunityDebt: fairness?.current_opportunity_debt ?? 0,
+				rotationsPlayed: fairness?.rotations_played ?? 0,
+				setsPlayed: fairness?.sets_played ?? 0,
 				leaveAfterMatch: participant.leave_after_match
 			};
 		}),
@@ -146,22 +170,93 @@ async function command(name: string, args: Record<string, unknown>) {
 	return data;
 }
 
-export function startMatch(sessionId: string, teamA: string[], teamB: string[]) {
-	return command('start_match', {
-		p_session_id: sessionId,
-		p_lease_id: null,
-		p_team_a: teamA,
-		p_team_b: teamB
-	});
+export function startMatch(
+	sessionId: string,
+	teamA: string[],
+	teamB: string[],
+	recommendationId: string | null = null,
+	pairingAudit?: { recommendedA: string[]; recommendedB: string[]; diagnostics: unknown }
+) {
+	return (async () => {
+		const matchId = await command('start_match', {
+			p_session_id: sessionId,
+			p_lease_id: null,
+			p_team_a: teamA,
+			p_team_b: teamB,
+			p_rotation_recommendation_id: recommendationId
+		});
+		if (!pairingAudit) return { matchId, pairingAuditSaved: false };
+		try {
+			if (!supabase) throw new Error('Supabase is not configured.');
+			const { error } = await supabase.rpc('save_pairing_recommendation', {
+				p_match_id: matchId,
+				p_recommended_team_a: pairingAudit.recommendedA,
+				p_recommended_team_b: pairingAudit.recommendedB,
+				p_diagnostics: pairingAudit.diagnostics
+			});
+			if (error) throw error;
+			return { matchId, pairingAuditSaved: true };
+		} catch {
+			return { matchId, pairingAuditSaved: false };
+		}
+	})();
 }
 
-export function completeSet(sessionId: string, teamAScore: number, teamBScore: number) {
-	return command('complete_set', {
+export async function saveRotationRecommendation(
+	sessionId: string,
+	recommendation: import('$lib/domain/rotation/types').RotationRecommendation
+) {
+	if (!supabase) throw new Error('Supabase is not configured.');
+	const { data, error } = await supabase.rpc('save_rotation_recommendation', {
 		p_session_id: sessionId,
-		p_lease_id: null,
-		p_team_a_score: teamAScore,
-		p_team_b_score: teamBScore
+		p_recommended_player_ids: recommendation.selectedPlayerIds,
+		p_ranked_candidates: recommendation.rankedCandidates.map((candidate, index) => ({
+			player_id: candidate.playerId,
+			rank: index + 1,
+			priority_score: Number.isFinite(candidate.priority) ? candidate.priority : null,
+			recommended: recommendation.selectedPlayerIds.includes(candidate.playerId),
+			diagnostics: {
+				tier: candidate.tier,
+				reasons: candidate.reasons,
+				metrics: candidate.metrics
+			}
+		}))
 	});
+	if (error) throw error;
+	return data as string;
+}
+
+async function trustedRatingCommand(path: string, payload: Record<string, unknown>) {
+	if (!supabase) throw new Error('Supabase is not configured.');
+	const { data } = await supabase.auth.getSession();
+	const token = data.session?.access_token;
+	if (!token) throw new Error('Sign in with a Club Admin account.');
+	const response = await fetch(path, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+		body: JSON.stringify(payload)
+	});
+	const result = (await response.json()) as { message?: string; result?: unknown };
+	if (!response.ok) throw new Error(result.message ?? 'Rating command failed.');
+	return result;
+}
+
+export async function completeSet(
+	sessionId: string,
+	clubId: string,
+	setId: string,
+	teamAScore: number,
+	teamBScore: number
+) {
+	const result = await trustedRatingCommand('/api/live/complete-set', {
+		sessionId,
+		clubId,
+		setId,
+		teamAScore,
+		teamBScore
+	});
+	broadcastLiveUpdate(sessionId);
+	return result.result;
 }
 
 export function abandonMatch(sessionId: string) {
@@ -224,18 +319,17 @@ export async function suggestSessionFee(sessionId: string) {
 	return result === null ? null : Number(result);
 }
 
-export function correctCompletedSet(
-	sessionId: string,
-	setNumber: 1 | 2,
+export async function correctCompletedSet(
+	clubId: string,
+	setId: string,
 	teamAScore: number,
 	teamBScore: number
 ) {
-	return command('correct_completed_set', {
-		p_session_id: sessionId,
-		p_lease_id: null,
-		p_set_number: setNumber,
-		p_team_a_score: teamAScore,
-		p_team_b_score: teamBScore
+	return trustedRatingCommand('/api/live/correct-set', {
+		clubId,
+		setId,
+		teamAScore,
+		teamBScore
 	});
 }
 

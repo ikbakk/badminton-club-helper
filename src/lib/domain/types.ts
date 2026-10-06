@@ -14,6 +14,8 @@ export type Participant = Player & {
 	consecutiveMatches: number;
 	opportunities: number;
 	missedOpportunities: number;
+	currentOpportunityDebt: number;
+	rotationsPlayed: number;
 	setsPlayed: number;
 	leaveAfterMatch?: boolean;
 };

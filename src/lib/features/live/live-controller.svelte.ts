@@ -8,6 +8,7 @@ import {
 	closeSession,
 	correctCompletedSet,
 	loadLiveSession,
+	saveRotationRecommendation,
 	startMatch,
 	setLeaveAfterMatch,
 	substitutePlayer,
@@ -15,6 +16,9 @@ import {
 	type LiveSession
 } from '$lib/data/live';
 import type { Participant, ParticipantStatus } from '$lib/domain/types';
+import { recommendNextPlayers, STARVATION_POLICIES } from '$lib/domain/rotation';
+import type { RotationRecommendation } from '$lib/domain/rotation/types';
+import type { PairingOption } from '$lib/domain/rating';
 
 type Notice = (message: string) => void;
 
@@ -84,7 +88,9 @@ export class LiveController {
 
 	checkIn(playerId: string) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Mencatat pemain hadir…', () => checkInPlayer(this.session!.id, playerId));
+		return this.runCommand('Mencatat pemain hadir…', () =>
+			checkInPlayer(this.session!.id, playerId)
+		);
 	}
 
 	checkInMany(playerIds: string[]) {
@@ -96,7 +102,9 @@ export class LiveController {
 
 	addGuest(name: string) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Menambahkan pemain tamu…', () => addGuestAndCheckIn(this.session!.id, name));
+		return this.runCommand('Menambahkan pemain tamu…', () =>
+			addGuestAndCheckIn(this.session!.id, name)
+		);
 	}
 
 	setStatus(participantId: string, status: ParticipantStatus) {
@@ -106,20 +114,93 @@ export class LiveController {
 		);
 	}
 
-	startMatch(teamA: string[], teamB: string[]) {
+	async prepareNextMatch(): Promise<{ id: string; recommendation: RotationRecommendation } | null> {
+		if (!this.session || !this.adminAuthorized || this.activeMatch) return null;
+		const ready = this.participants.filter((participant) => participant.status === 'READY');
+		if (ready.length < 4 || !this.online) return null;
+		this.pending = 'Menyiapkan rekomendasi…';
+		try {
+			const recommendation = recommendNextPlayers(
+				ready.map((participant) => ({
+					id: participant.id,
+					name: participant.name,
+					status: participant.status,
+					readySinceMs: participant.readySince?.getTime() ?? null,
+					eligibleOpportunities: participant.opportunities,
+					missedOpportunities: participant.missedOpportunities,
+					currentOpportunityDebt: participant.currentOpportunityDebt,
+					setsPlayed: participant.setsPlayed,
+					consecutiveRotations: participant.consecutiveMatches,
+					rotationsPlayed: participant.rotationsPlayed
+				})),
+				Date.now(),
+				undefined,
+				STARVATION_POLICIES.DEBT_4_OR_WAIT_45
+			);
+			const id = await saveRotationRecommendation(this.session.id, recommendation);
+			return { id, recommendation };
+		} catch (error) {
+			this.notify(
+				errorMessage(error, 'Rekomendasi belum tersedia. Kamu tetap bisa memilih manual.')
+			);
+			return null;
+		} finally {
+			this.pending = '';
+		}
+	}
+
+	startMatch(
+		teamA: string[],
+		teamB: string[],
+		recommendationId: string | null = null,
+		pairingAudit?: { recommended: PairingOption; options: PairingOption[] }
+	) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Memulai match…', () => startMatch(this.session!.id, teamA, teamB));
+		return this.runCommand('Memulai match…', async () => {
+			const result = await startMatch(
+				this.session!.id,
+				teamA,
+				teamB,
+				recommendationId,
+				pairingAudit
+					? {
+							recommendedA: pairingAudit.recommended.teams[0],
+							recommendedB: pairingAudit.recommended.teams[1],
+							diagnostics: {
+								selected_algorithm: 'trueskill-style-bounded-margin-v1',
+								recommended_gap: pairingAudit.recommended.predictedGap,
+								recommended_strengths: pairingAudit.recommended.teamStrengths,
+								pairings: pairingAudit.options.map((option) => ({
+									teams: option.teams,
+									strengths: option.teamStrengths,
+									gap: option.predictedGap,
+									teamA_win_probability: option.teamAWinProbability
+								}))
+							}
+						}
+					: undefined
+			);
+			if (pairingAudit && !result.pairingAuditSaved)
+				this.notify('Rekomendasi tidak tersimpan. Tim tetap dipilih dan match tetap berjalan.');
+			return result;
+		});
 	}
 
 	completeSet(teamA: number, teamB: number) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Menyimpan skor…', () => completeSet(this.session!.id, teamA, teamB));
+		const set = this.activeMatch?.sets.find((candidate) => candidate.status === 'IN_PROGRESS');
+		if (!set) return Promise.resolve(false);
+		return this.runCommand('Menyimpan skor…', () =>
+			completeSet(this.session!.id, this.session!.club_id, set.id, teamA, teamB)
+		);
 	}
 
 	correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
+		const set = this.activeMatch?.sets.find((candidate) => candidate.setNumber === setNumber);
+		if (!set) return Promise.resolve(false);
 		return this.runCommand('Memperbaiki skor…', () =>
-			correctCompletedSet(this.session!.id, setNumber, teamA, teamB)
+			correctCompletedSet(this.session!.club_id, set.id, teamA, teamB)
 		);
 	}
 

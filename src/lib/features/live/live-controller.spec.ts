@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
 	addGuestAndCheckIn: vi.fn(),
 	changeParticipantStatus: vi.fn(),
 	startMatch: vi.fn(),
+	saveRotationRecommendation: vi.fn(),
 	completeSet: vi.fn(),
 	correctCompletedSet: vi.fn(),
 	substitutePlayer: vi.fn(),
@@ -82,7 +83,9 @@ describe('LiveController', () => {
 		await controller.checkIn('member-1');
 
 		expect(api.checkInPlayer).not.toHaveBeenCalled();
-		expect(notice).toHaveBeenCalledWith('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
+		expect(notice).toHaveBeenCalledWith(
+			'Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.'
+		);
 	});
 
 	it('does not allow live writes without an authenticated Club Admin', async () => {
@@ -109,8 +112,103 @@ describe('LiveController', () => {
 		);
 	});
 
+	it('persists a current-state recommendation only for an idle session with four READY players', async () => {
+		const players = Array.from({ length: 5 }, (_, index) => ({
+			id: `p${index + 1}`,
+			name: `Pemain ${index + 1}`,
+			membership: 'MEMBER' as const,
+			rating: 1200,
+			uncertainty: 0.7,
+			status: 'READY' as const,
+			readySince: new Date(0),
+			consecutiveMatches: 0,
+			opportunities: 3,
+			missedOpportunities: 2,
+			currentOpportunityDebt: index === 0 ? 4 : 0,
+			rotationsPlayed: 1,
+			setsPlayed: 2
+		}));
+		controller.participants = players;
+		api.saveRotationRecommendation.mockResolvedValue('recommendation-1');
+
+		const prepared = await controller.prepareNextMatch();
+
+		expect(prepared?.id).toBe('recommendation-1');
+		expect(prepared?.recommendation.selectedPlayerIds).toContain('p1');
+		expect(api.saveRotationRecommendation).toHaveBeenCalledOnce();
+	});
+
+	it('does not prepare an actionable recommendation for fewer than four READY players or an active match', async () => {
+		controller.participants = Array.from({ length: 3 }, (_, index) => ({
+			id: `p${index}`,
+			name: `P${index}`,
+			membership: 'MEMBER' as const,
+			rating: 1200,
+			uncertainty: 0.7,
+			status: 'READY' as const,
+			consecutiveMatches: 0,
+			opportunities: 0,
+			missedOpportunities: 0,
+			currentOpportunityDebt: 0,
+			rotationsPlayed: 0,
+			setsPlayed: 0
+		}));
+		expect(await controller.prepareNextMatch()).toBeNull();
+		controller.participants = Array.from({ length: 4 }, (_, index) => ({
+			id: `p${index}`,
+			name: `P${index}`,
+			membership: 'MEMBER' as const,
+			rating: 1200,
+			uncertainty: 0.7,
+			status: 'READY' as const,
+			consecutiveMatches: 0,
+			opportunities: 0,
+			missedOpportunities: 0,
+			currentOpportunityDebt: 0,
+			rotationsPlayed: 0,
+			setsPlayed: 0
+		}));
+		controller.activeMatch = {
+			id: 'match-1',
+			session_id: 'session-1',
+			sequence_number: 1,
+			sets: []
+		};
+		expect(await controller.prepareNextMatch()).toBeNull();
+		expect(api.saveRotationRecommendation).not.toHaveBeenCalled();
+	});
+
+	it('sends the actual selected four and recommendation ID to the start command', async () => {
+		api.startMatch.mockResolvedValue('match-1');
+
+		await controller.startMatch(['p1', 'p2'], ['p3', 'p5'], 'recommendation-1');
+
+		expect(api.startMatch).toHaveBeenCalledWith(
+			'session-1',
+			['p1', 'p2'],
+			['p3', 'p5'],
+			'recommendation-1',
+			undefined
+		);
+	});
+
 	it('keeps score completion unsuccessful when the server rejects it', async () => {
 		api.completeSet.mockRejectedValue({ message: 'Score save failed', details: 'Try again.' });
+		controller.activeMatch = {
+			id: 'match-1',
+			session_id: 'session-1',
+			sequence_number: 1,
+			sets: [
+				{
+					id: 'set-1',
+					setNumber: 1,
+					status: 'IN_PROGRESS',
+					teamAScore: null,
+					teamBScore: null,
+					players: []
+				}
+			]
+		};
 
 		const result = await controller.completeSet(21, 17);
 

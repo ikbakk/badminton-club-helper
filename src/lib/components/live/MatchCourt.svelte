@@ -5,6 +5,8 @@
 	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
 	import type { ActiveMatch } from '$lib/data/live';
 	import type { Participant } from '$lib/domain/types';
+	import type { RotationRecommendation } from '$lib/domain/rotation/types';
+	import { evaluatePairings, type PairingOption } from '$lib/domain/rating';
 
 	let {
 		participants,
@@ -12,6 +14,7 @@
 		canManage = false,
 		online = true,
 		pending = '',
+		onpreparenext,
 		onstart,
 		oncomplete,
 		oncorrect,
@@ -23,7 +26,13 @@
 		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
-		onstart: (teamA: string[], teamB: string[]) => Promise<boolean>;
+		onpreparenext: () => Promise<{ id: string; recommendation: RotationRecommendation } | null>;
+		onstart: (
+			teamA: string[],
+			teamB: string[],
+			recommendationId: string | null,
+			pairingAudit?: { recommended: PairingOption; options: PairingOption[] }
+		) => Promise<boolean>;
 		oncomplete: (a: number, b: number) => Promise<boolean>;
 		oncorrect: (setNumber: 1 | 2, a: number, b: number) => Promise<boolean>;
 		onabandon: () => void;
@@ -36,6 +45,8 @@
 
 	let stage = $state<'idle' | 'select' | 'teams'>('idle');
 	let selected = $state<string[]>([]);
+	let recommendation = $state<RotationRecommendation | null>(null);
+	let recommendationId = $state<string | null>(null);
 	let scoreA = $state('');
 	let scoreB = $state('');
 	let setTwoStarted = $state(false);
@@ -46,6 +57,7 @@
 	let correctionSet = $state<1 | 2 | null>(null);
 	let correctionA = $state('');
 	let correctionB = $state('');
+	let selectedPairing = $state<PairingOption | null>(null);
 
 	let ready = $derived(participants.filter((player) => player.status === 'READY'));
 	let playingSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
@@ -54,6 +66,30 @@
 	let teamB = $derived(playingSet?.players.filter((player) => player.team === 'B') ?? []);
 	let selectedPlayers = $derived(
 		selected.map((id) => ready.find((player) => player.id === id)).filter(Boolean)
+	);
+	let pairingStates = $derived(
+		selectedPlayers
+			.filter((player) => player)
+			.map((player) => ({
+				id: player!.id,
+				rating: player!.rating,
+				sigma: player!.uncertainty,
+				games: player!.setsPlayed
+			}))
+	);
+	let pairingOptions = $derived(pairingStates.length === 4 ? evaluatePairings(pairingStates) : []);
+	let recommendedPairing = $derived(pairingOptions[0] ?? null);
+	let recommendedPlayers = $derived(
+		recommendation?.selectedPlayerIds
+			.map((id) => ready.find((player) => player.id === id))
+			.filter((player) => player !== undefined) ?? []
+	);
+	let selectionMatchesRecommendation = $derived(
+		Boolean(
+			recommendation &&
+			selected.length === 4 &&
+			recommendation.selectedPlayerIds.every((id) => selected.includes(id))
+		)
 	);
 	let readyPlayerOptions = $derived(
 		ready.map((player) => ({ value: player.id, label: player.name }))
@@ -65,17 +101,41 @@
 	);
 
 	function continueToTeams() {
-		if (selected.length === 4) stage = 'teams';
+		if (selected.length === 4) {
+			const legalPairings = evaluatePairings(
+				selected.map((id) => {
+					const player = ready.find((candidate) => candidate.id === id)!;
+					return { id, rating: player.rating, sigma: player.uncertainty, games: player.setsPlayed };
+				})
+			);
+			selectedPairing = legalPairings[0] ?? null;
+			stage = 'teams';
+		}
 	}
 
-	function beginPreparation() {
+	async function beginPreparation() {
 		selected = [];
+		recommendation = null;
+		recommendationId = null;
+		if (ready.length >= 4 && online) {
+			const prepared = await onpreparenext();
+			if (prepared) {
+				recommendation = prepared.recommendation;
+				recommendationId = prepared.id;
+				selected = [...prepared.recommendation.selectedPlayerIds];
+			}
+		}
 		stage = 'select';
 	}
 
 	function swapPair() {
-		if (selected.length !== 4) return;
-		selected = [selected[0], selected[3], selected[2], selected[1]];
+		if (pairingOptions.length)
+			selectedPairing =
+				pairingOptions.find((option) => option !== selectedPairing) ?? pairingOptions[0];
+	}
+
+	function playerName(id: string) {
+		return selectedPlayers.find((player) => player?.id === id)?.name ?? 'Pemain';
 	}
 
 	async function submitScore() {
@@ -367,13 +427,27 @@
 			<div class="mx-auto flex w-full max-w-lg flex-wrap gap-3">
 				{#if stage === 'select'}<AppButton
 						class="w-full justify-center"
-						disabled={selected.length !== 4}
-						onclick={continueToTeams}>Lanjutkan</AppButton
+						disabled={selected.length !== 4 || !online || Boolean(pending)}
+						onclick={continueToTeams}
+						>{selectionMatchesRecommendation
+							? 'Lanjutkan dengan rekomendasi'
+							: 'Lanjutkan dengan pilihan ini'}</AppButton
 					>
 				{:else}<AppButton variant="secondary" onclick={swapPair}>Tukar pemain</AppButton><AppButton
 						disabled={Boolean(pending)}
 						onclick={async () => {
-							if (await onstart(selected.slice(0, 2), selected.slice(2))) stage = 'idle';
+							if (
+								selectedPairing &&
+								(await onstart(
+									selectedPairing.teams[0],
+									selectedPairing.teams[1],
+									recommendationId,
+									recommendedPairing && pairingOptions.length === 3
+										? { recommended: recommendedPairing, options: pairingOptions }
+										: undefined
+								))
+							)
+								stage = 'idle';
 						}}>{pending || 'Mulai match'}</AppButton
 					>{/if}
 			</div>
@@ -394,6 +468,48 @@
 		<div class="mx-auto w-full max-w-lg overscroll-contain">
 			{#if stage === 'select'}
 				<div class="p-5">
+					{#if recommendation}
+						<section
+							class="mb-5 border border-[#9bb0a5] bg-[#e5ece5] p-4"
+							aria-label="Rekomendasi pemain Algorithm 1"
+						>
+							<p class="text-xs font-black tracking-[0.12em] text-[#38675b]">
+								REKOMENDASI · KAMU TETAP MEMILIH
+							</p>
+							<h4 class="mt-1 text-lg font-black text-[#163630]">
+								Empat pemain berikut disarankan
+							</h4>
+							{#if recommendedPlayers.length < 4}
+								<p class="mt-2 text-sm font-bold text-[#9a3d25]">
+									Status pemain berubah. Pilih pemain READY pengganti sebelum melanjutkan.
+								</p>
+							{/if}
+							<ul class="mt-3 divide-y divide-[#b9c5bb]">
+								{#each recommendedPlayers as player (player.id)}
+									{@const candidate = recommendation.rankedCandidates.find(
+										(item) => item.playerId === player.id
+									)}
+									<li class="py-2">
+										<div class="flex items-center justify-between gap-2">
+											<b class="text-sm text-[#163630]">{player.name}</b>
+											{#if candidate?.tier === 'SHOULD_PLAY'}
+												<span class="bg-[#f5bb61] px-2 py-1 text-[10px] font-black text-[#163630]"
+													>SHOULD PLAY</span
+												>
+											{/if}
+										</div>
+										<p class="mt-1 text-xs leading-5 text-[#527169]">
+											{candidate?.reasons.slice(0, 2).join(' · ') ?? 'Prioritas rotasi berikutnya'}
+										</p>
+									</li>
+								{/each}
+							</ul>
+							<button
+								class="mt-3 min-h-10 text-sm font-black text-[#38675b] underline underline-offset-2"
+								onclick={() => (selected = [])}>Pilih empat pemain secara manual</button
+							>
+						</section>
+					{/if}
 					<MultiSelect
 						options={readyPlayerOptions}
 						{selected}
@@ -402,6 +518,39 @@
 						maxSelected={4}
 						emptyMessage="Belum ada pemain berstatus READY."
 					/>
+				</div>
+			{:else if selectedPairing && recommendedPairing}
+				<div class="border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
+					<p class="text-xs font-black tracking-[0.12em] text-[#38675b]">REKOMENDASI TIM</p>
+					<h4 class="mt-1 text-xl font-black tracking-[-0.04em] text-[#163630]">
+						{playerName(recommendedPairing.teams[0][0])} + {playerName(
+							recommendedPairing.teams[0][1]
+						)}<br />vs<br />{playerName(recommendedPairing.teams[1][0])} + {playerName(
+							recommendedPairing.teams[1][1]
+						)}
+					</h4>
+					<p class="mt-2 text-sm text-[#527169]">
+						Paling seimbang · selisih kekuatan {recommendedPairing.predictedGap.toFixed(1)}
+					</p>
+				</div>
+				<div class="grid gap-2 p-5">
+					{#each pairingOptions as option, index (option.teams.flat().join('-'))}
+						<button
+							class={`min-h-14 border px-4 py-3 text-left ${selectedPairing === option ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+							onclick={() => (selectedPairing = option)}
+						>
+							<b
+								>{playerName(option.teams[0][0])} + {playerName(option.teams[0][1])} vs {playerName(
+									option.teams[1][0]
+								)} + {playerName(option.teams[1][1])}</b
+							>
+							<span class="ml-2 text-xs"
+								>{index === 0
+									? 'Paling seimbang'
+									: `Selisih ${option.predictedGap.toFixed(1)}`}</span
+							>
+						</button>
+					{/each}
 				</div>
 			{:else}
 				<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-5 text-center">

@@ -21,6 +21,7 @@
 		onendsession,
 		onselect,
 		onstartmatch,
+		onpreparenext,
 		oncompleteset,
 		oncorrectset,
 		onabandonmatch,
@@ -38,7 +39,15 @@
 		oncheckin: () => void;
 		onendsession: () => void;
 		onselect: (participant: Participant) => void;
-		onstartmatch: (teamA: string[], teamB: string[]) => Promise<boolean>;
+		onstartmatch: (
+			teamA: string[],
+			teamB: string[],
+			recommendationId: string | null
+		) => Promise<boolean>;
+		onpreparenext: () => Promise<{
+			id: string;
+			recommendation: import('$lib/domain/rotation/types').RotationRecommendation;
+		} | null>;
 		oncompleteset: (teamA: number, teamB: number) => Promise<boolean>;
 		oncorrectset: (setNumber: 1 | 2, teamA: number, teamB: number) => Promise<boolean>;
 		onabandonmatch: () => void;
@@ -239,6 +248,7 @@
 			{online}
 			{pending}
 			onstart={onstartmatch}
+			{onpreparenext}
 			oncomplete={oncompleteset}
 			oncorrect={oncorrectset}
 			onabandon={onabandonmatch}

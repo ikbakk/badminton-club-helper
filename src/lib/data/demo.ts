@@ -10,6 +10,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 1,
 		opportunities: 3,
 		missedOpportunities: 0,
+		currentOpportunityDebt: 0,
+		rotationsPlayed: 2,
 		setsPlayed: 4
 	},
 	{
@@ -22,6 +24,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 1,
+		currentOpportunityDebt: 0,
+		rotationsPlayed: 2,
 		setsPlayed: 4
 	},
 	{
@@ -34,6 +38,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 1,
 		opportunities: 3,
 		missedOpportunities: 0,
+		currentOpportunityDebt: 0,
+		rotationsPlayed: 2,
 		setsPlayed: 4
 	},
 	{
@@ -46,6 +52,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 1,
+		currentOpportunityDebt: 0,
+		rotationsPlayed: 2,
 		setsPlayed: 4
 	},
 	{
@@ -59,6 +67,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 2,
+		currentOpportunityDebt: 2,
+		rotationsPlayed: 1,
 		setsPlayed: 2
 	},
 	{
@@ -72,6 +82,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 2,
+		currentOpportunityDebt: 2,
+		rotationsPlayed: 1,
 		setsPlayed: 2
 	},
 	{
@@ -85,6 +97,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 3,
+		currentOpportunityDebt: 3,
+		rotationsPlayed: 0,
 		setsPlayed: 0
 	},
 	{
@@ -98,6 +112,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 1,
 		missedOpportunities: 1,
+		currentOpportunityDebt: 1,
+		rotationsPlayed: 0,
 		setsPlayed: 0
 	},
 	{
@@ -110,6 +126,8 @@ export const participants: Participant[] = [
 		consecutiveMatches: 0,
 		opportunities: 3,
 		missedOpportunities: 1,
+		currentOpportunityDebt: 1,
+		rotationsPlayed: 1,
 		setsPlayed: 2
 	}
 ];

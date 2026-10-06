@@ -1,13 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { ArrowLeft } from '@lucide/svelte';
 	import { ArrowRight } from '@lucide/svelte';
+	import { getRatingConfidenceLabel } from '$lib/domain/rating';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import {
 		getPublicClub,
 		getPublicPlayerProfile,
+		getPublicPlayerRating,
 		getPublicPlayerRecentSessions,
 		getPublicRoster,
 		type PublicPlayerProfile,
@@ -17,10 +20,29 @@
 	let clubName = $state('PB NEWBIE');
 	let player = $state<PublicPlayerProfile | null>(null);
 	let sessions = $state<PublicPlayerSession[]>([]);
+	let playerRating = $state<Awaited<ReturnType<typeof getPublicPlayerRating>>>(null);
 	let loading = $state(true);
 	let statisticsAvailable = $state(true);
 	const date = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(value));
+	let refreshRating = async () => {
+		try {
+			playerRating = await getPublicPlayerRating(params.id);
+		} catch {
+			playerRating = null;
+		}
+	};
+	onMount(() => {
+		const refreshWhenVisible = () => {
+			if (document.visibilityState === 'visible') void refreshRating();
+		};
+		window.addEventListener('focus', refreshWhenVisible);
+		document.addEventListener('visibilitychange', refreshWhenVisible);
+		return () => {
+			window.removeEventListener('focus', refreshWhenVisible);
+			document.removeEventListener('visibilitychange', refreshWhenVisible);
+		};
+	});
 	if (browser)
 		void (async () => {
 			try {
@@ -31,12 +53,14 @@
 						getPublicPlayerProfile(params.id),
 						getPublicPlayerRecentSessions(params.id)
 					]);
+					playerRating = await getPublicPlayerRating(params.id);
 				} catch {
 					const member = club
 						? (await getPublicRoster(club.id)).find((item) => item.id === params.id)
 						: null;
 					player = member ? { ...member, sessions: 0, sets: 0, wins: 0, losses: 0 } : null;
 					statisticsAvailable = false;
+					playerRating = await getPublicPlayerRating(params.id).catch(() => null);
 				}
 			} finally {
 				loading = false;
@@ -145,9 +169,18 @@
 				</p>{/if}
 			<section class="mt-9 border-t border-[#b9c5bb] pt-5">
 				<h2 class="text-xl font-black">Rating</h2>
-				<p class="mt-2 text-sm leading-6 text-[#527169]">
-					Belum cukup data match untuk menampilkan rating.
-				</p>
+				{#if playerRating}
+					<p class="mt-2 text-4xl font-black tracking-[-0.04em] text-[#163630] tabular-nums">
+						{Math.round(playerRating.rating)}
+					</p>
+					<p class="mt-1 text-sm font-bold text-[#527169]">
+						{getRatingConfidenceLabel(playerRating.uncertainty) === 'ESTABLISHED'
+							? 'Stabil'
+							: 'Masih dikalibrasi'}
+					</p>
+				{:else}
+					<p class="mt-2 text-sm leading-6 text-[#527169]">Rating belum tersedia.</p>
+				{/if}
 			</section>
 		</section>
 	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
