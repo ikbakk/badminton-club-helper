@@ -1,13 +1,11 @@
 export type ParticipantStatus = 'READY' | 'PLAYING' | 'RESTING' | 'AWAY' | 'OUT' | 'LEFT';
 export type Membership = 'MEMBER' | 'GUEST';
-export type Player = {
+export type Participant = {
 	id: string;
 	name: string;
 	membership: Membership;
 	rating: number;
 	uncertainty: number;
-};
-export type Participant = Player & {
 	sessionParticipantId?: string;
 	status: ParticipantStatus;
 	readySince?: Date;
@@ -19,4 +17,3 @@ export type Participant = Player & {
 	setsPlayed: number;
 	leaveAfterMatch?: boolean;
 };
-export type Team = [string, string];

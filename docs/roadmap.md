@@ -2,24 +2,19 @@
 
 ## Done
 
-- Playable one-court live session and public read-only views.
-- Club Admin authentication and authorized session/roster operations.
-- Finance core and session close workflow.
-- Algorithm 1 Smart Rotation with persisted actual-opportunity history.
-- Algorithm 2 rating, balanced pairing, trusted persistence, and deterministic correction replay.
-- Admin real-session evaluation tooling and JSON export.
+- Playable one-court session, public read-only views, Club Admin operations, and finance/session-close workflows.
+- Algorithm 1 Smart Rotation with persisted actual-opportunity history; deployment gate passed.
+- Algorithm 2 rating and balanced pairing with trusted persistence and deterministic correction replay; deployment gate passed.
+- Admin real-session evaluation and JSON export; automated application verification passes.
 
-## Now
+## Now — V1 closeout
 
-- Validate with 3–5 real club sessions.
-- Fix operational UX friction found courtside; use observed evidence rather than speculative algorithm changes.
+- Keep the repository and developer handoff clean, documented, and easy to verify.
+- Validate the shipped workflow over 3–5 real club sessions; capture rotation/pairing feedback and courtside friction.
+- Make operational UX fixes only when supported by observed use. Do not tune Algorithm 1 or Algorithm 2 during validation based on isolated observations.
 
 ## Later
 
 - Session recap/share card.
 - Settings and payment-destination polish.
-- Security cleanup and deployment/operations hardening.
-
-## Decisions
-
-The production rotation thresholds and rating/pairing model are implemented and versioned. Changes should follow real-session evidence and tests; no open decision remains to choose Algorithm 2's model or freeze Algorithm 1's initial production policy.
+- Deployment and operations hardening.

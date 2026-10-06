@@ -6,7 +6,7 @@ Recommend which four players play next; it does not form teams. Only READY parti
 
 ## Production policy
 
-Priority combines current consecutive opportunity debt, current READY wait, participation deficit, and consecutive-play protection:
+Priority combines current consecutive opportunity debt, current READY wait, set-count deficit, and consecutive-play protection. The active weights are `ROTATION_WEIGHTS` in `src/lib/domain/rotation/score.ts`:
 
 ```text
 100 × current opportunity debt
@@ -15,13 +15,13 @@ Priority combines current consecutive opportunity debt, current READY wait, part
 − consecutive-play penalty
 ```
 
-An explicit `SHOULD_PLAY` tier applies at current debt **≥ 4** or continuous READY wait **≥ 45 minutes**. Tier ordering precedes score ordering. Within tiers, candidates sort by priority and stable player ID. A third consecutive rotation is excluded/deprioritized when at least four alternatives exist; if fewer than four rested READY candidates exist, the pool falls back to include them.
+The active `DEBT_4_OR_WAIT_45` policy is passed by the live controller: `SHOULD_PLAY` applies at current debt **≥ 4** or continuous READY wait **≥ 45 minutes**. Tier ordering precedes score ordering; within tiers, candidates sort by priority and stable player ID. A third consecutive rotation is excluded when at least four alternatives exist. If fewer than four rested READY candidates exist, the pool falls back to include consecutive players as fill-ins.
 
-Selected candidates' debt resets at the actual start; unselected READY candidates accrue a missed opportunity. Overrides change actual selection and therefore fairness state. RESTING/AWAY/OUT/LEFT/PLAYING do not accrue opportunities. Set 2 substitutions are not full rotations.
+At the authoritative match start, selected candidates' current debt resets and unselected READY candidates accrue a missed opportunity. Overrides change actual selection and therefore fairness state. Only READY status accrues opportunities; RESTING/AWAY/OUT/LEFT/PLAYING do not. Set 2 substitutions count as set participation, not a full rotation.
 
 ## Authority and explainability
 
-The recommendation is advisory. The authorized `start_match` transaction writes `ROTATION_STARTED` using READY IDs and actual selected IDs; client-supplied diagnostics do not determine server fairness state. Explanations emphasize fairness debt, waiting urgency, and consecutive-play protection; raw scores are internal diagnostics.
+The recommendation is advisory. The authorized `start_match` transaction writes `ROTATION_STARTED` using READY IDs and actual selected IDs; client-supplied diagnostics do not determine server fairness state. Persisted READY/opportunity history is authoritative. Explanations emphasize fairness debt, waiting urgency, and consecutive-play protection; raw scores are internal diagnostics. Test-only weights/policies are for simulation and must not be used to tune production behavior during live validation.
 
 ## Verification and operational review
 

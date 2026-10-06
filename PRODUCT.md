@@ -30,6 +30,8 @@ The product is a public, live courtside view with write actions available to sig
 ## Capabilities and Constraints
 
 - SvelteKit, TypeScript, Supabase/Postgres, TanStack Query, and thin Realtime invalidation are the confirmed stack.
+- Algorithm 1 Smart Rotation and Algorithm 2 balanced pairing/rating are implemented and deployed. Recommendations are advisory and Club Admins may override them.
+- Admin-only session evaluation and JSON export support the current 3–5 real-session validation phase; evaluation does not automatically tune either algorithm.
 - One court, one live session, Club Admin-only write authority, two normal sets per match, and only between-set substitutions.
 - Fee appears only after a session is closed; admins confirm the per-person fee and track payment against that session's attendance list.
 - Public viewers may see attendance and per-attendee payment status in closed-session history as color-only indicators with a legend; balances, credentials, algorithm diagnostics, and rating uncertainty remain private.
@@ -43,9 +45,9 @@ The product is a public, live courtside view with write actions available to sig
 
 ## Current documentation
 
-- Product and implementation source of truth: README and the current documents linked there.
-- The repository has a working SvelteKit courtside slice with live state, check-in, manual match operation, and test coverage.
-- No approved visual system, logo, photography, or other brand assets are currently supplied.
+- `README.md` is the developer entrypoint. `docs/architecture.md`, `docs/session-domain.md`, the algorithm documents, `docs/finance.md`, and `docs/real-session-validation.md` describe current implementation and behavior.
+- V1 closeout is focused on repository cleanup and validating the deployed workflow over 3–5 real club sessions. Operational UX changes should respond to observed use; do not tune algorithm policy during validation without sufficient evidence.
+- The committed visual direction is documented in `DESIGN.md` (Court Lines). No separate logo or photography assets are currently supplied.
 
 ## Product Principles
 

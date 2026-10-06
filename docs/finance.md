@@ -18,4 +18,4 @@ Official expense categories are COURT, SHUTTLECOCK, and OTHER. Club fund is deri
 
 ## Product boundary
 
-The application is not a payment gateway. Payment destinations and transfer instructions do not prove receipt; only an authorized recorded payment is ledger evidence. Do not reintroduce legacy operator-submission or separate Finance Admin authority from obsolete specifications.
+The application is not a payment gateway. Payment destinations and transfer instructions do not prove receipt; only an authorized recorded payment is ledger evidence.
