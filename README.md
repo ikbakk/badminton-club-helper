@@ -6,10 +6,10 @@ A mobile-first helper for a casual, one-court badminton club. It is intentionall
 
 - Public, read-only club, roster, and live-court view.
 - Email + password Admin sign-in, club bootstrap, roster management, and session creation.
-- PIN-protected, single-device courtside operator lease with explicit takeover.
-- Check-in for members and guests, participant availability states, manual doubles selection, two-set scoring, between-set substitution, and match abandonment.
+- Club Admin-authorized courtside operation: check-in, participant availability, Smart Rotation, balanced pairing, two-set scoring, between-set substitution, and match abandonment.
+- Session close and finance ledger workflows, player ratings, and admin-only session evaluation/export.
 - Supabase schema with append-only session events, RLS, public-safe projections, and transactional RPC commands.
-- Unit tests plus a Playwright public-live smoke test.
+- Unit tests and Playwright end-to-end tests.
 
 ## Run locally
 
@@ -45,7 +45,6 @@ This runs formatting/lint checks, Svelte type checks, unit tests, Playwright smo
 ### Implemented RPC commands
 
 - `start_session`
-- `claim_operator_lease`
 - `check_in_player`
 - `add_guest_and_check_in`
 - `change_participant_status`
@@ -53,19 +52,20 @@ This runs formatting/lint checks, Svelte type checks, unit tests, Playwright smo
 - `complete_set`
 - `substitute_player`
 - `abandon_match`
-- `close_session` and `confirm_session_fee` (database-ready; UI is intentionally out of the current live-slice scope)
+- Session, finance, rotation, and rating commands are implemented through authorized server endpoints and transactional database functions.
 
 Critical state transitions remain transactional RPCs; the browser never performs direct table mutations.
 
-## Unfrozen decisions
+## Documentation
 
-The score/weight values in `src/lib/domain/rotation` and `src/lib/domain/rating` are explicit **versioned baseline simulations**, not final policy. Calibrate them with the required real-session simulations and override history before enabling them as production authority.
-
-See the numbered specification Markdown files for complete constraints and the courtside UI pack for the interaction flows.
+- [Product scope](PRODUCT.md) · [Design system](DESIGN.md)
+- [Architecture](docs/architecture.md) · [Session domain](docs/session-domain.md)
+- [Smart Rotation](docs/algorithm-1-smart-rotation.md) · [Rating & pairing](docs/algorithm-2-rating-pairing.md)
+- [Finance](docs/finance.md) · [Real-session validation](docs/real-session-validation.md) · [Roadmap](docs/roadmap.md)
 
 ## Demo data
 
-The checked-in `supabase/seed/demo_data.sql` is idempotent and only adds sample records to a club named `PB NEWBIE`. It preserves any current LIVE session and its operator PIN.
+The checked-in `supabase/seed/demo_data.sql` is idempotent and only adds sample records to a club named `PB NEWBIE`. It preserves any current LIVE session.
 
 ```sh
 npx supabase db query --linked --file supabase/seed/demo_data.sql
