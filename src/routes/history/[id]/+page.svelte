@@ -6,6 +6,7 @@
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
+	import { supabase } from '$lib/supabase';
 	import {
 		getPublicClub,
 		getPublicSessionAttendance,
@@ -29,6 +30,40 @@
 	let shareNotice = $state('');
 	let shareDialogOpen = $state(false);
 	let loading = $state(true);
+	let evaluation = $state<{
+		algorithm1: {
+			recommendations: number;
+			overrides: number;
+			overrideRate: number;
+			rotationSpread: number;
+			setSpread: number;
+			maxReadyWaitMinutes: number | null;
+			readyWaitStatus: 'COMPLETE' | 'INCOMPLETE';
+			starvationIncidents: number;
+			players: {
+				playerId: string;
+				name: string;
+				rotationsPlayed: number;
+				setsPlayed: number;
+				maxReadyWaitMinutes: number | null;
+				missedOpportunities: number;
+				flags: string[];
+			}[];
+		};
+		algorithm2: {
+			recommendations: number;
+			accepted: number;
+			overrides: number;
+			overrideRate: number;
+			averageRecommendedGap: number | null;
+			averageActualGap: number | null;
+			closeSetCount: number;
+			blowoutCount: number;
+		};
+		flags: string[];
+	} | null>(null);
+	let evaluationError = $state('');
+	let evaluationLoading = $state(false);
 	let canManage = $derived(Boolean(club?.is_club_admin));
 	const date = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(
@@ -47,8 +82,11 @@
 	if (browser)
 		void (async () => {
 			try {
-				const [club, sessions] = await Promise.all([getPublicClub(), getPublicSessionHistory()]);
-				clubName = club?.name ?? clubName;
+				const [publicClub, sessions] = await Promise.all([
+					getPublicClub(),
+					getPublicSessionHistory()
+				]);
+				clubName = publicClub?.name ?? clubName;
 				session = sessions.find((item) => item.id === params.id && item.closed_at) ?? null;
 				if (session) {
 					[matches, attendees, financeRecap] = await Promise.all([
@@ -56,6 +94,7 @@
 						getPublicSessionAttendance(params.id),
 						getPublicSessionFinanceRecap(params.id)
 					]);
+					if (club?.is_club_admin) void loadEvaluation();
 				}
 			} finally {
 				loading = false;
@@ -114,6 +153,48 @@
 
 	function handleAccessChange(accountClub: Club | null) {
 		club = accountClub;
+	}
+
+	async function loadEvaluation() {
+		if (!supabase || !session || evaluationLoading) return;
+		evaluationLoading = true;
+		evaluationError = '';
+		try {
+			const { data } = await supabase.auth.getSession();
+			const token = data.session?.access_token;
+			if (!token) throw new Error('Silakan masuk kembali sebagai admin.');
+			const response = await fetch(`/api/history/${session.id}/evaluation`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			const payload = await response.json();
+			if (!response.ok) throw new Error(payload.message ?? 'Evaluasi belum dapat dimuat.');
+			evaluation = payload;
+		} catch (error) {
+			evaluationError = error instanceof Error ? error.message : 'Evaluasi belum dapat dimuat.';
+		} finally {
+			evaluationLoading = false;
+		}
+	}
+
+	async function exportEvaluation() {
+		if (!supabase || !session) return;
+		const { data } = await supabase.auth.getSession();
+		if (!data.session?.access_token) return;
+		const response = await fetch(`/api/history/${session.id}/evaluation`, {
+			headers: { Authorization: `Bearer ${data.session.access_token}` }
+		});
+		if (!response.ok) {
+			evaluationError = 'Ekspor evaluasi gagal.';
+			return;
+		}
+		const blob = new Blob([JSON.stringify(await response.json(), null, 2)], {
+			type: 'application/json'
+		});
+		const link = document.createElement('a');
+		link.href = URL.createObjectURL(blob);
+		link.download = `evaluasi-sesi-${session.id}.json`;
+		link.click();
+		URL.revokeObjectURL(link.href);
 	}
 
 	function createShareCard() {
@@ -438,6 +519,125 @@
 						yang sudah dikonfirmasi.
 					</p>{/if}
 			</section>
+			{#if canManage}<section class="mt-8 border-t border-[#b9c5bb] pt-5">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<h2 class="text-xl font-black">Evaluasi sesi</h2>
+							<p class="mt-1 text-xs text-[#527169]">
+								Catatan observasi admin, bukan bukti kualitas algoritma.
+							</p>
+						</div>
+						{#if evaluation}<AppButton
+								class="shrink-0"
+								variant="secondary"
+								onclick={exportEvaluation}>Ekspor JSON</AppButton
+							>{/if}
+					</div>
+					{#if evaluationLoading}<p class="mt-4 text-sm" role="status">
+							Memuat evaluasi…
+						</p>{:else if evaluationError}<div class="mt-4 flex items-center gap-3">
+							<p class="text-sm text-[#a93e29]">{evaluationError}</p>
+							<AppButton variant="secondary" onclick={loadEvaluation}>Coba lagi</AppButton>
+						</div>{:else if evaluation}<div class="mt-4 grid gap-4 sm:grid-cols-2">
+							<section class="border border-[#b9c5bb] bg-[#fffaf0] p-4">
+								<h3 class="font-black">Rotasi</h3>
+								<div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+									<p>
+										<b class="block text-xl">{evaluation.algorithm1.recommendations}</b>Rekomendasi
+									</p>
+									<p>
+										<b class="block text-xl"
+											>{evaluation.algorithm1.overrides} · {Math.round(
+												evaluation.algorithm1.overrideRate * 100
+											)}%</b
+										>Override
+									</p>
+									<p>
+										<b class="block text-xl">{evaluation.algorithm1.rotationSpread}</b>Spread rotasi
+									</p>
+									<p><b class="block text-xl">{evaluation.algorithm1.setSpread}</b>Spread set</p>
+									<p>
+										<b class="block text-xl"
+											>{evaluation.algorithm1.maxReadyWaitMinutes === null
+												? 'Tidak tersedia'
+												: `${evaluation.algorithm1.maxReadyWaitMinutes} menit`}</b
+										>Max tunggu READY
+									</p>
+									<p>
+										<b class="block text-xl">{evaluation.algorithm1.starvationIncidents}</b
+										>Starvation
+									</p>
+								</div>
+								{#if evaluation.algorithm1.readyWaitStatus === 'INCOMPLETE'}<p
+										class="mt-3 text-xs font-bold text-[#9c4329]"
+									>
+										Waktu READY tidak lengkap di riwayat status; metrik tunggu tidak digunakan.
+									</p>{/if}
+							</section>
+							<section class="border border-[#b9c5bb] bg-[#fffaf0] p-4">
+								<h3 class="font-black">Pairing</h3>
+								<div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+									<p>
+										<b class="block text-xl">{evaluation.algorithm2.recommendations}</b>Rekomendasi
+									</p>
+									<p>
+										<b class="block text-xl"
+											>{evaluation.algorithm2.accepted} · {evaluation.algorithm2.overrides}</b
+										>Diterima · diganti
+									</p>
+									<p>
+										<b class="block text-xl"
+											>{Math.round(evaluation.algorithm2.overrideRate * 100)}%</b
+										>Override
+									</p>
+									<p>
+										<b class="block text-xl"
+											>{evaluation.algorithm2.averageRecommendedGap === null
+												? 'Tidak tersedia'
+												: Math.round(evaluation.algorithm2.averageRecommendedGap)}</b
+										>Gap prediksi rata-rata
+									</p>
+									<p>
+										<b class="block text-xl"
+											>{evaluation.algorithm2.averageActualGap === null
+												? 'Tidak tersedia'
+												: Math.round(evaluation.algorithm2.averageActualGap)}</b
+										>Gap aktual rata-rata*
+									</p>
+									<p><b class="block text-xl">{evaluation.algorithm2.closeSetCount}</b>Set ketat</p>
+									<p><b class="block text-xl">{evaluation.algorithm2.blowoutCount}</b>Blowout</p>
+								</div>
+								<p class="mt-3 text-xs leading-5 text-[#527169]">
+									*Gap aktual hanya tersedia saat opsi tersimpan cocok. Set ketat bukan bukti
+									pairing sempurna; blowout bukan bukti pairing buruk.
+								</p>
+							</section>
+						</div>{/if}
+					{#if evaluation}<div class="mt-4 flex flex-wrap gap-2">
+							{#each evaluation.flags as flag (flag)}<span
+									class="border border-[#e2653e] bg-[#fff1e9] px-2 py-1 text-xs font-black text-[#9c4329]"
+									>{flag}</span
+								>{/each}
+						</div>
+						<h3 class="mt-5 font-black">Ringkasan pemain</h3>
+						<div class="mt-2 divide-y divide-[#e5ece5] border-y border-[#b9c5bb] bg-[#fffaf0]">
+							{#each [...evaluation.algorithm1.players].sort((a, b) => Number(b.flags.length > 0) - Number(a.flags.length > 0) || a.name.localeCompare(b.name)) as player (player.playerId)}<div
+									class="grid grid-cols-[1fr_auto] gap-2 px-3 py-3 text-sm sm:grid-cols-[1fr_repeat(4,auto)]"
+								>
+									<b>{player.name}</b><span>{player.rotationsPlayed} rotasi</span><span
+										>{player.setsPlayed} set</span
+									><span
+										>Max {player.maxReadyWaitMinutes === null
+											? 'tidak tersedia'
+											: `${player.maxReadyWaitMinutes} mnt`}</span
+									><span
+										>{player.missedOpportunities} terlewat {#if player.flags.length}<b
+												class="text-[#a93e29]">· {player.flags.join(', ')}</b
+											>{/if}</span
+									>
+								</div>{/each}
+						</div>{/if}
+				</section>{/if}
 		</section>
 	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
 			<h1 class="text-2xl font-black">Sesi tidak ditemukan.</h1>
