@@ -12,6 +12,10 @@ Fee is set/confirmed during session close, not session start. The session fee is
 
 Payments represent money actually received and may be allocated across obligations. Credit is derived as total player payments minus allocations; debt is derived as obligations minus allocations. Neither is a separately mutable authoritative balance. Finance UI should distinguish actual ledger entries from informal expectations.
 
+## Manual payment destinations
+
+Club Admins can configure one bank destination, one ShopeePay destination, and an HTTPS QRIS image link in Settings. Destination details are admin-only by default. The admin can explicitly publish them on the public Fund page; public read models return no destination row while publication is off. These are instructions only: payment still requires admin confirmation in the ledger.
+
 ## Expenses and fund
 
 Official expense categories are COURT, SHUTTLECOCK, and OTHER. Club fund is derived as all actual payments minus official expenses. Public reporting may expose aggregate fund transparency, but individual debt/payment details and private finance records remain restricted.

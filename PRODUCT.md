@@ -34,6 +34,7 @@ The product is a public, live courtside view with write actions available to sig
 - Admin-only session evaluation and JSON export support the current 3–5 real-session validation phase; evaluation does not automatically tune either algorithm.
 - One court, one live session, Club Admin-only write authority, two normal sets per match, and only between-set substitutions.
 - Fee appears only after a session is closed; admins confirm the per-person fee and track payment against that session's attendance list.
+- Club Admins can configure manual bank, ShopeePay, and QRIS destinations. They are hidden from public visitors until the admin opts in to displaying them on the Fund page; destination instructions never confirm a payment.
 - Public viewers may see attendance and per-attendee payment status in closed-session history as color-only indicators with a legend; balances, credentials, algorithm diagnostics, and rating uncertainty remain private.
 - No RSVP, self check-in, multiple courts, tournament mechanics, payment gateway, chat, or leaderboard-centered experience in V1.
 
