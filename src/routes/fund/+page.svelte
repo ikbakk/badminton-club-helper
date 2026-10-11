@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { createQuery } from '@tanstack/svelte-query';
 	import { Tabs } from 'sve-ui';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
@@ -18,9 +19,23 @@
 		type PublicFundActivity,
 		type PublicFundSummary
 	} from '$lib/data/dashboard';
+	import {
+		getPublicPaymentDestinations,
+		publicPaymentDestinationsQueryKey
+	} from '$lib/data/club-settings';
 	let clubName = $state('PB NEWBIE');
 	let club = $state<Club | null>(null);
+	let publicClub = $state<{ id: string; name: string } | null>(null);
 	let summary = $state<PublicFundSummary | null>(null);
+	const paymentDestinationsQuery = createQuery(() => ({
+		queryKey: publicClub
+			? publicPaymentDestinationsQueryKey(publicClub.id)
+			: ['public-payment-destinations', 'unavailable'],
+		queryFn: () => getPublicPaymentDestinations(publicClub!.id),
+		enabled: browser && Boolean(publicClub?.id),
+		staleTime: 60_000
+	}));
+	let paymentDestinations = $derived(paymentDestinationsQuery.data ?? null);
 	let activity = $state<PublicFundActivity[]>([]);
 	let sessions = $state<FinanceSession[]>([]);
 	let attendees = $state<Record<string, FinanceSessionAttendee[]>>({});
@@ -73,7 +88,7 @@
 		void (async () => {
 			try {
 				invalidatePublicData();
-				const publicClub = await getPublicClub();
+				publicClub = await getPublicClub();
 				clubName = publicClub?.name ?? clubName;
 				await refreshPublicFund();
 			} catch (error) {
@@ -195,6 +210,43 @@
 				{money(summary?.balance ?? 0)}
 			</p>
 		</section>
+		{#if paymentDestinations}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-5">
+				<h2 class="text-xl font-black">Tujuan pembayaran iuran</h2>
+				<p class="mt-1 text-sm leading-6 text-[#527169]">
+					Gunakan tujuan berikut untuk pembayaran manual. Pembayaran dianggap lunas setelah
+					dikonfirmasi admin klub.
+				</p>
+				{#if paymentDestinations.bank_account_number}<div
+						class="mt-4 border-t border-[#b9c5bb] pt-4"
+					>
+						<b class="block"
+							>Transfer bank{paymentDestinations.bank_name
+								? ` · ${paymentDestinations.bank_name}`
+								: ''}</b
+						>
+						<span class="mt-1 block text-sm">{paymentDestinations.bank_account_number}</span>
+						{#if paymentDestinations.bank_account_name}<span class="text-sm text-[#527169]"
+								>Atas nama {paymentDestinations.bank_account_name}</span
+							>{/if}
+					</div>{/if}
+				{#if paymentDestinations.shopeepay_number}<div class="mt-4 border-t border-[#b9c5bb] pt-4">
+						<b class="block">ShopeePay</b>
+						<span class="mt-1 block text-sm">{paymentDestinations.shopeepay_number}</span>
+						{#if paymentDestinations.shopeepay_name}<span class="text-sm text-[#527169]"
+								>Atas nama {paymentDestinations.shopeepay_name}</span
+							>{/if}
+					</div>{/if}
+				{#if paymentDestinations.qris_image_url}<div class="mt-4 border-t border-[#b9c5bb] pt-4">
+						<b class="block">QRIS</b>
+						<img
+							class="mt-3 max-h-72 max-w-full border border-[#b9c5bb] bg-white object-contain p-2"
+							src={paymentDestinations.qris_image_url}
+							alt="Kode QRIS pembayaran klub"
+							loading="lazy"
+							referrerpolicy="no-referrer"
+						/>
+					</div>{/if}
+			</section>{/if}
 
 		<section class="mt-6 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
 			<label class="grid gap-2 text-xs font-black tracking-[0.12em] text-[#38675b]"

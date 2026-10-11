@@ -6,6 +6,7 @@
 - Algorithm 1 Smart Rotation with persisted actual-opportunity history; deployment gate passed.
 - Algorithm 2 rating and balanced pairing with trusted persistence and deterministic correction replay; deployment gate passed.
 - Admin real-session evaluation and JSON export; automated application verification passes.
+- Club profile and manual payment destination settings, with explicit opt-in to public display.
 
 ## Now — V1 closeout
 
@@ -16,5 +17,5 @@
 ## Later
 
 - Session recap/share card.
-- Settings and payment-destination polish.
+- Further payment-destination polish based on real-session feedback.
 - Deployment and operations hardening.
