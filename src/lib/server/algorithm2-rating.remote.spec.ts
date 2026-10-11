@@ -16,9 +16,15 @@ const environment = loadEnv('test', process.cwd(), '');
 const runRemote = process.env.RUN_REMOTE_RATING_TESTS === 'true';
 const url = environment.PUBLIC_SUPABASE_URL;
 const serviceKey = environment.SUPABASE_SERVICE_ROLE_KEY;
-const service = createClient(url, serviceKey, {
-	auth: { persistSession: false, autoRefreshToken: false }
-});
+const service = runRemote
+	? createClient(url, serviceKey, {
+			auth: { persistSession: false, autoRefreshToken: false }
+		})
+	: null;
+const requireService = () => {
+	if (!service) throw new Error('Enable RUN_REMOTE_RATING_TESTS to use the Supabase client.');
+	return service;
+};
 const prefix = 'ALGO2-PERSISTENCE-';
 const baseUrl = process.env.REMOTE_RATING_TEST_BASE_URL ?? 'http://127.0.0.1:5199';
 const password = `A2-${randomUUID()}-secure`;
@@ -77,7 +83,11 @@ function query<T>(statement: string): T[] {
 }
 
 async function setup() {
-	const created = await service.auth.admin.createUser({ email, password, email_confirm: true });
+	const created = await requireService().auth.admin.createUser({
+		email,
+		password,
+		email_confirm: true
+	});
 	if (created.error || !created.data.user)
 		throw new Error(created.error?.message ?? 'Could not create fixture admin');
 	adminId = created.data.user.id;
@@ -86,7 +96,7 @@ insert into public.club_roles(club_id,user_id,role) values ('${clubId}','${admin
 insert into public.players(id,club_id,display_name,membership_type) values ${playerIds.map((id, index) => `('${id}','${clubId}','${prefix}${String.fromCharCode(65 + index)}','MEMBER')`).join(',')};
 insert into public.player_ratings(player_id,rating,uncertainty,algorithm_version,revision) values ${playerIds.map((id) => `('${id}',1200,280,'${RATING_VERSION}',0)`).join(',')};
 insert into public.player_rating_history(player_id,source,rating_before,rating_after,uncertainty_before,uncertainty_after,algorithm_version) values ${playerIds.map((id) => `('${id}','INITIALIZATION',1200,1200,280,280,'${RATING_VERSION}')`).join(',')};`);
-	const signIn = await service.auth.signInWithPassword({ email, password });
+	const signIn = await requireService().auth.signInWithPassword({ email, password });
 	if (signIn.error || !signIn.data.session)
 		throw new Error(signIn.error?.message ?? 'Could not sign in fixture admin');
 	token = signIn.data.session.access_token;
@@ -521,7 +531,7 @@ afterAll(async () => {
 	sql(`delete from public.player_rating_history where player_id in (select id from public.players where club_id='${clubId}');
 delete from public.sessions where club_id='${clubId}';
 delete from public.clubs where id='${clubId}';`);
-	await service.auth.admin.deleteUser(adminId);
+	await requireService().auth.admin.deleteUser(adminId);
 	sql(`do $$ begin
  if exists(select 1 from public.players where display_name like '${prefix}%')
  or exists(select 1 from public.sessions where club_id='${clubId}')
