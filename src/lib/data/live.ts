@@ -39,6 +39,18 @@ export type ActiveMatch = {
 	sequence_number: number;
 	sets: MatchSet[];
 };
+export type LiveSessionSnapshot = {
+	session: LiveSession | null;
+	participants: Participant[];
+	activeMatch: ActiveMatch | null;
+};
+
+export const liveSessionQueryKey = ['live', 'active-session'] as const;
+export const emptyLiveSessionSnapshot: LiveSessionSnapshot = {
+	session: null,
+	participants: [],
+	activeMatch: null
+};
 
 const liveTopic = (sessionId: string) => `live:${sessionId}`;
 
@@ -61,33 +73,24 @@ function broadcastLiveUpdate(sessionId: string) {
 		.finally(() => void supabase?.removeChannel(channel));
 }
 
-export async function loadLiveSession(): Promise<{
-	session: LiveSession | null;
-	participants: Participant[];
-	activeMatch: ActiveMatch | null;
-}> {
-	if (!supabase) return { session: null, participants: [], activeMatch: null };
+export async function loadLiveSession(): Promise<LiveSessionSnapshot> {
+	if (!supabase) return emptyLiveSessionSnapshot;
 	const { data: sessions, error: sessionError } = await supabase
 		.from('live_session')
 		.select('*')
 		.limit(1);
 	if (sessionError) throw sessionError;
 	const session = sessions?.[0] as LiveSession | undefined;
-	if (!session) return { session: null, participants: [], activeMatch: null };
-	const { data, error } = await supabase
-		.from('live_participants')
-		.select('*')
-		.eq('session_id', session.id);
-	if (error) throw error;
-	const { data: matches, error: matchError } = await supabase
-		.from('live_active_match')
-		.select('*')
-		.eq('session_id', session.id)
-		.limit(1);
-	if (matchError) throw matchError;
+	if (!session) return emptyLiveSessionSnapshot;
+	const [participantsResult, matchesResult, authResult] = await Promise.all([
+		supabase.from('live_participants').select('*').eq('session_id', session.id),
+		supabase.from('live_active_match').select('*').eq('session_id', session.id).limit(1),
+		supabase.auth.getSession()
+	]);
+	if (participantsResult.error) throw participantsResult.error;
+	if (matchesResult.error) throw matchesResult.error;
 	let fairnessRows: RotationFairnessRow[] = [];
-	const { data: auth } = await supabase.auth.getSession();
-	if (auth.session) {
+	if (authResult.data.session) {
 		const { data: fairness, error: fairnessError } = await supabase.rpc(
 			'get_rotation_fairness_state',
 			{ p_session_id: session.id }
@@ -98,7 +101,7 @@ export async function loadLiveSession(): Promise<{
 	const fairnessByPlayer = new Map(fairnessRows.map((row) => [row.player_id, row]));
 	return {
 		session,
-		participants: (data ?? []).map((row) => {
+		participants: (participantsResult.data ?? []).map((row) => {
 			const participant = row as LiveParticipantRow;
 			const fairness = fairnessByPlayer.get(participant.player_id);
 			return {
@@ -119,7 +122,7 @@ export async function loadLiveSession(): Promise<{
 				leaveAfterMatch: participant.leave_after_match
 			};
 		}),
-		activeMatch: (matches?.[0] ?? null) as ActiveMatch | null
+		activeMatch: (matchesResult.data?.[0] ?? null) as ActiveMatch | null
 	};
 }
 

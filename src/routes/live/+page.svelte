@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import CheckInSheet from '$lib/components/live/CheckInSheet.svelte';
@@ -27,12 +28,42 @@
 		type RosterPlayer
 	} from '$lib/data/dashboard';
 	import { LiveController } from '$lib/features/live/live-controller.svelte';
-	import { subscribeToLiveUpdates } from '$lib/data/live';
+	import {
+		emptyLiveSessionSnapshot,
+		liveSessionQueryKey,
+		loadLiveSession,
+		subscribeToLiveUpdates,
+		type LiveSessionSnapshot
+	} from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
 	import { toast } from 'sve-ui';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
+	const queryClient = useQueryClient();
+	const liveQuery = createQuery(() => ({
+		queryKey: liveSessionQueryKey,
+		queryFn: loadLiveSession,
+		enabled: browser,
+		staleTime: 15_000,
+		refetchInterval: 15_000,
+		refetchIntervalInBackground: false
+	}));
+	const liveCommandMutation = createMutation(
+		() => ({
+			mutationFn: ({ action }: { action: () => Promise<unknown>; invalidateLive: boolean }) =>
+				action(),
+			onSuccess: async (_result, variables) => {
+				if (!variables.invalidateLive) return;
+				await queryClient.invalidateQueries(
+					{ queryKey: liveSessionQueryKey },
+					{ cancelRefetch: false }
+				);
+			}
+		}),
+		() => queryClient
+	);
+	let liveSnapshot: LiveSessionSnapshot = $derived(liveQuery.data ?? emptyLiveSessionSnapshot);
 	let tab = $state<Tab>('live');
 	let email = $state('');
 	let password = $state('');
@@ -43,10 +74,14 @@
 	let publicHistory = $state<PublicSessionHistory[]>([]);
 	let fundSummary = $state<PublicFundSummary | null>(null);
 	let roster = $state<RosterPlayer[]>([]);
-	let live = new LiveController((message) => toast.error(message));
-	let session = $derived(live.session);
-	let participants = $derived(live.participants);
-	let activeMatch = $derived(live.activeMatch);
+	let live = new LiveController(
+		(message) => toast.error(message),
+		queryClient,
+		(action, invalidateLive) => liveCommandMutation.mutateAsync({ action, invalidateLive })
+	);
+	let session = $derived(liveSnapshot.session);
+	let participants = $derived(liveSnapshot.participants);
+	let activeMatch = $derived(liveSnapshot.activeMatch);
 	let loading = $state(true);
 	let online = $state(true);
 	let clubName = $state('');
@@ -55,7 +90,7 @@
 	let showCheckIn = $state(false);
 	let showEndSession = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
-	let pending = $derived(live.pending);
+	let pending = $derived(live.pending || (liveCommandMutation.isPending ? 'Menyimpan…' : ''));
 
 	function notify(message: string) {
 		toast(message);
@@ -91,36 +126,30 @@
 
 	function syncConnection() {
 		if (!browser) return;
+		const wasOnline = online;
 		online = navigator.onLine;
 		live.setOnline(online);
-		if (online) {
+		if (online && !wasOnline) {
 			notify('Koneksi kembali. Memperbarui kondisi lapangan…');
-			void refreshLive();
-		} else {
+		} else if (!online) {
 			notify('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
 		}
 	}
 
-	function refreshWhenVisible() {
-		if (browser && document.visibilityState === 'visible' && navigator.onLine) {
-			void refreshLive();
-		}
-	}
-
-	$effect(() => {
-		if (!session || !online) return;
-		const interval = window.setInterval(() => void refreshLive(), 15_000);
-		return () => window.clearInterval(interval);
-	});
-
 	$effect(() => {
 		const activeSession = session;
 		if (!activeSession || !online) return;
-		return subscribeToLiveUpdates(activeSession.id, () => void refreshLive());
+		return subscribeToLiveUpdates(
+			activeSession.id,
+			() =>
+				void queryClient.invalidateQueries(
+					{ queryKey: liveSessionQueryKey },
+					{ cancelRefetch: false }
+				)
+		);
 	});
 
 	async function refreshAccount() {
-		loading = true;
 		try {
 			club = await getClub();
 			setCachedClub(club);
@@ -134,13 +163,15 @@
 	}
 
 	async function refreshPublic() {
-		publicClub = await getPublicClub();
-		publicRoster = publicClub ? await getPublicRoster(publicClub.id) : [];
-		[publicHistory, fundSummary] = await Promise.all([
+		const [club, history, fund] = await Promise.all([
+			getPublicClub(),
 			getPublicSessionHistory(),
 			getPublicFundSummary()
 		]);
-		await refreshLive();
+		publicClub = club;
+		publicHistory = history;
+		fundSummary = fund;
+		publicRoster = club ? await getPublicRoster(club.id) : [];
 	}
 
 	async function passwordLogin() {
@@ -256,17 +287,23 @@
 		void (async () => {
 			online = navigator.onLine;
 			live.setOnline(online);
-			await refreshPublic();
+			void refreshPublic().catch((error) =>
+				notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.')
+			);
 			userEmail = (await currentUser())?.email ?? null;
 			if (userEmail) await refreshAccount();
 			else {
 				live.setAdminAuthorized(false);
 				loading = false;
 			}
-			supabase?.auth.onAuthStateChange(async (_event, authSession) => {
-				userEmail = authSession?.user.email ?? null;
-				if (userEmail) await refreshAccount();
-				else {
+			supabase?.auth.onAuthStateChange((_event, authSession) => {
+				const nextEmail = authSession?.user.email ?? null;
+				if (nextEmail === userEmail) return;
+				userEmail = nextEmail;
+				if (userEmail) {
+					loading = true;
+					void refreshAccount();
+				} else {
 					setCachedClub(null);
 					club = null;
 					roster = [];
@@ -279,7 +316,6 @@
 </script>
 
 <svelte:window ononline={syncConnection} onoffline={syncConnection} />
-<svelte:document onvisibilitychange={refreshWhenVisible} />
 
 <svelte:head
 	><title>{displayName} — Courtside</title><meta
@@ -338,7 +374,7 @@
 		</CourtDialog>
 	{/if}
 
-	{#if loading}
+	{#if liveQuery.isPending && !liveQuery.data}
 		{#if session}
 			<section
 				class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
@@ -391,7 +427,15 @@
 				<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
 			</section>
 		{/if}
-	{:else if userEmail && !club}
+	{:else if liveQuery.isError && !liveQuery.data}
+		<section class="border border-[#b9c5bb] bg-[#fffaf0] px-5 py-5" role="alert">
+			<h1 class="text-xl font-black">Kondisi lapangan belum bisa dimuat.</h1>
+			<p class="mt-2 text-sm leading-6 text-[#527169]">
+				Koneksi belum berhasil membaca sesi. Muat ulang untuk mencoba lagi.
+			</p>
+			<AppButton class="mt-4" onclick={refreshLive}>Coba lagi</AppButton>
+		</section>
+	{:else if userEmail && !club && !loading}
 		<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
 			<h1 class="mt-3 text-3xl font-black tracking-tight">Buat klubmu.</h1>
 			<p class="mt-3 text-sm leading-6 text-slate-300">
@@ -409,6 +453,15 @@
 			</div>
 		</section>
 	{:else if tab === 'live'}
+		{#if liveQuery.isError && liveQuery.data}
+			<section
+				class="mb-4 flex items-center justify-between gap-3 border-y border-[#b9c5bb] py-3 text-sm"
+				role="status"
+			>
+				<p class="text-[#527169]">Menampilkan kondisi terakhir. Pembaruan belum berhasil.</p>
+				<AppButton variant="ghost" onclick={refreshLive}>Coba lagi</AppButton>
+			</section>
+		{/if}
 		<LiveSessionPanel
 			{session}
 			{participants}

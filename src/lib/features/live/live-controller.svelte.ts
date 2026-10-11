@@ -7,20 +7,24 @@ import {
 	completeSet,
 	closeSession,
 	correctCompletedSet,
-	loadLiveSession,
 	saveRotationRecommendation,
 	startMatch,
 	setLeaveAfterMatch,
 	substitutePlayer,
 	type ActiveMatch,
-	type LiveSession
+	type LiveSession,
+	liveSessionQueryKey,
+	emptyLiveSessionSnapshot,
+	type LiveSessionSnapshot
 } from '$lib/data/live';
+import type { QueryClient } from '@tanstack/svelte-query';
 import type { Participant, ParticipantStatus } from '$lib/domain/types';
 import { recommendNextPlayers, STARVATION_POLICIES } from '$lib/domain/rotation';
 import type { RotationRecommendation } from '$lib/domain/rotation/types';
 import type { PairingOption } from '$lib/domain/rating';
 
 type Notice = (message: string) => void;
+type RunMutation = (action: () => Promise<unknown>, invalidateLive: boolean) => Promise<unknown>;
 
 function errorMessage(error: unknown, fallback: string) {
 	if (error instanceof Error) return error.message;
@@ -36,14 +40,55 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export class LiveController {
-	session = $state<LiveSession | null>(null);
-	participants = $state.raw<Participant[]>([]);
-	activeMatch = $state<ActiveMatch | null>(null);
 	adminAuthorized = $state(false);
 	pending = $state('');
 	online = $state(true);
 
-	constructor(private readonly notify: Notice) {}
+	constructor(
+		private readonly notify: Notice,
+		private readonly queryClient: QueryClient,
+		private readonly runMutation: RunMutation = (action) => action()
+	) {}
+
+	private get snapshot() {
+		return (
+			this.queryClient.getQueryData<LiveSessionSnapshot>(liveSessionQueryKey) ??
+			emptyLiveSessionSnapshot
+		);
+	}
+
+	get session(): LiveSession | null {
+		return this.snapshot.session;
+	}
+
+	set session(session: LiveSession | null) {
+		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+			...(current ?? emptyLiveSessionSnapshot),
+			session
+		}));
+	}
+
+	get participants(): Participant[] {
+		return this.snapshot.participants;
+	}
+
+	set participants(participants: Participant[]) {
+		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+			...(current ?? emptyLiveSessionSnapshot),
+			participants
+		}));
+	}
+
+	get activeMatch(): ActiveMatch | null {
+		return this.snapshot.activeMatch;
+	}
+
+	set activeMatch(activeMatch: ActiveMatch | null) {
+		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+			...(current ?? emptyLiveSessionSnapshot),
+			activeMatch
+		}));
+	}
 
 	get canManage() {
 		return this.adminAuthorized;
@@ -58,14 +103,10 @@ export class LiveController {
 	}
 
 	async refresh() {
-		try {
-			const live = await loadLiveSession();
-			this.session = live.session;
-			this.participants = live.participants;
-			this.activeMatch = live.activeMatch;
-		} catch (error) {
-			this.notify(error instanceof Error ? error.message : 'Kondisi sesi belum bisa dimuat.');
-		}
+		await this.queryClient.invalidateQueries(
+			{ queryKey: liveSessionQueryKey },
+			{ cancelRefetch: false }
+		);
 	}
 
 	private async runCommand(label: string, action: () => Promise<unknown>) {
@@ -75,8 +116,7 @@ export class LiveController {
 		}
 		this.pending = label;
 		try {
-			await action();
-			await this.refresh();
+			await this.runMutation(action, true);
 			return true;
 		} catch (error) {
 			this.notify(errorMessage(error, 'Perubahan belum tersimpan. Coba lagi.'));
@@ -137,7 +177,10 @@ export class LiveController {
 				undefined,
 				STARVATION_POLICIES.DEBT_4_OR_WAIT_45
 			);
-			const id = await saveRotationRecommendation(this.session.id, recommendation);
+			const id = (await this.runMutation(
+				() => saveRotationRecommendation(this.session!.id, recommendation),
+				false
+			)) as string;
 			return { id, recommendation };
 		} catch (error) {
 			this.notify(
@@ -235,7 +278,7 @@ export class LiveController {
 		}
 		this.pending = 'Menutup sesi…';
 		try {
-			await closeSession(this.session.id);
+			await this.runMutation(() => closeSession(this.session!.id), true);
 			return true;
 		} catch (error) {
 			this.notify(errorMessage(error, 'Sesi tidak dapat ditutup.'));

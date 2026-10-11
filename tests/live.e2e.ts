@@ -337,6 +337,42 @@ test('public visitor can open the read-only live view', async ({ page }) => {
 	await expect(page.getByRole('link', { name: 'Kas' })).toBeVisible();
 });
 
+test('Live returns from supporting pages with cached state at mobile widths', async ({ page }) => {
+	await mockLiveBackend(page, false, false, false, true, 4);
+	const liveSessionRequests: string[] = [];
+	page.on('request', (request) => {
+		if (new URL(request.url()).pathname.endsWith('/live_session'))
+			liveSessionRequests.push(request.url());
+	});
+
+	for (const viewport of [
+		{ width: 390, height: 844 },
+		{ width: 360, height: 780 }
+	]) {
+		await page.setViewportSize(viewport);
+		await page.goto('/live');
+		await expect(page.getByRole('button', { name: 'Check in pemain', exact: true })).toBeVisible();
+		await expect(page.getByLabel('Memeriksa sesi aktif')).toHaveCount(0);
+		expect(
+			await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+		).toBe(true);
+
+		for (const route of ['/players', '/history', '/fund']) {
+			const label = route === '/players' ? 'Pemain' : route === '/history' ? 'Riwayat' : 'Kas';
+			await page.getByRole('link', { name: label, exact: true }).click();
+			await expect(page).toHaveURL(new RegExp(`${route}$`));
+			await page.getByRole('link', { name: 'Live', exact: true }).click();
+			await expect(page).toHaveURL(/\/live$/);
+			await expect(
+				page.getByRole('button', { name: 'Check in pemain', exact: true })
+			).toBeVisible();
+			await expect(page.getByLabel('Memeriksa sesi aktif')).toHaveCount(0);
+		}
+	}
+
+	expect(liveSessionRequests).toHaveLength(2);
+});
+
 test('admin checks in a selected group with one database request', async ({ page }) => {
 	await mockLiveBackend(page, false, false, false, true);
 	const batchRequests: { p_session_id: string; p_player_ids: string[] }[] = [];

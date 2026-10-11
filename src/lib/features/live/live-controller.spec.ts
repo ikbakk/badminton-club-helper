@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient } from '@tanstack/svelte-query';
 
 const api = vi.hoisted(() => ({
-	loadLiveSession: vi.fn(),
+	liveSessionQueryKey: ['live', 'active-session'],
+	emptyLiveSessionSnapshot: { session: null, participants: [], activeMatch: null },
 	checkInPlayer: vi.fn(),
 	checkInPlayers: vi.fn(),
 	addGuestAndCheckIn: vi.fn(),
@@ -22,18 +24,39 @@ vi.mock('$lib/data/live', () => api);
 import { LiveController } from './live-controller.svelte';
 
 const session = { id: 'session-1', club_id: 'club-1', started_at: '2026-09-28T10:00:00Z' };
-const liveState = { session, participants: [], activeMatch: null };
 
 describe('LiveController', () => {
 	const notice = vi.fn();
 	let controller: LiveController;
+	let queryClient: QueryClient;
 
 	beforeEach(() => {
 		vi.resetAllMocks();
-		api.loadLiveSession.mockResolvedValue(liveState);
-		controller = new LiveController(notice);
+		queryClient = new QueryClient();
+		vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
+		controller = new LiveController(notice, queryClient, async (action, invalidateLive) => {
+			const result = await action();
+			if (invalidateLive) {
+				await queryClient.invalidateQueries(
+					{ queryKey: ['live', 'active-session'] },
+					{ cancelRefetch: false }
+				);
+			}
+			return result;
+		});
 		controller.session = session;
 		controller.setAdminAuthorized(true);
+	});
+
+	it('invalidates the authoritative Live query after a successful command', async () => {
+		api.checkInPlayer.mockResolvedValue(undefined);
+
+		await controller.checkIn('member-1');
+
+		expect(queryClient.invalidateQueries).toHaveBeenCalledWith(
+			{ queryKey: ['live', 'active-session'] },
+			{ cancelRefetch: false }
+		);
 	});
 
 	it('surfaces the backend authorization error without dropping the signed-in admin', async () => {
@@ -51,7 +74,7 @@ describe('LiveController', () => {
 		await controller.addGuest('Rafi');
 
 		expect(api.addGuestAndCheckIn).toHaveBeenCalledWith('session-1', 'Rafi');
-		expect(api.loadLiveSession).toHaveBeenCalledOnce();
+		expect(queryClient.invalidateQueries).toHaveBeenCalledOnce();
 	});
 
 	it('checks multiple players in with one batched command', async () => {
@@ -65,7 +88,7 @@ describe('LiveController', () => {
 			'member-2',
 			'member-3'
 		]);
-		expect(api.loadLiveSession).toHaveBeenCalledOnce();
+		expect(queryClient.invalidateQueries).toHaveBeenCalledOnce();
 	});
 
 	it('keeps the Set 1 → Set 2 substitution contract atomic', async () => {
@@ -74,7 +97,7 @@ describe('LiveController', () => {
 		await controller.substitute('iqbal', 'rafi', 'RESTING');
 
 		expect(api.substitutePlayer).toHaveBeenCalledWith('session-1', 'iqbal', 'rafi', 'RESTING');
-		expect(api.loadLiveSession).toHaveBeenCalledOnce();
+		expect(queryClient.invalidateQueries).toHaveBeenCalledOnce();
 	});
 
 	it('does not send mutations while offline', async () => {
