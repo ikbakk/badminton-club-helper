@@ -193,3 +193,108 @@ test('failed sign-out keeps the account visible and reports the failure', async 
 	await expect(page.getByText('Logout unavailable', { exact: true })).toBeVisible();
 	await expect(page).toHaveURL(new RegExp(`/clubs/${clubB}/live$`));
 });
+
+test('password recovery sends the explicit redirect and preserves email on failure', async ({
+	page
+}) => {
+	await backend(page);
+	let body: { email?: string } = {};
+	await page.route('**/auth/v1/recover**', (route) => {
+		body = route.request().postDataJSON();
+		expect(new URL(route.request().url()).searchParams.get('redirect_to')).toBe(
+			new URL('/reset-password', page.url()).href
+		);
+		return route.fulfill({ status: 429, json: { message: 'Please try again later' } });
+	});
+	await page.goto('/start');
+	await page.getByRole('button', { name: 'Lupa kata sandi?' }).click();
+	await page.getByLabel('Email', { exact: true }).fill(user.email);
+	await page.getByRole('button', { name: 'Kirim tautan pemulihan' }).click();
+	await expect(page.getByRole('alert')).toContainText('Please try again later');
+	await expect(page.getByLabel('Email', { exact: true })).toHaveValue(user.email);
+	expect(body.email).toBe(user.email);
+	await page.route('**/auth/v1/recover**', (route) => route.fulfill({ json: {} }));
+	await page.getByRole('button', { name: 'Kirim tautan pemulihan' }).click();
+	await expect(page.getByRole('status')).toContainText('Jika email terdaftar');
+});
+
+test('expired recovery link does not allow a password write', async ({ page }) => {
+	await backend(page);
+	await page.goto('/reset-password#error=access_denied&error_description=expired');
+	await expect(page.getByRole('alert')).toContainText('kedaluwarsa');
+	await expect(page.getByRole('button', { name: 'Simpan kata sandi' })).toHaveCount(0);
+});
+
+test('validated recovery link saves only matching passwords and returns to sign-in', async ({
+	page
+}) => {
+	await backend(page);
+	let writes = 0;
+	await page.route('**/auth/v1/user', (route) => {
+		if (route.request().method() === 'PUT') {
+			writes++;
+			return route.fulfill({ json: user });
+		}
+		return route.fulfill({ json: user });
+	});
+	await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204 }));
+	const payload = Buffer.from(
+		JSON.stringify({ sub: user.id, exp: Math.floor(Date.now() / 1000) + 3600 })
+	).toString('base64url');
+	await page.goto(
+		`/reset-password#access_token=e30.${payload}.sig&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=recovery`
+	);
+	await expect(page.getByLabel('Kata sandi baru', { exact: true })).toBeVisible();
+	await page.getByLabel('Kata sandi baru', { exact: true }).fill('new-password');
+	await page.getByLabel('Ulangi kata sandi').fill('wrong-password');
+	await page.getByRole('button', { name: 'Simpan kata sandi' }).click();
+	await expect(page.getByRole('alert')).toContainText('harus sama');
+	expect(writes).toBe(0);
+	await page.getByLabel('Ulangi kata sandi').fill('new-password');
+	await page.getByRole('button', { name: 'Simpan kata sandi' }).click();
+	await expect(page).toHaveURL(/\/start\?password=updated$/);
+	await expect(page.getByRole('status')).toContainText('Kata sandi diperbarui');
+	expect(writes).toBe(1);
+});
+
+test('failed password save retains input for retry', async ({ page }) => {
+	await backend(page, true);
+	await page.route('**/auth/v1/user', (route) =>
+		route.fulfill(
+			route.request().method() === 'PUT'
+				? { status: 422, json: { message: 'Password rejected' } }
+				: { json: user }
+		)
+	);
+	await page.goto('/reset-password');
+	await page.getByLabel('Kata sandi baru', { exact: true }).fill('new-password');
+	await page.getByLabel('Ulangi kata sandi').fill('new-password');
+	await page.getByRole('button', { name: 'Simpan kata sandi' }).click();
+	await expect(page.getByRole('alert')).toContainText('Password rejected');
+	await expect(page.getByLabel('Kata sandi baru', { exact: true })).toHaveValue('new-password');
+});
+
+test('saved password with failed sign-out retries without another password write', async ({
+	page
+}) => {
+	await backend(page, true);
+	let writes = 0;
+	await page.route('**/auth/v1/user', (route) => {
+		if (route.request().method() === 'PUT') writes++;
+		return route.fulfill({ json: user });
+	});
+	await page.route('**/auth/v1/logout**', (route) =>
+		route.fulfill({ status: 500, json: { message: 'Unavailable' } })
+	);
+	await page.setViewportSize({ width: 360, height: 844 });
+	await page.goto('/reset-password');
+	await page.getByLabel('Kata sandi baru', { exact: true }).fill('new-password');
+	await page.getByLabel('Ulangi kata sandi').fill('new-password');
+	await page.getByRole('button', { name: 'Simpan kata sandi' }).click();
+	await expect(page.getByRole('alert')).toContainText('Kata sandi tersimpan');
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204 }));
+	await page.getByRole('button', { name: 'Lanjutkan ke masuk' }).click();
+	await expect(page).toHaveURL(/\/start\?password=updated$/);
+	expect(writes).toBe(1);
+});

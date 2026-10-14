@@ -10,6 +10,7 @@
 	import { setCachedClub } from '$lib/auth-state.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	let signup = $state(page.url.searchParams.get('mode') === 'signup');
+	let recovery = $state(false);
 	let email = $state('');
 	let password = $state('');
 	let clubName = $state('');
@@ -17,7 +18,11 @@
 	let clubs = $state<Club[]>([]);
 	let loading = $state(true);
 	let pending = $state(false);
-	let notice = $state('');
+	let notice = $state(
+		page.url.searchParams.get('password') === 'updated'
+			? 'Kata sandi diperbarui. Masuk dengan kata sandi baru.'
+			: ''
+	);
 	let error = $state('');
 	const queryClient = useQueryClient();
 	function message(e: unknown) {
@@ -59,7 +64,15 @@
 		try {
 			if (!supabase)
 				throw new Error('Layanan akun belum dikonfigurasi. Hubungi pengelola aplikasi.');
-			if (signup) {
+			if (recovery) {
+				const result = await supabase.auth.resetPasswordForEmail(email, {
+					redirectTo: new URL(resolve('/reset-password'), window.location.origin).href
+				});
+				if (result.error) throw result.error;
+				notice =
+					'Jika email terdaftar, tautan pemulihan akan dikirim. Periksa email dan folder spam.';
+				return;
+			} else if (signup) {
 				const { data, error: authError } = await supabase.auth.signUp({
 					email,
 					password,
@@ -171,12 +184,14 @@
 		{:else}
 			<p class="text-xs font-black tracking-widest text-[#527169]">MULAI DARI KLUB KAMU</p>
 			<h1 class="mt-3 text-4xl font-black tracking-tight">
-				{signup ? 'Buat akun admin.' : 'Selamat datang lagi.'}
+				{recovery ? 'Pulihkan akun.' : signup ? 'Buat akun admin.' : 'Selamat datang lagi.'}
 			</h1>
 			<p class="mt-4 text-sm leading-6 text-[#527169]">
-				{signup
-					? 'Buat akun, beri nama klub, lalu siapkan sesi pertama.'
-					: 'Masuk untuk membuka klub yang kamu kelola.'}
+				{recovery
+					? 'Kami akan mengirim tautan untuk membuat kata sandi baru.'
+					: signup
+						? 'Buat akun, beri nama klub, lalu siapkan sesi pertama.'
+						: 'Masuk untuk membuka klub yang kamu kelola.'}
 			</p>
 			<form
 				class="mt-6"
@@ -194,32 +209,54 @@
 					required
 					disabled={pending}
 				/>
-				<label class="mt-5 block font-bold" for="password">Kata sandi</label><input
-					id="password"
-					type="password"
-					autocomplete={signup ? 'new-password' : 'current-password'}
-					minlength={signup ? 8 : undefined}
-					class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-					bind:value={password}
-					required
-					disabled={pending}
-				/>
-				{#if signup}<p class="mt-2 text-xs text-[#527169]">
-						Minimal 8 karakter. Konfirmasi email mungkin diperlukan.
-					</p>{/if}
+				{#if !recovery}<label class="mt-5 block font-bold" for="password">Kata sandi</label><input
+						id="password"
+						type="password"
+						autocomplete={signup ? 'new-password' : 'current-password'}
+						minlength={signup ? 8 : undefined}
+						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+						bind:value={password}
+						required
+						disabled={pending}
+					/>
+					{#if signup}<p class="mt-2 text-xs text-[#527169]">
+							Minimal 8 karakter. Konfirmasi email mungkin diperlukan.
+						</p>{/if}{/if}
 				<AppButton type="submit" class="mt-6 w-full justify-center" disabled={pending}
-					>{pending ? 'Memproses…' : signup ? 'Buat akun' : 'Masuk'}</AppButton
+					>{pending
+						? 'Memproses…'
+						: recovery
+							? 'Kirim tautan pemulihan'
+							: signup
+								? 'Buat akun'
+								: 'Masuk'}</AppButton
 				>
 			</form>
 			<button
 				class="mt-4 min-h-11 text-sm font-bold underline"
 				disabled={pending}
 				onclick={() => {
-					signup = !signup;
+					if (recovery) recovery = false;
+					else signup = !signup;
 					error = '';
 					notice = '';
-				}}>{signup ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Buat akun'}</button
+				}}
+				>{recovery
+					? 'Kembali ke masuk'
+					: signup
+						? 'Sudah punya akun? Masuk'
+						: 'Belum punya akun? Buat akun'}</button
 			>
+			{#if !signup && !recovery}<button
+					class="ml-4 min-h-11 text-sm font-bold underline"
+					disabled={pending}
+					onclick={() => {
+						recovery = true;
+						error = '';
+						notice = '';
+						password = '';
+					}}>Lupa kata sandi?</button
+				>{/if}
 			<p class="mt-6 border-t border-[#b9c5bb] pt-5 text-sm leading-6 text-[#527169]">
 				Hanya ingin melihat sesi? Buka tautan klub yang dibagikan admin.
 			</p>
