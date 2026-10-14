@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { ArrowLeft, ArrowRight } from '@lucide/svelte';
@@ -22,7 +23,7 @@
 
 	let { params }: { params: { id: string } } = $props();
 	let club = $state<Club | null>(null);
-	let clubName = $state('PB NEWBIE');
+	let clubName = $state('Klub');
 	let session = $state<PublicSessionHistory | null>(null);
 	let attendees = $state<FinanceSessionAttendee[]>([]);
 	let matchCount = $state(0);
@@ -217,7 +218,7 @@
 		try {
 			await reopenSession(session.id);
 			invalidatePublicData();
-			await goto(resolve('/live'));
+			await goto(resolve('/clubs/[clubId]/live', { clubId: selectedClubId() }));
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Sesi tidak dapat dibuka kembali.';
 		}
@@ -227,7 +228,7 @@
 <svelte:head><title>Tutup sesi — {clubName}</title></svelte:head>
 <AppShell current="" mode="REKAP SESI" {clubName} onaccesschange={handleAccessChange}>
 	<a
-		href={resolve('/live')}
+		href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
 		><ArrowLeft size={18} />Kembali ke Live</a
 	>
@@ -252,7 +253,10 @@
 				{#if isAdmin}
 					<a
 						class="inline-flex min-h-11 items-center bg-[#e2653e] px-4 text-sm font-black text-[#fffaf0]"
-						href={resolve('/session-close/[id]/confirm', { id: params.id })}>Konfirmasi rekap</a
+						href={resolve('/clubs/[clubId]/session-close/[id]/confirm', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}>Konfirmasi rekap</a
 					>
 				{/if}
 			</div>
@@ -298,8 +302,10 @@
 					</p>
 					<a
 						class="mt-5 inline-flex min-h-11 items-center gap-2 font-black text-[#38675b]"
-						href={resolve('/history/[id]', { id: params.id })}
-						>Lihat riwayat sesi <ArrowRight size={18} /></a
+						href={resolve('/clubs/[clubId]/history/[id]', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}>Lihat riwayat sesi <ArrowRight size={18} /></a
 					>
 				</div>
 			</section>

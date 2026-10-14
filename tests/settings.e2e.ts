@@ -87,7 +87,7 @@ async function mockSettingsBackend(page: Page) {
 	);
 	await page.addInitScript(() => {
 		localStorage.setItem(
-			'sb-zjqqjgdrojhqiylapvqd-auth-token',
+			'sb-courtside-e2e-auth-token',
 			JSON.stringify({
 				access_token: 'e2e-access-token',
 				token_type: 'bearer',
@@ -118,7 +118,7 @@ test('Club Admin can save profile and manual destinations with public visibility
 	page
 }) => {
 	const backend = await mockSettingsBackend(page);
-	await page.goto('/settings');
+	await page.goto('/clubs/club-settings-e2e/settings');
 	await expect(page.getByLabel('Nama klub')).toHaveValue('PB NEWBIE');
 	await expect(page.getByText('admin@example.com')).toBeVisible();
 
@@ -138,7 +138,7 @@ test('Fund displays manual payment details only when the admin has published the
 	page
 }) => {
 	const backend = await mockSettingsBackend(page);
-	await page.goto('/fund');
+	await page.goto('/clubs/club-settings-e2e/fund');
 	await expect(page.getByRole('heading', { name: 'Tujuan pembayaran iuran' })).toHaveCount(0);
 
 	backend.publishDestinations();

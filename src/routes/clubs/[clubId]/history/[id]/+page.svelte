@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { ArrowLeft, Share2 } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
@@ -20,7 +21,7 @@
 		type PublicSessionMatch
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
-	let clubName = $state('PB NEWBIE');
+	let clubName = $state('Klub');
 	let club = $state<Club | null>(null);
 	let session = $state<PublicSessionHistory | null>(null);
 	let matches = $state<PublicSessionMatch[]>([]);
@@ -304,7 +305,7 @@
 		}
 		ctx.fillStyle = '#a7c5b9';
 		ctx.font = '600 22px system-ui';
-		ctx.fillText('PB NEWBIE · REKAP MALAM INI', 540, 1218);
+		ctx.fillText(`${clubName} · REKAP MALAM INI`, 540, 1218);
 		cardUrl = canvas.toDataURL('image/png');
 	}
 
@@ -324,7 +325,7 @@
 	}
 </script>
 
-<svelte:head><title>Detail sesi — PB NEWBIE</title></svelte:head>
+<svelte:head><title>Detail sesi — Courtside</title></svelte:head>
 <AppShell
 	current="/history"
 	mode={session ? watermarkDate(session.started_at) : 'ARSIP SESI'}
@@ -333,7 +334,7 @@
 >
 	<div class="flex items-center justify-between gap-3">
 		<a
-			href={resolve('/history')}
+			href={resolve('/clubs/[clubId]/history', { clubId: selectedClubId() })}
 			class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
 			><ArrowLeft size={18} />Riwayat</a
 		>

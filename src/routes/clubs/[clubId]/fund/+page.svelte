@@ -23,7 +23,7 @@
 		getPublicPaymentDestinations,
 		publicPaymentDestinationsQueryKey
 	} from '$lib/data/club-settings';
-	let clubName = $state('PB NEWBIE');
+	let clubName = $state('Klub');
 	let club = $state<Club | null>(null);
 	let publicClub = $state<{ id: string; name: string } | null>(null);
 	let summary = $state<PublicFundSummary | null>(null);
@@ -188,7 +188,7 @@
 	}
 </script>
 
-<svelte:head><title>Dana klub — PB NEWBIE</title></svelte:head>
+<svelte:head><title>Dana klub — Courtside</title></svelte:head>
 <AppShell current="/fund" {clubName} onaccesschange={handleAccessChange}>
 	{#if loading}<section
 			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0]"

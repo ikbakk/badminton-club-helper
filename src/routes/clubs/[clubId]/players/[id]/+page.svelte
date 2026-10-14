@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { ArrowLeft } from '@lucide/svelte';
 	import { ArrowRight } from '@lucide/svelte';
 	import { getRatingConfidenceLabel } from '$lib/domain/rating';
@@ -17,7 +18,7 @@
 		type PublicPlayerSession
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
-	let clubName = $state('PB NEWBIE');
+	let clubName = $state('Klub');
 	let player = $state<PublicPlayerProfile | null>(null);
 	let sessions = $state<PublicPlayerSession[]>([]);
 	let playerRating = $state<Awaited<ReturnType<typeof getPublicPlayerRating>>>(null);
@@ -68,10 +69,10 @@
 		})();
 </script>
 
-<svelte:head><title>{player?.display_name ?? 'Pemain'} — PB NEWBIE</title></svelte:head>
+<svelte:head><title>{player?.display_name ?? 'Pemain'} — Courtside</title></svelte:head>
 <AppShell current="/players" mode={player?.display_name ?? 'PEMAIN'} {clubName}>
 	<a
-		href={resolve('/players')}
+		href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
 		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
 		><ArrowLeft size={18} />Kembali ke pemain</a
 	>
@@ -127,7 +128,10 @@
 						{#each sessions as session, index (session.id)}<li class="border-t border-[#b9c5bb]">
 								<a
 									class="group grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 px-1 py-3 hover:bg-[#e5ece5]"
-									href={resolve('/history/[id]', { id: session.id })}
+									href={resolve('/clubs/[clubId]/history/[id]', {
+										clubId: selectedClubId(),
+										id: session.id
+									})}
 									><span class="text-2xl font-black text-[#38675b] tabular-nums"
 										>{String(index + 1).padStart(2, '0')}</span
 									><span

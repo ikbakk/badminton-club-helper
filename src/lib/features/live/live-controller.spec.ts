@@ -248,6 +248,22 @@ describe('LiveController', () => {
 		expect(notice).toHaveBeenCalledWith('Complete or abandon the active match first');
 	});
 
+	it('keeps two club snapshots and invalidations isolated in one QueryClient', async () => {
+		const keyA = ['live', 'active-session', 'club-a'];
+		const keyB = ['live', 'active-session', 'club-b'];
+		const a = new LiveController(notice, queryClient, (action) => action(), keyA);
+		const b = new LiveController(notice, queryClient, (action) => action(), keyB);
+		a.session = { ...session, club_id: 'club-a' };
+		b.session = { ...session, id: 'session-b', club_id: 'club-b' };
+		expect(a.session?.club_id).toBe('club-a');
+		expect(b.session?.id).toBe('session-b');
+		await b.refresh();
+		expect(queryClient.invalidateQueries).toHaveBeenCalledWith(
+			{ queryKey: keyB },
+			{ cancelRefetch: false }
+		);
+	});
+
 	it('returns success when the server closes the session', async () => {
 		api.closeSession.mockResolvedValue({ attendance: 4, sets: 2, startedAt: session.started_at });
 

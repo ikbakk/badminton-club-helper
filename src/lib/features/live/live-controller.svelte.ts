@@ -47,13 +47,13 @@ export class LiveController {
 	constructor(
 		private readonly notify: Notice,
 		private readonly queryClient: QueryClient,
-		private readonly runMutation: RunMutation = (action) => action()
+		private readonly runMutation: RunMutation = (action) => action(),
+		private readonly queryKey: readonly string[] = liveSessionQueryKey
 	) {}
 
 	private get snapshot() {
 		return (
-			this.queryClient.getQueryData<LiveSessionSnapshot>(liveSessionQueryKey) ??
-			emptyLiveSessionSnapshot
+			this.queryClient.getQueryData<LiveSessionSnapshot>(this.queryKey) ?? emptyLiveSessionSnapshot
 		);
 	}
 
@@ -62,7 +62,7 @@ export class LiveController {
 	}
 
 	set session(session: LiveSession | null) {
-		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+		this.queryClient.setQueryData<LiveSessionSnapshot>(this.queryKey, (current) => ({
 			...(current ?? emptyLiveSessionSnapshot),
 			session
 		}));
@@ -73,7 +73,7 @@ export class LiveController {
 	}
 
 	set participants(participants: Participant[]) {
-		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+		this.queryClient.setQueryData<LiveSessionSnapshot>(this.queryKey, (current) => ({
 			...(current ?? emptyLiveSessionSnapshot),
 			participants
 		}));
@@ -84,7 +84,7 @@ export class LiveController {
 	}
 
 	set activeMatch(activeMatch: ActiveMatch | null) {
-		this.queryClient.setQueryData<LiveSessionSnapshot>(liveSessionQueryKey, (current) => ({
+		this.queryClient.setQueryData<LiveSessionSnapshot>(this.queryKey, (current) => ({
 			...(current ?? emptyLiveSessionSnapshot),
 			activeMatch
 		}));
@@ -103,10 +103,7 @@ export class LiveController {
 	}
 
 	async refresh() {
-		await this.queryClient.invalidateQueries(
-			{ queryKey: liveSessionQueryKey },
-			{ cancelRefetch: false }
-		);
+		await this.queryClient.invalidateQueries({ queryKey: this.queryKey }, { cancelRefetch: false });
 	}
 
 	private async runCommand(label: string, action: () => Promise<unknown>) {

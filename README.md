@@ -1,6 +1,8 @@
-# PB NEWBIE
+# Courtside
 
-PB NEWBIE is a mobile-first helper for a casual badminton club running one court. Members use a public link to view club and court state; signed-in Club Admins run sessions and manage club operations. It is a club tool, not a tournament system or payment gateway.
+Courtside is a mobile-first helper for casual badminton clubs running one court per club. PB NEWBIE is one existing club. Members use a public link to view club and court state; signed-in Club Admins run sessions and manage club operations. It is a club tool, not a tournament system or payment gateway.
+
+See [Public product entry](docs/public-product-entry.md) for club URLs, signup, and the required migration before release.
 
 ## V1 status
 
@@ -51,7 +53,7 @@ Optional remote rating integration tests use `RUN_REMOTE_RATING_TESTS=true`, `PU
    npx supabase db lint --linked
    ```
 
-4. Create the first user in Supabase Auth, sign in, and bootstrap the club in the app.
+4. Configure signup and the deployed `/start` email-confirmation redirect in Supabase Auth. Organizers create/sign in to their own accounts at `/start`, then create or open their club. Existing clubs use explicit `/clubs/[clubId]/live` links.
 
 Do not edit applied migration history to remove legacy terminology. Treat migration-list drift and new database lint findings as issues to investigate; known historical warnings should be documented with their exact output rather than suppressed. Remote database commands require CLI login and a linked project; they are not part of `npm run verify`.
 

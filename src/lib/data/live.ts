@@ -1,3 +1,5 @@
+import { getPublicClub } from '$lib/data/dashboard';
+import { selectedClubId } from '$lib/club-context';
 import { supabase } from '$lib/supabase';
 import type { Participant, Membership, ParticipantStatus } from '$lib/domain/types';
 
@@ -73,11 +75,21 @@ function broadcastLiveUpdate(sessionId: string) {
 		.finally(() => void supabase?.removeChannel(channel));
 }
 
-export async function loadLiveSession(): Promise<LiveSessionSnapshot> {
+/** Capture the query's identity across its initial profile lookup and later reads. */
+export async function loadClubLiveSession(clubId: string): Promise<LiveSessionSnapshot> {
+	if (!(await getPublicClub(clubId))) {
+		throw new Error('Klub tidak ditemukan. Periksa tautan dari admin klub.');
+	}
+	return loadLiveSession(clubId);
+}
+
+export async function loadLiveSession(clubId = selectedClubId()): Promise<LiveSessionSnapshot> {
+	if (!clubId) return emptyLiveSessionSnapshot;
 	if (!supabase) return emptyLiveSessionSnapshot;
 	const { data: sessions, error: sessionError } = await supabase
 		.from('live_session')
 		.select('*')
+		.eq('club_id', clubId)
 		.limit(1);
 	if (sessionError) throw sessionError;
 	const session = sessions?.[0] as LiveSession | undefined;
@@ -91,12 +103,20 @@ export async function loadLiveSession(): Promise<LiveSessionSnapshot> {
 	if (matchesResult.error) throw matchesResult.error;
 	let fairnessRows: RotationFairnessRow[] = [];
 	if (authResult.data.session) {
-		const { data: fairness, error: fairnessError } = await supabase.rpc(
-			'get_rotation_fairness_state',
-			{ p_session_id: session.id }
+		const access = await supabase.rpc('my_club');
+		if (access.error) throw access.error;
+		const isAdmin = access.data?.some(
+			(club: { id: string; is_club_admin: boolean }) =>
+				club.id === session.club_id && club.is_club_admin
 		);
-		if (fairnessError) throw fairnessError;
-		fairnessRows = (fairness ?? []) as RotationFairnessRow[];
+		if (isAdmin) {
+			const { data: fairness, error: fairnessError } = await supabase.rpc(
+				'get_rotation_fairness_state',
+				{ p_session_id: session.id }
+			);
+			if (fairnessError) throw fairnessError;
+			fairnessRows = (fairness ?? []) as RotationFairnessRow[];
+		}
 	}
 	const fairnessByPlayer = new Map(fairnessRows.map((row) => [row.player_id, row]));
 	return {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
@@ -24,7 +25,7 @@
 	let name = $state('');
 	let loading = $state(true);
 	let notice = $state('');
-	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
+	let displayName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
 	let members = $derived(roster.filter((player) => player.membership_type === 'MEMBER'));
 	let guests = $derived(roster.filter((player) => player.membership_type === 'GUEST'));
 
@@ -83,7 +84,7 @@
 	if (browser) void loadPublicRoster();
 </script>
 
-<svelte:head><title>Pemain — PB NEWBIE</title></svelte:head>
+<svelte:head><title>Pemain — Courtside</title></svelte:head>
 <AppShell current="/players" clubName={displayName} onaccesschange={handleAccessChange}>
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<div class="flex items-end justify-between gap-4">
@@ -143,7 +144,10 @@
 								>
 									<a
 										class="group flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-[#e5ece5]"
-										href={resolve('/players/[id]', { id: player.id })}
+										href={resolve('/clubs/[clubId]/players/[id]', {
+											clubId: selectedClubId(),
+											id: player.id
+										})}
 										data-sveltekit-preload-data="hover"
 										onmouseenter={() => void prefetchPublicPlayer(player.id)}
 										onfocus={() => void prefetchPublicPlayer(player.id)}

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import LiveSessionPanel from '$lib/components/live/LiveSessionPanel.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
@@ -13,7 +15,6 @@
 	import { setCachedClub } from '$lib/auth-state.svelte';
 	import {
 		addPlayer,
-		bootstrapClub,
 		getClub,
 		getPublicClub,
 		getPublicFundSummary,
@@ -31,7 +32,7 @@
 	import {
 		emptyLiveSessionSnapshot,
 		liveSessionQueryKey,
-		loadLiveSession,
+		loadClubLiveSession,
 		subscribeToLiveUpdates,
 		type LiveSessionSnapshot
 	} from '$lib/data/live';
@@ -41,9 +42,11 @@
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
 	const queryClient = useQueryClient();
+	const clubId = selectedClubId();
+	const scopedLiveQueryKey = [...liveSessionQueryKey, clubId];
 	const liveQuery = createQuery(() => ({
-		queryKey: liveSessionQueryKey,
-		queryFn: loadLiveSession,
+		queryKey: scopedLiveQueryKey,
+		queryFn: () => loadClubLiveSession(clubId),
 		enabled: browser,
 		staleTime: 15_000,
 		refetchInterval: 15_000,
@@ -56,7 +59,7 @@
 			onSuccess: async (_result, variables) => {
 				if (!variables.invalidateLive) return;
 				await queryClient.invalidateQueries(
-					{ queryKey: liveSessionQueryKey },
+					{ queryKey: scopedLiveQueryKey },
 					{ cancelRefetch: false }
 				);
 			}
@@ -77,14 +80,13 @@
 	let live = new LiveController(
 		(message) => toast.error(message),
 		queryClient,
-		(action, invalidateLive) => liveCommandMutation.mutateAsync({ action, invalidateLive })
+		(action, invalidateLive) => liveCommandMutation.mutateAsync({ action, invalidateLive }),
+		scopedLiveQueryKey
 	);
 	let session = $derived(liveSnapshot.session);
 	let participants = $derived(liveSnapshot.participants);
 	let activeMatch = $derived(liveSnapshot.activeMatch);
-	let loading = $state(true);
 	let online = $state(true);
-	let clubName = $state('');
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
 	let showCheckIn = $state(false);
@@ -109,7 +111,7 @@
 		toast.error(message);
 	}
 
-	let displayName = $derived(club?.name ?? publicClub?.name ?? 'PB NEWBIE');
+	let displayName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
 	let canManageLive = $derived(Boolean(userEmail && club?.is_club_admin));
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
 	const participantStatusLabel: Record<ParticipantStatus, string> = {
@@ -143,7 +145,7 @@
 			activeSession.id,
 			() =>
 				void queryClient.invalidateQueries(
-					{ queryKey: liveSessionQueryKey },
+					{ queryKey: scopedLiveQueryKey },
 					{ cancelRefetch: false }
 				)
 		);
@@ -151,14 +153,14 @@
 
 	async function refreshAccount() {
 		try {
-			club = await getClub();
+			const access = await getClub(clubId);
+			if (disposed) return;
+			club = access;
 			setCachedClub(club);
 			roster = club ? await getRoster(club.id) : [];
 			live.setAdminAuthorized(Boolean(club?.is_club_admin));
 		} catch (error) {
 			notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.');
-		} finally {
-			loading = false;
 		}
 	}
 
@@ -187,17 +189,6 @@
 		}
 	}
 
-	async function createClub() {
-		try {
-			await bootstrapClub(clubName);
-			clubName = '';
-			notify('Klub siap. Tambahkan pemain dulu, lalu mulai sesi.');
-			await refreshAccount();
-		} catch (error) {
-			notifyError(error, 'Klub belum bisa dibuat. Coba lagi sebentar.');
-		}
-	}
-
 	async function createPlayer() {
 		if (!club || !playerName.trim()) return;
 		try {
@@ -214,7 +205,6 @@
 		try {
 			await startSession(club.id);
 			notify('Sesi dimulai.');
-			await refreshLive();
 			showCheckIn = true;
 		} catch (error) {
 			notifyError(error, 'Sesi belum bisa dimulai. Coba lagi.');
@@ -271,17 +261,39 @@
 	}
 
 	async function endSession() {
+		const closingSessionId = session?.id;
 		if (await live.close()) {
 			showEndSession = false;
 			invalidatePublicData();
-			if (session) await goto(resolve('/session-close/[id]', { id: session.id }));
+			if (closingSessionId)
+				await goto(
+					resolve('/clubs/[clubId]/session-close/[id]', {
+						clubId: selectedClubId(),
+						id: closingSessionId
+					})
+				);
 		}
 	}
 
-	function signOut() {
-		setCachedClub(null);
-		void supabase?.auth.signOut();
+	async function signOut() {
+		try {
+			const result = await supabase?.auth.signOut();
+			if (result?.error) throw result.error;
+			setCachedClub(null);
+			queryClient.clear();
+			invalidatePublicData();
+			await goto(resolve('/start'));
+		} catch (error) {
+			notifyError(error, 'Belum berhasil keluar. Coba lagi.');
+		}
 	}
+
+	let disposed = false;
+	let stopAuth: (() => void) | undefined;
+	onDestroy(() => {
+		disposed = true;
+		stopAuth?.();
+	});
 
 	if (browser) {
 		void (async () => {
@@ -291,26 +303,26 @@
 				notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.')
 			);
 			userEmail = (await currentUser())?.email ?? null;
+			if (disposed) return;
 			if (userEmail) await refreshAccount();
 			else {
 				live.setAdminAuthorized(false);
-				loading = false;
 			}
-			supabase?.auth.onAuthStateChange((_event, authSession) => {
+			const subscription = supabase?.auth.onAuthStateChange((_event, authSession) => {
+				if (disposed) return;
 				const nextEmail = authSession?.user.email ?? null;
 				if (nextEmail === userEmail) return;
 				userEmail = nextEmail;
 				if (userEmail) {
-					loading = true;
 					void refreshAccount();
 				} else {
 					setCachedClub(null);
 					club = null;
 					roster = [];
 					live.setAdminAuthorized(false);
-					loading = false;
 				}
 			});
+			stopAuth = () => subscription?.data.subscription.unsubscribe();
 		})();
 	}
 </script>
@@ -422,7 +434,7 @@
 				aria-busy="true"
 				aria-label="Memeriksa sesi aktif"
 			>
-				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">PB NEWBIE / LIVE</p>
+				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">KLUB / LIVE</p>
 				<div class="mt-3 max-w-lg"><LoadingSkeleton height="2.25rem" /></div>
 				<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
 			</section>
@@ -434,23 +446,6 @@
 				Koneksi belum berhasil membaca sesi. Muat ulang untuk mencoba lagi.
 			</p>
 			<AppButton class="mt-4" onclick={refreshLive}>Coba lagi</AppButton>
-		</section>
-	{:else if userEmail && !club && !loading}
-		<section class=" bg-slate-950 p-6 text-white shadow-xl shadow-slate-950/15">
-			<h1 class="mt-3 text-3xl font-black tracking-tight">Buat klubmu.</h1>
-			<p class="mt-3 text-sm leading-6 text-slate-300">
-				Kamu akan menjadi admin klub. Setelah itu, tambahkan pemain dan mulai sesi pertama.
-			</p>
-			<label class="mt-6 block text-sm font-bold"
-				>Nama klub<input
-					class="mt-2 min-h-12 w-full border border-white/15 bg-white/10 px-3 text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
-					bind:value={clubName}
-					placeholder="PB NEWBIE"
-				/></label
-			>
-			<div class="mt-5">
-				<AppButton onclick={createClub} disabled={clubName.trim().length < 2}>Buat klub</AppButton>
-			</div>
 		</section>
 	{:else if tab === 'live'}
 		{#if liveQuery.isError && liveQuery.data}
@@ -505,7 +500,10 @@
 							</span>
 							<a
 								class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-								href={resolve('/session-close/[id]', { id: item.id })}>Lanjutkan rekap</a
+								href={resolve('/clubs/[clubId]/session-close/[id]', {
+									clubId: selectedClubId(),
+									id: item.id
+								})}>Lanjutkan rekap</a
 							>
 						</li>
 					{/each}
