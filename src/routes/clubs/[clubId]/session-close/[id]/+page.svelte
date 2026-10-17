@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -23,12 +26,32 @@
 
 	let { params }: { params: { id: string } } = $props();
 	let club = $state<Club | null>(null);
-	let clubName = $state('Klub');
-	let session = $state<PublicSessionHistory | null>(null);
+
+	const clubId = selectedClubId();
+	const closeQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'close', params.id),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const sessionId = params.id;
+			const [publicClub, history, matches] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicSessionHistory(clubId),
+				getPublicSessionMatches(sessionId, clubId)
+			]);
+			return {
+				publicClub,
+				session: history.find((item) => item.id === sessionId && item.closed_at) ?? null,
+				matchCount: matches.length
+			};
+		}
+	}));
+	let clubName = $derived(closeQuery.data?.publicClub?.name ?? 'Klub');
+	let session: PublicSessionHistory | null = $derived(closeQuery.data?.session ?? null);
 	let attendees = $state<FinanceSessionAttendee[]>([]);
-	let matchCount = $state(0);
+	let matchCount = $derived(closeQuery.data?.matchCount ?? 0);
 	let fee = $state('');
-	let loading = $state(true);
+	let loading = $derived(closeQuery.isPending);
 	let savingFee = $state(false);
 	let savingPlayers = $state<Record<string, boolean>>({});
 	let queuedPlayers = $state<Record<string, boolean>>({});
@@ -53,29 +76,17 @@
 		}).format(new Date(value));
 
 	async function load() {
-		loading = true;
-		notice = '';
-		try {
-			invalidatePublicData();
-			const [publicClub, history, matches] = await Promise.all([
-				getPublicClub(),
-				getPublicSessionHistory(),
-				getPublicSessionMatches(params.id)
-			]);
-			clubName = publicClub?.name ?? clubName;
-			session = history.find((item) => item.id === params.id && item.closed_at) ?? null;
-			matchCount = matches.length;
-			if (!session) return;
-			fee = session.fee_per_person ? String(session.fee_per_person) : '';
-			void loadAdminData().catch((error) => {
-				notice = error instanceof Error ? error.message : 'Data pembayaran belum dapat dimuat.';
-			});
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Data sesi tidak dapat dimuat.';
-		} finally {
-			loading = false;
-		}
+		await closeQuery.refetch();
+		await loadAdminData();
 	}
+	$effect(() => {
+		if (session) {
+			if (!fee && session.fee_per_person) fee = String(session.fee_per_person);
+			void loadAdminData().catch(() => {
+				notice = 'Data pembayaran belum dapat dimuat.';
+			});
+		}
+	});
 
 	async function loadAdminData() {
 		if (!club?.is_club_admin || !session) return;
@@ -88,7 +99,6 @@
 
 	async function handleAccessChange(accountClub: Club | null) {
 		club = accountClub;
-		clubName = accountClub?.name ?? clubName;
 		try {
 			await loadAdminData();
 		} catch (error) {
@@ -138,22 +148,22 @@
 		}
 	}
 
-	async function flushPaidChange(playerId: string): Promise<void> {
+	async function flushPaidChange(playerId: string): Promise<boolean> {
 		const timer = paidTimers.get(playerId);
 		if (timer) {
 			clearTimeout(timer);
 			paidTimers.delete(playerId);
 		}
-		if (!club || !session) return;
+		if (!club || !session) return false;
 
 		const activeWrite = paidWrites.get(playerId);
 		if (activeWrite) {
-			await activeWrite;
+			const saved = await activeWrite;
 			if (pendingPaidChanges.has(playerId) && !paidTimers.has(playerId))
-				await flushPaidChange(playerId);
-			return;
+				return flushPaidChange(playerId);
+			return saved;
 		}
-		if (!pendingPaidChanges.has(playerId)) return;
+		if (!pendingPaidChanges.has(playerId)) return true;
 
 		const paid = pendingPaidChanges.get(playerId)!;
 		pendingPaidChanges.delete(playerId);
@@ -165,6 +175,7 @@
 		const write = (async () => {
 			try {
 				await setSessionAttendeePaid(clubId, sessionId, playerId, paid);
+				invalidatePublicData();
 				return true;
 			} catch (error) {
 				if (!pendingPaidChanges.has(playerId)) paidOverrides = omitPlayer(paidOverrides, playerId);
@@ -179,22 +190,46 @@
 		if (paidWrites.get(playerId) === write) paidWrites.delete(playerId);
 
 		if (pendingPaidChanges.has(playerId) && !paidTimers.has(playerId)) {
-			await flushPaidChange(playerId);
-			return;
+			return flushPaidChange(playerId);
 		}
 		if (saved && !pendingPaidChanges.has(playerId) && !paidTimers.has(playerId))
 			await refreshPaymentAttendees(playerId);
+		return saved;
+	}
+
+	let continuing = $state(false);
+	async function continueToRecap(event: MouseEvent) {
+		event.preventDefault();
+		if (continuing || savingFee) return;
+		continuing = true;
+		try {
+			while (paidTimers.size || pendingPaidChanges.size || paidWrites.size) {
+				const playerIds = new Set([
+					...paidTimers.keys(),
+					...pendingPaidChanges.keys(),
+					...paidWrites.keys()
+				]);
+				const results = await Promise.all([...playerIds].map(flushPaidChange));
+				if (results.some((saved) => !saved)) {
+					notice = 'Pembayaran belum tersimpan. Periksa checklist sebelum melanjutkan.';
+					return;
+				}
+			}
+
+			invalidatePublicData();
+			await goto(resolve('/clubs/[clubId]/session-close/[id]/confirm', { clubId, id: params.id }));
+		} finally {
+			continuing = false;
+		}
 	}
 
 	onDestroy(() => {
 		for (const playerId of paidTimers.keys()) void flushPaidChange(playerId);
 	});
 
-	if (browser) void load();
-
 	async function saveFee() {
 		const amount = Number(fee);
-		if (!session || !Number.isSafeInteger(amount) || amount <= 0) return;
+		if (savingFee || !session || !Number.isSafeInteger(amount) || amount <= 0) return;
 		savingFee = true;
 		notice = '';
 		try {
@@ -227,6 +262,12 @@
 
 <svelte:head><title>Tutup sesi — {clubName}</title></svelte:head>
 <AppShell current="" mode="REKAP SESI" {clubName} onaccesschange={handleAccessChange}>
+	<QueryNotice
+		failed={closeQuery.isError}
+		hasData={Boolean(closeQuery.data)}
+		retry={() => closeQuery.refetch()}
+		fetching={closeQuery.isFetching}
+	/>
 	<a
 		href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
@@ -256,7 +297,10 @@
 						href={resolve('/clubs/[clubId]/session-close/[id]/confirm', {
 							clubId: selectedClubId(),
 							id: params.id
-						})}>Konfirmasi rekap</a
+						})}
+						onclick={continueToRecap}
+						aria-disabled={continuing || savingFee}
+						>{continuing ? 'Menyimpan pembayaran…' : 'Konfirmasi rekap'}</a
 					>
 				{/if}
 			</div>
@@ -378,6 +422,7 @@
 											type="checkbox"
 											class="size-6 accent-[#163630]"
 											checked={isPaid(person)}
+											disabled={continuing}
 											onchange={(event) => queuePaidChange(person, event.currentTarget.checked)}
 										/>
 										<span class="min-w-0 flex-1">

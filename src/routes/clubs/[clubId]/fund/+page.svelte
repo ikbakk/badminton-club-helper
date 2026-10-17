@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { selectedClubId } from '$lib/club-context';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { Tabs } from 'sve-ui';
@@ -23,10 +26,25 @@
 		getPublicPaymentDestinations,
 		publicPaymentDestinationsQueryKey
 	} from '$lib/data/club-settings';
-	let clubName = $state('Klub');
+	const clubId = selectedClubId();
+	const fundQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'fund'),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const [club, summary, activity] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicFundSummary(clubId),
+				getPublicFundActivity(clubId)
+			]);
+			return { club, summary, activity };
+		}
+	}));
 	let club = $state<Club | null>(null);
-	let publicClub = $state<{ id: string; name: string } | null>(null);
-	let summary = $state<PublicFundSummary | null>(null);
+	let publicClub = $derived(fundQuery.data?.club ?? null);
+	let clubName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
+
+	let summary: PublicFundSummary | null = $derived(fundQuery.data?.summary ?? null);
 	const paymentDestinationsQuery = createQuery(() => ({
 		queryKey: publicClub
 			? publicPaymentDestinationsQueryKey(publicClub.id)
@@ -36,11 +54,11 @@
 		staleTime: 60_000
 	}));
 	let paymentDestinations = $derived(paymentDestinationsQuery.data ?? null);
-	let activity = $state<PublicFundActivity[]>([]);
+	let activity: PublicFundActivity[] = $derived(fundQuery.data?.activity ?? []);
 	let sessions = $state<FinanceSession[]>([]);
 	let attendees = $state<Record<string, FinanceSessionAttendee[]>>({});
 	let expandedSession = $state('');
-	let loading = $state(true);
+	let loading = $derived(fundQuery.isPending);
 	let pending = $state('');
 	let notice = $state('');
 	let selectedTab = $state('income');
@@ -84,36 +102,14 @@
 			minute: '2-digit'
 		}).format(new Date(value));
 
-	if (browser)
-		void (async () => {
-			try {
-				invalidatePublicData();
-				publicClub = await getPublicClub();
-				clubName = publicClub?.name ?? clubName;
-				await refreshPublicFund();
-			} catch (error) {
-				notice = error instanceof Error ? error.message : 'Dana klub belum dapat dimuat.';
-			} finally {
-				loading = false;
-			}
-		})();
-
 	async function handleAccessChange(accountClub: Club | null) {
 		club = accountClub;
-		clubName = accountClub?.name ?? clubName;
 		if (!accountClub?.is_club_admin) return;
 		try {
 			await refreshAdminFund();
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Data pengelolaan kas belum dapat dimuat.';
 		}
-	}
-
-	async function refreshPublicFund() {
-		[summary, activity] = await Promise.all([
-			getPublicFundSummary(),
-			getPublicFundActivity().catch(() => [] as PublicFundActivity[])
-		]);
 	}
 
 	async function refreshAdminFund() {
@@ -129,7 +125,7 @@
 
 	async function refreshFinance() {
 		invalidatePublicData();
-		await refreshPublicFund();
+		await fundQuery.refetch();
 		await refreshAdminFund();
 	}
 
@@ -170,7 +166,7 @@
 
 	async function saveExpense(event: SubmitEvent) {
 		event.preventDefault();
-		if (!club) return;
+		if (!club || pending) return;
 		const amount = Number(expenseAmount);
 		if (!Number.isInteger(amount) || amount <= 0) return;
 		pending = 'Mencatat pengeluaran…';
@@ -190,6 +186,12 @@
 
 <svelte:head><title>Dana klub — Courtside</title></svelte:head>
 <AppShell current="/fund" {clubName} onaccesschange={handleAccessChange}>
+	<QueryNotice
+		failed={fundQuery.isError}
+		hasData={Boolean(fundQuery.data)}
+		retry={() => fundQuery.refetch()}
+		fetching={fundQuery.isFetching}
+	/>
 	{#if loading}<section
 			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0]"
 			role="status"
@@ -199,7 +201,7 @@
 			<h1 class="text-2xl font-black tracking-[-0.04em]">Kas klub</h1>
 			<div class="mt-6 w-2/5"><LoadingSkeleton height="2.5rem" /></div>
 		</section>
-	{:else}<section
+	{:else if fundQuery.data}<section
 			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)]"
 		>
 			<h1 class="text-2xl font-black tracking-[-0.04em]">Kas klub</h1>

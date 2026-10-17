@@ -107,6 +107,7 @@ export class LiveController {
 	}
 
 	private async runCommand(label: string, action: () => Promise<unknown>) {
+		if (this.pending) return false;
 		if (!this.online) {
 			this.notify('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
 			return false;
@@ -152,7 +153,7 @@ export class LiveController {
 	}
 
 	async prepareNextMatch(): Promise<{ id: string; recommendation: RotationRecommendation } | null> {
-		if (!this.session || !this.adminAuthorized || this.activeMatch) return null;
+		if (!this.session || !this.adminAuthorized || this.activeMatch || this.pending) return null;
 		const ready = this.participants.filter((participant) => participant.status === 'READY');
 		if (ready.length < 4 || !this.online) return null;
 		this.pending = 'Menyiapkan rekomendasi…';
@@ -268,7 +269,7 @@ export class LiveController {
 	}
 
 	async close() {
-		if (!this.session || !this.adminAuthorized) return false;
+		if (!this.session || !this.adminAuthorized || this.pending) return false;
 		if (!this.online) {
 			this.notify('Koneksi terputus. Sesi belum bisa ditutup.');
 			return false;

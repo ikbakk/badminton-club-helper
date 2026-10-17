@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
+	import { untrack } from 'svelte';
+
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
@@ -18,74 +23,100 @@
 	} from '$lib/data/dashboard';
 
 	let club = $state<Club | null>(null);
-	let publicClub = $state<{ id: string; name: string } | null>(null);
-	let roster = $state<{ id: string; display_name: string; membership_type: 'MEMBER' | 'GUEST' }[]>(
-		[]
+	const clubId = selectedClubId();
+	const rosterQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'roster'),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const publicClub = await getPublicClub(clubId);
+			return { publicClub, roster: publicClub ? await getPublicRoster(clubId) : [] };
+		}
+	}));
+	const queryClient = useQueryClient();
+	const adminRosterKey = ['admin-roster', clubId] as const;
+	const adminRosterQuery = createQuery(() => ({
+		queryKey: adminRosterKey,
+		enabled: browser && Boolean(club?.is_club_admin),
+		queryFn: () => getRoster(clubId),
+		gcTime: 0,
+		retry: false
+	}));
+	$effect(() => {
+		if (!club?.is_club_admin)
+			untrack(() => {
+				void queryClient.cancelQueries({ queryKey: adminRosterKey });
+				queryClient.removeQueries({ queryKey: adminRosterKey });
+			});
+	});
+
+	let publicClub = $derived(rosterQuery.data?.publicClub ?? null);
+	let roster = $derived(
+		club?.is_club_admin ? (adminRosterQuery.data ?? []) : (rosterQuery.data?.roster ?? [])
 	);
+	let pending = $state(false);
+
 	let name = $state('');
-	let loading = $state(true);
+	let loading = $derived(rosterQuery.isPending);
 	let notice = $state('');
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
 	let members = $derived(roster.filter((player) => player.membership_type === 'MEMBER'));
 	let guests = $derived(roster.filter((player) => player.membership_type === 'GUEST'));
 
-	async function loadPublicRoster() {
-		try {
-			publicClub = await getPublicClub();
-			roster = publicClub ? await getPublicRoster(publicClub.id) : [];
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Daftar pemain belum bisa dimuat.';
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function loadAdminRoster() {
-		if (!club?.is_club_admin) return;
-		roster = await getRoster(club.id);
-	}
-
-	async function handleAccessChange(accountClub: Club | null) {
+	function handleAccessChange(accountClub: Club | null) {
 		club = accountClub;
-		if (!accountClub?.is_club_admin) return;
-		try {
-			await loadAdminRoster();
-		} catch (error) {
-			notice = error instanceof Error ? error.message : 'Daftar admin pemain belum dapat dimuat.';
-		}
 	}
+
 	async function createPlayer() {
-		if (!club || !name.trim()) return;
+		if (!club || !name.trim() || pending) return;
+		pending = true;
 		try {
 			await addPlayer(club.id, name);
 			invalidatePublicData();
 			name = '';
-			await loadAdminRoster();
+			await Promise.all([rosterQuery.refetch(), adminRosterQuery.refetch()]);
 			notice = 'Pemain ditambahkan ke daftar klub.';
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Pemain belum bisa ditambahkan. Coba lagi.';
+		} finally {
+			pending = false;
 		}
 	}
 	async function promoteGuest(playerId: string) {
 		if (
 			!club ||
+			pending ||
 			!confirm('Jadikan pemain ini anggota tetap klub? Riwayat mainnya tetap tersimpan.')
 		)
 			return;
+		pending = true;
 		try {
 			await promoteGuestToMember(club.id, playerId);
 			invalidatePublicData();
-			await loadAdminRoster();
+			await Promise.all([rosterQuery.refetch(), adminRosterQuery.refetch()]);
 			notice = 'Tamu dipromosikan menjadi member.';
 		} catch (error) {
 			notice = error instanceof Error ? error.message : 'Tamu belum dapat dipromosikan.';
+		} finally {
+			pending = false;
 		}
 	}
-	if (browser) void loadPublicRoster();
 </script>
 
 <svelte:head><title>Pemain — Courtside</title></svelte:head>
 <AppShell current="/players" clubName={displayName} onaccesschange={handleAccessChange}>
+	<QueryNotice
+		failed={rosterQuery.isError}
+		hasData={Boolean(rosterQuery.data)}
+		retry={() => rosterQuery.refetch()}
+		fetching={rosterQuery.isFetching}
+	/>
+	<QueryNotice
+		failed={Boolean(club?.is_club_admin && adminRosterQuery.isError)}
+		hasData={Boolean(adminRosterQuery.data)}
+		retry={() => adminRosterQuery.refetch()}
+		fetching={adminRosterQuery.isFetching}
+	/>
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<div class="flex items-end justify-between gap-4">
 			<div>
@@ -111,7 +142,7 @@
 					class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 font-bold"
 					bind:value={name}
 					placeholder="Nama pemain"
-				/><AppButton disabled={!name.trim()} onclick={createPlayer}>Tambah</AppButton>
+				/><AppButton disabled={!name.trim() || pending} onclick={createPlayer}>Tambah</AppButton>
 			</div>
 		</section>
 	{/if}
@@ -171,7 +202,7 @@
 			{/snippet}
 			{@render rosterGroup('ANGGOTA', members)}
 			{@render rosterGroup('TAMU', guests)}
-		{:else}<div class="p-7">
+		{:else if !rosterQuery.isError}<div class="p-7">
 				<h2 class="text-xl font-black">Belum ada member.</h2>
 				<p class="mt-2 max-w-sm text-sm leading-6 text-[#527169]">
 					Daftar pemain akan muncul di sini setelah admin klub menambahkan pemain.

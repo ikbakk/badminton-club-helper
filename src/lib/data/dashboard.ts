@@ -1,19 +1,19 @@
 import { selectedClubId } from '$lib/club-context';
 import { supabase } from '$lib/supabase';
 
-const publicCache = new Map<string, Promise<unknown>>();
+import { browserQueryClient } from './query-client';
+
 function cached<T>(key: string, loader: () => Promise<T>) {
-	const existing = publicCache.get(key) as Promise<T> | undefined;
-	if (existing) return existing;
-	const request = loader().catch((error) => {
-		publicCache.delete(key);
-		throw error;
+	return browserQueryClient.fetchQuery({
+		queryKey: ['public', key],
+		queryFn: loader,
+		retry: false
 	});
-	publicCache.set(key, request);
-	return request;
 }
 export function invalidatePublicData() {
-	publicCache.clear();
+	void browserQueryClient.invalidateQueries({
+		predicate: (query) => query.queryKey[0] === 'public' || query.queryKey[0] === 'public-surface'
+	});
 }
 export type Club = { id: string; name: string; is_club_admin: boolean };
 export type RosterPlayer = {

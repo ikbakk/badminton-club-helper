@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
@@ -21,16 +25,41 @@
 		type PublicSessionMatch
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
-	let clubName = $state('Klub');
+	const clubId = selectedClubId();
 	let club = $state<Club | null>(null);
-	let session = $state<PublicSessionHistory | null>(null);
-	let matches = $state<PublicSessionMatch[]>([]);
-	let attendees = $state<PublicSessionAttendee[]>([]);
-	let financeRecap = $state<PublicSessionFinanceRecap | null>(null);
+	const detailQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'session', params.id),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const sessionId = params.id;
+			const [publicClub, history] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicSessionHistory(clubId)
+			]);
+			const session = history.find((item) => item.id === sessionId && item.closed_at) ?? null;
+			const [matches, attendees, financeRecap] = session
+				? await Promise.all([
+						getPublicSessionMatches(sessionId, clubId),
+						getPublicSessionAttendance(sessionId, clubId),
+						getPublicSessionFinanceRecap(sessionId, clubId)
+					])
+				: [[], [], null];
+			return { publicClub, session, matches, attendees, financeRecap };
+		}
+	}));
+	let clubName = $derived(detailQuery.data?.publicClub?.name ?? 'Klub');
+	let session: PublicSessionHistory | null = $derived(detailQuery.data?.session ?? null);
+	let matches: PublicSessionMatch[] = $derived(detailQuery.data?.matches ?? []);
+	let attendees: PublicSessionAttendee[] = $derived(detailQuery.data?.attendees ?? []);
+	let financeRecap: PublicSessionFinanceRecap | null = $derived(
+		detailQuery.data?.financeRecap ?? null
+	);
+
 	let cardUrl = $state('');
 	let shareNotice = $state('');
 	let shareDialogOpen = $state(false);
-	let loading = $state(true);
+	let loading = $derived(detailQuery.isPending);
 	let evaluation = $state<{
 		algorithm1: {
 			recommendations: number;
@@ -80,27 +109,17 @@
 	const teamPlayers = (players: string[]) => [...new Set(players)];
 	const completedSetCount = (match: PublicSessionMatch) =>
 		Number(match.set_one_a !== null) + Number(match.set_two_a !== null);
-	if (browser)
-		void (async () => {
-			try {
-				const [publicClub, sessions] = await Promise.all([
-					getPublicClub(),
-					getPublicSessionHistory()
-				]);
-				clubName = publicClub?.name ?? clubName;
-				session = sessions.find((item) => item.id === params.id && item.closed_at) ?? null;
-				if (session) {
-					[matches, attendees, financeRecap] = await Promise.all([
-						getPublicSessionMatches(params.id),
-						getPublicSessionAttendance(params.id),
-						getPublicSessionFinanceRecap(params.id)
-					]);
-					if (club?.is_club_admin) void loadEvaluation();
-				}
-			} finally {
-				loading = false;
-			}
-		})();
+	let evaluatedSession = $state('');
+	$effect(() => {
+		if (!canManage) {
+			evaluation = null;
+			evaluationError = '';
+			evaluatedSession = '';
+		} else if (session && evaluatedSession !== session.id) {
+			evaluatedSession = session.id;
+			untrack(() => void loadEvaluation());
+		}
+	});
 
 	function recapText() {
 		if (!session) return '';
@@ -158,6 +177,7 @@
 
 	async function loadEvaluation() {
 		if (!supabase || !session || evaluationLoading) return;
+		const requestedSession = session.id;
 		evaluationLoading = true;
 		evaluationError = '';
 		try {
@@ -169,7 +189,7 @@
 			});
 			const payload = await response.json();
 			if (!response.ok) throw new Error(payload.message ?? 'Evaluasi belum dapat dimuat.');
-			evaluation = payload;
+			if (canManage && session?.id === requestedSession) evaluation = payload;
 		} catch (error) {
 			evaluationError = error instanceof Error ? error.message : 'Evaluasi belum dapat dimuat.';
 		} finally {
@@ -332,6 +352,12 @@
 	{clubName}
 	onaccesschange={handleAccessChange}
 >
+	<QueryNotice
+		failed={detailQuery.isError}
+		hasData={Boolean(detailQuery.data)}
+		retry={() => detailQuery.refetch()}
+		fetching={detailQuery.isFetching}
+	/>
 	<div class="flex items-center justify-between gap-3">
 		<a
 			href={resolve('/clubs/[clubId]/history', { clubId: selectedClubId() })}
@@ -640,7 +666,7 @@
 						</div>{/if}
 				</section>{/if}
 		</section>
-	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
+	{:else if !detailQuery.isError}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
 			<h1 class="text-2xl font-black">Sesi tidak ditemukan.</h1>
 			<p class="mt-2 text-sm text-[#527169]">
 				Detail hanya tersedia untuk sesi yang sudah selesai.

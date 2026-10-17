@@ -454,7 +454,14 @@ test('admin can end a session and continue on its dedicated close page', async (
 	).toBeVisible();
 	await page.getByRole('link', { name: 'Kembali edit iuran & pembayaran' }).click();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
+
+	await page.getByRole('checkbox').nth(1).check();
 	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	await expect(page.getByText('2 lunas · 0 belum', { exact: true })).toBeVisible();
+	await page.getByRole('link', { name: 'Kembali edit iuran & pembayaran' }).click();
+	await page.getByRole('checkbox').nth(1).uncheck();
+	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	await expect(page.getByText('1 lunas · 1 belum', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Selesai & lihat riwayat' }).click();
 	await expect(page).toHaveURL(new RegExp(`/history/${sessionId}$`));
 	await expect(page.getByRole('heading', { name: 'Rekap dana sesi' })).toBeVisible();
@@ -667,4 +674,57 @@ test('fewer than four READY players have no actionable next-match recommendation
 	await mockLiveBackend(page, false, false, false, false, 3);
 	await page.goto('/clubs/club-e2e/live');
 	await expect(page.getByRole('button', { name: 'Siapkan match' })).toHaveCount(0);
+});
+
+test('admin roster retains guests and offers promotion', async ({ page }) => {
+	await mockLiveBackend(page);
+	await page.route('**/rest/v1/rpc/club_roster', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'guest-1',
+					display_name: 'Tamu Rafi',
+					membership_type: 'GUEST',
+					rating: 1200,
+					uncertainty: 280
+				}
+			]
+		})
+	);
+	await page.goto('/clubs/club-e2e/players');
+	await expect(page.getByText('Tamu Rafi', { exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Jadikan anggota' })).toBeVisible();
+});
+
+test('confirmation waits for a replacement payment write after rapid toggles', async ({ page }) => {
+	await mockLiveBackend(page);
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
+	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
+	let releaseFirst!: () => void;
+	let releaseSecond!: () => void;
+	const firstGate = new Promise<void>((resolve) => {
+		releaseFirst = resolve;
+	});
+	const secondGate = new Promise<void>((resolve) => {
+		releaseSecond = resolve;
+	});
+	let writes = 0;
+	await page.route('**/rest/v1/rpc/set_session_attendee_paid', async (route) => {
+		writes++;
+		await (writes === 1 ? firstGate : secondGate);
+		await route.fulfill({ json: null });
+	});
+	const toggle = page.getByRole('checkbox').first();
+	await toggle.check();
+	await expect.poll(() => writes).toBe(1);
+	await toggle.uncheck();
+	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	releaseFirst();
+	await expect.poll(() => writes).toBe(2);
+	await expect(page.getByText('Menyimpan pembayaran…', { exact: true })).toBeVisible();
+	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
+	releaseSecond();
+	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}/confirm$`));
 });

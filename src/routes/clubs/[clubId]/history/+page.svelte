@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
@@ -11,9 +14,22 @@
 		prefetchPublicSession,
 		type PublicSessionHistory
 	} from '$lib/data/dashboard';
-	let clubName = $state('Klub');
-	let history = $state<PublicSessionHistory[]>([]);
-	let loading = $state(true);
+	const clubId = selectedClubId();
+	const historyQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'history'),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const [club, history] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicSessionHistory(clubId)
+			]);
+			return { club, history: history.filter((session) => session.closed_at) };
+		}
+	}));
+	let clubName = $derived(historyQuery.data?.club?.name ?? 'Klub');
+	let history: PublicSessionHistory[] = $derived(historyQuery.data?.history ?? []);
+	let loading = $derived(historyQuery.isPending);
 	let selectedMonth = $state('all');
 	let attendanceFilter = $state<'all' | 'small' | 'regular' | 'busy'>('all');
 	const date = (value: string) =>
@@ -43,20 +59,16 @@
 			return true;
 		})
 	);
-	if (browser)
-		void (async () => {
-			try {
-				const club = await getPublicClub();
-				clubName = club?.name ?? clubName;
-				history = (await getPublicSessionHistory()).filter((session) => session.closed_at);
-			} finally {
-				loading = false;
-			}
-		})();
 </script>
 
 <svelte:head><title>Riwayat — Courtside</title></svelte:head>
 <AppShell current="/history" {clubName}>
+	<QueryNotice
+		failed={historyQuery.isError}
+		hasData={Boolean(historyQuery.data)}
+		retry={() => historyQuery.refetch()}
+		fetching={historyQuery.isFetching}
+	/>
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<h1 class="text-3xl font-black tracking-[-0.05em]">Riwayat</h1>
 		<p class="mt-2 text-sm leading-6 text-[#527169]">
@@ -141,7 +153,7 @@
 					Tidak ada sesi untuk filter ini. Pilih periode atau jumlah pemain lain.
 				</p>{/if}
 		</section>
-	{:else}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-7">
+	{:else if !historyQuery.isError}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-7">
 			<h2 class="text-2xl font-black">Belum ada sesi selesai.</h2>
 			<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
 				Setelah sesi ditutup, daftar match dan hasil set akan tersimpan di sini.

@@ -8,6 +8,11 @@
 - Admin real-session evaluation and JSON export; automated application verification passes.
 - Club profile and manual payment destination settings, with explicit opt-in to public display.
 
+- Session recap image download and copyable text in closed-session History.
+- Public landing, explicit club creation and club-scoped navigation; signup and password recovery.
+- Shared query freshness and retry states across public surfaces; duplicate courtside-command guard.
+- GitHub Actions verification on pull requests and main.
+
 ## Now — V1 closeout
 
 - Keep the repository and developer handoff clean, documented, and easy to verify.
@@ -16,6 +21,6 @@
 
 ## Later
 
-- Session recap/share card.
+- Further recap sharing polish based on real-session feedback.
 - Further payment-destination polish based on real-session feedback.
 - Deployment and operations hardening.
