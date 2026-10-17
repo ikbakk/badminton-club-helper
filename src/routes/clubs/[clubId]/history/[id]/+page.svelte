@@ -58,6 +58,8 @@
 
 	let cardUrl = $state('');
 	let shareNotice = $state('');
+	let includeFinance = $state(true);
+	const nativeShareAvailable = browser && typeof navigator.share === 'function';
 	let shareDialogOpen = $state(false);
 	let loading = $derived(detailQuery.isPending);
 	let evaluation = $state<{
@@ -135,11 +137,17 @@
 		return [
 			`${clubName} — ${dateText}`,
 			`Pemain: ${session.attendance} · Match: ${matches.length} · Set: ${completedSets}`,
-			session.fee_per_person
-				? `Iuran: ${money(session.fee_per_person)} / orang`
-				: 'Biaya sesi belum dikonfirmasi',
-			financeRecap?.expected_fees ? `Total tagihan: ${money(financeRecap.expected_fees)}` : '',
-			`Pembayaran tercatat: ${attendees.filter((attendee) => attendee.is_paid === true).length}/${attendees.length} pemain`
+			...(includeFinance
+				? [
+						session.fee_per_person
+							? `Iuran: ${money(session.fee_per_person)} / orang`
+							: 'Biaya sesi belum dikonfirmasi',
+						financeRecap?.expected_fees
+							? `Total tagihan: ${money(financeRecap.expected_fees)}`
+							: '',
+						`Pembayaran tercatat: ${attendees.filter((attendee) => attendee.is_paid === true).length}/${attendees.length} pemain`
+					]
+				: [])
 		]
 			.filter(Boolean)
 			.join('\n');
@@ -266,24 +274,45 @@
 		ctx.textAlign = 'center';
 		ctx.fillStyle = '#f5bb61';
 		ctx.font = '800 34px system-ui';
-		ctx.fillText('IURAN SESI', 540, 410);
+		ctx.fillText(includeFinance ? 'IURAN SESI' : 'MATCH TERCATAT', 540, 410);
 		ctx.fillStyle = '#fffaf0';
 		ctx.font = '800 126px system-ui';
-		ctx.fillText(fee ? money(fee) : 'BELUM ADA', 540, 545, 860);
+		ctx.fillText(
+			includeFinance ? (fee ? money(fee) : 'BELUM ADA') : String(matches.length),
+			540,
+			545,
+			860
+		);
 		ctx.fillStyle = '#c8d9d0';
 		ctx.font = '600 34px system-ui';
-		ctx.fillText(fee ? 'per pemain' : 'iuran belum dikonfirmasi', 540, 594);
+		ctx.fillText(
+			includeFinance ? (fee ? 'per pemain' : 'iuran belum dikonfirmasi') : 'bersama klub malam ini',
+			540,
+			594
+		);
 
 		ctx.strokeStyle = '#78948a';
 		ctx.beginPath();
 		ctx.moveTo(112, 672);
 		ctx.lineTo(968, 672);
 		ctx.stroke();
-		const metrics = [
-			['TOTAL TAGIHAN', totalDue ? money(totalDue) : '—'],
-			['SUDAH LUNAS', `${paidCount}/${attendees.length || session.attendance}`],
-			['BELUM LUNAS', `${Math.max((attendees.length || session.attendance) - paidCount, 0)} pemain`]
-		];
+		const metrics = includeFinance
+			? [
+					['TOTAL TAGIHAN', totalDue ? money(totalDue) : '—'],
+					['SUDAH LUNAS', `${paidCount}/${attendees.length || session.attendance}`],
+					[
+						'BELUM LUNAS',
+						`${Math.max((attendees.length || session.attendance) - paidCount, 0)} pemain`
+					]
+				]
+			: [
+					['PEMAIN', String(session.attendance)],
+					[
+						'SET SELESAI',
+						String(matches.reduce((total, match) => total + completedSetCount(match), 0))
+					],
+					['MATCH SELESAI', String(matches.filter((match) => match.status === 'COMPLETED').length)]
+				];
 		for (const [index, [label, value]] of metrics.entries()) {
 			const x = 254 + index * 286;
 			ctx.fillStyle = '#a7c5b9';
@@ -336,11 +365,33 @@
 		shareDialogOpen = true;
 	}
 
+	async function shareCard() {
+		if (!cardUrl || !nativeShareAvailable) return;
+		const bytes = Uint8Array.from(atob(cardUrl.split(',')[1]), (character) =>
+			character.charCodeAt(0)
+		);
+		const file = new File([bytes], `recap-${session?.id ?? 'sesi'}.png`, { type: 'image/png' });
+		if (!navigator.canShare?.({ files: [file] })) {
+			shareNotice =
+				'Browser belum mendukung berbagi gambar. Gunakan Unduh gambar lalu kirim ke WhatsApp.';
+			return;
+		}
+		try {
+			await navigator.share({ files: [file], title: clubName, text: recapText() });
+			shareNotice = 'Recap dibagikan.';
+		} catch (error) {
+			shareNotice =
+				error instanceof Error && error.name === 'AbortError'
+					? ''
+					: 'Gambar belum dibagikan. Kamu tetap bisa mengunduhnya.';
+		}
+	}
+
 	function downloadCard() {
 		if (!cardUrl) return;
 		const link = document.createElement('a');
 		link.href = cardUrl;
-		link.download = 'pb-newbie-recap.png';
+		link.download = `recap-${session?.id ?? 'sesi'}.png`;
 		link.click();
 	}
 </script>
@@ -682,16 +733,30 @@
 			<div class="p-5 sm:p-6">
 				<h2 class="text-2xl font-black tracking-[-0.04em]">Bagikan hasil sesi</h2>
 				<p class="mt-1 text-sm text-[#527169]">{date(session.started_at)} · {clubName}</p>
+				<label class="mt-4 flex min-h-11 items-center gap-3 text-sm font-bold">
+					<input
+						type="checkbox"
+						class="size-5 accent-[#163630]"
+						checked={includeFinance}
+						onchange={(event) => {
+							includeFinance = event.currentTarget.checked;
+							createShareCard();
+						}}
+					/>Sertakan iuran dan pembayaran
+				</label>
 				{#if cardUrl}
 					<img
 						class="mt-4 max-h-[48dvh] w-full border border-[#b9c5bb] object-contain object-top"
 						src={cardUrl}
-						alt={`Kartu recap sesi ${date(session.started_at)}: iuran ${session.fee_per_person ? `${money(session.fee_per_person)} per pemain` : 'belum dikonfirmasi'}, ${session.attendance} pemain, dan ${matches.length} match`}
+						alt={`Kartu recap sesi ${date(session.started_at)}: ${session.attendance} pemain dan ${matches.length} match${includeFinance ? ' dengan rekap iuran' : ' tanpa informasi pembayaran'}`}
 					/>
 				{/if}
 				<div class="mt-5 grid gap-3">
+					{#if nativeShareAvailable}<AppButton class="w-full justify-center" onclick={shareCard}
+							>Bagikan gambar</AppButton
+						>{/if}
 					<AppButton class="w-full justify-center" variant="secondary" onclick={copyShareText}
-						>Copy text</AppButton
+						>Salin teks</AppButton
 					><AppButton class="w-full justify-center" onclick={downloadCard}>Unduh gambar</AppButton>
 				</div>
 				{#if shareNotice}<p class="mt-3 text-sm font-bold text-[#38675b]" role="status">

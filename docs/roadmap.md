@@ -11,7 +11,9 @@
 - Session recap image download and copyable text in closed-session History.
 - Public landing, explicit club creation and club-scoped navigation; signup and password recovery.
 - Shared query freshness and retry states across public surfaces; duplicate courtside-command guard.
-- GitHub Actions verification on pull requests and main.
+- GitHub Actions verification on pull requests and main, plus disposable PostgreSQL read-model tests.
+- First-session guidance, saved-session check-in transition, synchronization status and provisional admin rotation preview.
+- Per-session player results/partners/rating summaries and result-only/native recap sharing.
 
 ## Now — V1 closeout
 

@@ -15,9 +15,9 @@
 		getPublicClub,
 		getPublicPlayerProfile,
 		getPublicPlayerRating,
-		getPublicPlayerRecentSessions,
+		getPublicPlayerSessionSummaries,
 		type PublicPlayerProfile,
-		type PublicPlayerSession
+		type PublicPlayerSessionSummary
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
 	const clubId = selectedClubId();
@@ -27,13 +27,12 @@
 		retry: false,
 		queryFn: async () => {
 			const playerId = params.id;
-			const [club, player, sessions, rating] = await Promise.all([
+			const [club, player, rating] = await Promise.all([
 				getPublicClub(clubId),
 				getPublicPlayerProfile(playerId, clubId),
-				getPublicPlayerRecentSessions(playerId, clubId),
 				getPublicPlayerRating(playerId, clubId)
 			]);
-			return { club, player, sessions, rating };
+			return { club, player, rating };
 		}
 	}));
 	onMount(() => {
@@ -44,7 +43,13 @@
 
 	let clubName = $derived(profileQuery.data?.club?.name ?? 'Klub');
 	let player: PublicPlayerProfile | null = $derived(profileQuery.data?.player ?? null);
-	let sessions: PublicPlayerSession[] = $derived(profileQuery.data?.sessions ?? []);
+	const summaryQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'player-summary', params.id),
+		enabled: browser && Boolean(profileQuery.data?.player),
+		retry: false,
+		queryFn: () => getPublicPlayerSessionSummaries(params.id, clubId)
+	}));
+	let summaries: PublicPlayerSessionSummary[] = $derived(summaryQuery.data ?? []);
 	let playerRating = $derived(profileQuery.data?.rating ?? null);
 	let loading = $derived(profileQuery.isPending);
 	let statisticsAvailable = $derived(Boolean(profileQuery.data));
@@ -107,40 +112,52 @@
 			<p class="mt-3 text-xs font-black tracking-[0.12em] text-[#527169]">
 				{player.membership_type === 'MEMBER' ? 'ANGGOTA KLUB' : 'TAMU KLUB'}
 			</p>
-			<section class="mt-9 border-y border-[#b9c5bb]">
+			<section class="mt-9 border-y border-[#b9c5bb]" aria-label="Ringkasan per sesi">
 				<div class="flex items-baseline justify-between gap-4 px-1 py-4">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Jejak sesi</h2>
-					{#if statisticsAvailable}<span class="text-sm font-black text-[#38675b]"
-							>{player.sessions} hadir</span
-						>{/if}
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Ringkasan per sesi</h2>
+					<span class="text-sm font-black text-[#38675b]">{player.sessions} hadir</span>
 				</div>
-				{#if sessions.length}<ul>
-						{#each sessions as session, index (session.id)}<li class="border-t border-[#b9c5bb]">
+				<QueryNotice
+					failed={summaryQuery.isError}
+					hasData={Boolean(summaryQuery.data)}
+					retry={() => summaryQuery.refetch()}
+					fetching={summaryQuery.isFetching}
+				/>
+				{#if summaryQuery.isPending}<p class="py-4 text-sm" role="status">
+						Membuka ringkasan sesi…
+					</p>
+				{:else if summaries.length}<ul>
+						{#each summaries as summary (summary.session_id)}<li
+								class="border-t border-[#b9c5bb] py-4"
+							>
 								<a
-									class="group grid min-h-20 grid-cols-[auto_1fr_auto] items-center gap-4 px-1 py-3 hover:bg-[#e5ece5]"
-									href={resolve('/clubs/[clubId]/history/[id]', {
-										clubId: selectedClubId(),
-										id: session.id
-									})}
-									><span class="text-2xl font-black text-[#38675b] tabular-nums"
-										>{String(index + 1).padStart(2, '0')}</span
-									><span
-										><b class="block text-xl tracking-[-0.03em]">{date(session.started_at)}</b><span
-											class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]"
-											>SESI KLUB</span
-										></span
-									><ArrowRight
-										class="shrink-0 text-[#38675b] transition-transform group-hover:translate-x-1"
-										size={18}
+									class="inline-flex min-h-11 items-center gap-2 text-lg font-black underline"
+									href={summary.closed_at
+										? resolve('/clubs/[clubId]/history/[id]', { clubId, id: summary.session_id })
+										: resolve('/clubs/[clubId]/live', { clubId })}
+									>{date(summary.started_at)}{summary.closed_at ? '' : ' · berlangsung'}<ArrowRight
+										size={16}
 									/></a
 								>
+								<p class="mt-1 text-sm font-bold">
+									{summary.sets} set · {summary.wins} menang · {summary.losses} kalah
+								</p>
+								<p class="mt-1 text-sm text-[#527169]">
+									Partner: {summary.partners.join(', ') || 'Belum ada set selesai'}
+								</p>
+								<p class="mt-1 text-sm text-[#527169]">
+									{summary.rating_change === null
+										? 'Perubahan rating belum tersedia untuk semua set.'
+										: `Rating dari set: ${summary.rating_change > 0 ? '+' : ''}${Math.round(summary.rating_change * 10) / 10}`}
+								</p>
 							</li>{/each}
-					</ul>{:else}<p class="border-t border-[#b9c5bb] py-5 text-sm leading-6 text-[#527169]">
-						{statisticsAvailable
-							? 'Belum ada sesi yang tercatat.'
-							: 'Riwayat personal akan tersedia setelah read model diterapkan.'}
+					</ul>{:else if !summaryQuery.isError}<p
+						class="border-t border-[#b9c5bb] py-5 text-sm text-[#527169]"
+					>
+						Belum ada sesi yang tercatat.
 					</p>{/if}
 			</section>
+
 			{#if statisticsAvailable}<section class="mt-9 border-y border-[#b9c5bb]">
 					<div class="grid grid-cols-2 sm:grid-cols-4">
 						<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">

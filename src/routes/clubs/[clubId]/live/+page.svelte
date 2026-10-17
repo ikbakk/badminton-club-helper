@@ -62,6 +62,7 @@
 					{ queryKey: scopedLiveQueryKey },
 					{ cancelRefetch: false }
 				);
+				invalidatePublicData();
 			}
 		}),
 		() => queryClient
@@ -200,14 +201,30 @@
 		}
 	}
 
+	let suggestedPlayers = $derived.by(() => {
+		void liveSnapshot;
+		const recommendation = live.nextRecommendation;
+		return (
+			recommendation?.selectedPlayerIds.map(
+				(id) => participants.find((player) => player.id === id)?.name ?? id
+			) ?? []
+		);
+	});
 	async function createSession() {
-		if (!club) return;
+		if (!club?.is_club_admin || !online || pending) return;
+		const selectedClub = club.id;
+		live.pending = 'Memulai sesi…';
 		try {
-			await startSession(club.id);
+			await liveCommandMutation.mutateAsync({
+				action: () => startSession(selectedClub),
+				invalidateLive: true
+			});
 			notify('Sesi dimulai.');
 			showCheckIn = true;
 		} catch (error) {
 			notifyError(error, 'Sesi belum bisa dimulai. Coba lagi.');
+		} finally {
+			live.pending = '';
 		}
 	}
 
@@ -457,9 +474,19 @@
 				<AppButton variant="ghost" onclick={refreshLive}>Coba lagi</AppButton>
 			</section>
 		{/if}
+		<p class="mb-3 text-xs font-bold text-[#527169]" role="status" aria-label="Status sinkronisasi">
+			{#if !online}Offline · menampilkan data terakhir
+			{:else if liveQuery.dataUpdatedAt}Sinkron terakhir {new Intl.DateTimeFormat('id-ID', {
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit'
+				}).format(liveQuery.dataUpdatedAt)}{liveQuery.isFetching ? ' · memperbarui…' : ''}
+			{/if}
+		</p>
 		<LiveSessionPanel
 			{session}
 			{participants}
+			{suggestedPlayers}
 			{activeMatch}
 			canManage={canManageLive}
 			{online}

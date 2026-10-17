@@ -90,3 +90,55 @@ test('Club Admin sees evaluation rendered from the deterministic session fixture
 	const download = await downloadPromise;
 	expect(download.suggestedFilename()).toBe(`evaluasi-sesi-${sessionId}.json`);
 });
+
+test('recap has a result-only mode and uses native image sharing when supported', async ({
+	page
+}) => {
+	await setupHistory(page, true);
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'canShare', { value: () => true });
+		Object.defineProperty(navigator, 'share', {
+			value: async (data: ShareData) => {
+				(window as Window & { shared?: { text?: string; type?: string } }).shared = {
+					text: data.text,
+					type: data.files?.[0]?.type
+				};
+			}
+		});
+	});
+	await page.addInitScript(() => {
+		const original = CanvasRenderingContext2D.prototype.fillText;
+		CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
+			const state = window as Window & { drawnTexts?: string[] };
+			(state.drawnTexts ??= []).push(text);
+			if (maxWidth === undefined) original.call(this, text, x, y);
+			else original.call(this, text, x, y, maxWidth);
+		};
+	});
+
+	await page.goto(`/clubs/club-e2e/history/${sessionId}`);
+	await page.getByRole('button', { name: 'Bagikan', exact: true }).click();
+	const image = page.getByRole('dialog').getByRole('img');
+	const financialImage = await image.getAttribute('src');
+	await page.evaluate(() => {
+		(window as Window & { drawnTexts?: string[] }).drawnTexts = [];
+	});
+	await page.getByRole('checkbox', { name: 'Sertakan iuran dan pembayaran' }).uncheck();
+	await expect(image).not.toHaveAttribute('src', financialImage!);
+	const drawn = await page.evaluate(
+		() => (window as Window & { drawnTexts?: string[] }).drawnTexts ?? []
+	);
+	expect(drawn).toContain('MATCH TERCATAT');
+	expect(drawn.join(' ')).not.toMatch(/IURAN|TAGIHAN|LUNAS|Rp/);
+	await page.getByRole('button', { name: 'Bagikan gambar' }).click();
+	await expect
+		.poll(() =>
+			page.evaluate(() => (window as Window & { shared?: { type?: string } }).shared?.type)
+		)
+		.toBe('image/png');
+	const text = await page.evaluate(
+		() => (window as Window & { shared?: { text?: string } }).shared?.text
+	);
+	expect(text).not.toMatch(/Iuran|Pembayaran|tagihan|Biaya/);
+	await expect(page.getByRole('button', { name: 'Unduh gambar' })).toBeVisible();
+});

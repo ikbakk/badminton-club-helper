@@ -728,3 +728,70 @@ test('confirmation waits for a replacement payment write after rapid toggles', a
 	releaseSecond();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}/confirm$`));
 });
+
+test('new club guidance explains the first session without blocking guest play', async ({
+	page
+}) => {
+	await mockLiveBackend(page);
+	await page.route('**/rest/v1/live_session*', (route) => route.fulfill({ json: [] }));
+	await page.goto('/clubs/club-e2e/live');
+	await expect(page.getByRole('heading', { name: 'Sesi pertama klubmu' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Tambahkan pemain tetap' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Mulai sesi malam ini' })).toBeEnabled();
+});
+
+test('starting the first session immediately opens check-in from the saved session', async ({
+	page
+}) => {
+	await mockLiveBackend(page, false, false, false, true);
+	let started = false;
+	let checkedSession = '';
+	page.on('request', (request) => {
+		if (request.url().endsWith('/rpc/check_in_players'))
+			checkedSession = request.postDataJSON().p_session_id;
+	});
+	await page.route('**/rest/v1/live_session*', (route) =>
+		route.fulfill({ json: started ? [session] : [] })
+	);
+	await page.route('**/rest/v1/rpc/start_session', (route) => {
+		started = true;
+		return route.fulfill({ json: sessionId });
+	});
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByRole('button', { name: 'Mulai sesi malam ini' }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	await page.getByLabel('Pilih pemain yang datang').getByText('Ayu', { exact: true }).click();
+	await page.getByRole('button', { name: 'Catat 1 pemain hadir' }).click();
+	await expect.poll(() => checkedSession).toBe(sessionId);
+});
+
+test('rotation preview is advisory and does not persist until the admin prepares a match', async ({
+	page
+}) => {
+	const backend = await mockLiveBackend(page, false, false, false, false, 4);
+	await page.goto('/clubs/club-e2e/live');
+	const preview = page.getByRole('region', { name: 'Saran empat pemain' });
+	await expect(preview).toBeVisible();
+	await expect(preview.getByText('Pemain 1', { exact: true })).toBeVisible();
+	expect(backend.getSaveRecommendationBody()).toBeNull();
+	await expect(page.getByText('Sinkron terakhir', { exact: false })).toBeVisible();
+	await page.context().setOffline(true);
+	await expect(
+		page.getByText('Offline · menampilkan data terakhir', { exact: true })
+	).toBeVisible();
+	await expect(preview).toBeVisible();
+});
+
+for (const width of [360, 390]) {
+	test(`courtside preview fits a ${width}px phone`, async ({ page }, testInfo) => {
+		await page.setViewportSize({ width, height: 844 });
+		await mockLiveBackend(page, false, false, false, false, 4);
+		await page.goto('/clubs/club-e2e/live');
+		await expect(page.getByRole('region', { name: 'Saran empat pemain' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Siapkan match', exact: true })).toBeInViewport();
+		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+			width
+		);
+		await page.screenshot({ path: testInfo.outputPath(`courtside-${width}.png`), fullPage: true });
+	});
+}

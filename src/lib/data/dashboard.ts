@@ -432,3 +432,28 @@ export async function prefetchPublicPlayer(playerId: string) {
 export async function prefetchPublicSession(sessionId: string) {
 	await getPublicSessionMatches(sessionId).catch(() => []);
 }
+
+export type PublicPlayerSessionSummary = {
+	session_id: string;
+	started_at: string;
+	closed_at: string | null;
+	sets: number;
+	wins: number;
+	losses: number;
+	partners: string[];
+	rating_change: number | null;
+};
+export async function getPublicPlayerSessionSummaries(playerId: string, clubId = selectedClubId()) {
+	if (!(await getPublicRoster(clubId)).some((player) => player.id === playerId)) return [];
+	return cached(`player-summary:${clubId}:${playerId}`, async () => {
+		const { data, error } = await client().rpc('public_player_session_summaries', {
+			p_club_id: clubId,
+			p_player_id: playerId
+		});
+		if (error) throw error;
+		return ((data ?? []) as PublicPlayerSessionSummary[]).map((row) => ({
+			...row,
+			rating_change: row.rating_change === null ? null : Number(row.rating_change)
+		}));
+	});
+}

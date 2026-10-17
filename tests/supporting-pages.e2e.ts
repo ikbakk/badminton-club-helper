@@ -108,3 +108,53 @@ test('player profile failure offers retry without claiming the player is missing
 	await expect(page.getByRole('heading', { name: 'Rafi', exact: true })).toBeVisible();
 	await expect(page.getByText('3 hadir', { exact: true })).toBeVisible();
 });
+
+test('player session summary shows actual sets, partners and recorded rating change', async ({
+	page
+}) => {
+	await page.route('**/rest/v1/**', (route) => {
+		const path = new URL(route.request().url()).pathname;
+		if (path.endsWith('/public_club_profile'))
+			return route.fulfill({ json: [{ id: 'club-e2e', name: 'Test Club' }] });
+		if (path.endsWith('/public_member_roster'))
+			return route.fulfill({
+				json: [{ id: 'player-1', display_name: 'Rafi', membership_type: 'MEMBER' }]
+			});
+		if (path.endsWith('/rpc/public_player_profile'))
+			return route.fulfill({
+				json: [
+					{
+						id: 'player-1',
+						display_name: 'Rafi',
+						membership_type: 'MEMBER',
+						sessions: 1,
+						sets: 1,
+						wins: 1,
+						losses: 0
+					}
+				]
+			});
+		if (path.endsWith('/rpc/public_player_session_summaries'))
+			return route.fulfill({
+				json: [
+					{
+						session_id: 'session-1',
+						started_at: '2026-10-17T10:00:00Z',
+						closed_at: null,
+						sets: 1,
+						wins: 1,
+						losses: 0,
+						partners: ['Budi'],
+						rating_change: 10
+					}
+				]
+			});
+		return route.fulfill({ json: [] });
+	});
+	await page.goto('/clubs/club-e2e/players/player-1');
+	const summary = page.getByRole('region', { name: 'Ringkasan per sesi' });
+	await expect(summary).toBeVisible();
+	await expect(summary.getByText('1 set · 1 menang · 0 kalah', { exact: true })).toBeVisible();
+	await expect(summary.getByText('Partner: Budi', { exact: true })).toBeVisible();
+	await expect(summary.getByText('Rating dari set: +10', { exact: true })).toBeVisible();
+});
