@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { ArrowLeft } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
@@ -31,7 +32,7 @@
 	};
 
 	const emptyForm: SettingsForm = {
-		name: 'PB NEWBIE',
+		name: 'Klub',
 		bankName: '',
 		bankAccountName: '',
 		bankAccountNumber: '',
@@ -42,12 +43,13 @@
 	};
 
 	const queryClient = useQueryClient();
+	const clubId = selectedClubId();
 	const accountQuery = createQuery(() => ({
-		queryKey: ['settings', 'account'],
+		queryKey: ['settings', 'account', clubId],
 		queryFn: async () => {
 			const [club, publicClub, user] = await Promise.all([
-				getClub(),
-				getPublicClub().catch(() => null),
+				getClub(clubId),
+				getPublicClub(clubId).catch(() => null),
 				currentUser()
 			]);
 			return { club, publicClub, email: user?.email ?? null };
@@ -56,7 +58,7 @@
 		staleTime: 30_000
 	}));
 	const club = $derived(accountQuery.data?.club ?? null);
-	const clubName = $derived(club?.name ?? accountQuery.data?.publicClub?.name ?? 'PB NEWBIE');
+	const clubName = $derived(club?.name ?? accountQuery.data?.publicClub?.name ?? 'Klub');
 	const isAdmin = $derived(Boolean(club?.is_club_admin));
 	const clubSettingsQuery = createQuery(() => ({
 		queryKey: ['settings', 'club', club?.id],
@@ -71,7 +73,7 @@
 			invalidatePublicData();
 			setCachedClub({ ...club!, name: variables.settings.name });
 			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: ['settings', 'account'] }),
+				queryClient.invalidateQueries({ queryKey: ['settings', 'account', clubId] }),
 				queryClient.invalidateQueries({ queryKey: ['settings', 'club', variables.clubId] }),
 				queryClient.invalidateQueries({
 					queryKey: publicPaymentDestinationsQueryKey(variables.clubId)
@@ -161,7 +163,7 @@
 			if (error) throw error;
 			setCachedClub(null);
 			await queryClient.removeQueries({ queryKey: ['settings'] });
-			await goto(resolve('/live'));
+			await goto(resolve('/clubs/[clubId]/live', { clubId: selectedClubId() }));
 		} catch (error) {
 			errorMessage = error instanceof Error ? error.message : 'Belum bisa keluar. Coba lagi.';
 		} finally {
@@ -376,7 +378,8 @@
 			</p>
 			<a
 				class="mt-5 inline-flex min-h-11 items-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-				href={resolve('/live')}><ArrowLeft size={18} />Kembali ke Live</a
+				href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
+				><ArrowLeft size={18} />Kembali ke Live</a
 			>
 		</section>
 	{/if}

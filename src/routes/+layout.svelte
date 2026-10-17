@@ -1,6 +1,7 @@
 <script lang="ts">
 	import 'sve-ui/theme.css';
 	import './layout.css';
+	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
 	import { QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
 	import { Toast } from 'sve-ui';
@@ -15,6 +16,6 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <QueryClientProvider client={queryClient}>
-	{@render children()}
+	{#key page.params.clubId ?? 'public'}{@render children()}{/key}
 	<Toast.Viewport position="bottom-right" max={5} label="Notifications" />
 </QueryClientProvider>

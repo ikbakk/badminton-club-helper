@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { ArrowRight } from '@lucide/svelte';
@@ -10,7 +11,7 @@
 		prefetchPublicSession,
 		type PublicSessionHistory
 	} from '$lib/data/dashboard';
-	let clubName = $state('PB NEWBIE');
+	let clubName = $state('Klub');
 	let history = $state<PublicSessionHistory[]>([]);
 	let loading = $state(true);
 	let selectedMonth = $state('all');
@@ -54,7 +55,7 @@
 		})();
 </script>
 
-<svelte:head><title>Riwayat — PB NEWBIE</title></svelte:head>
+<svelte:head><title>Riwayat — Courtside</title></svelte:head>
 <AppShell current="/history" {clubName}>
 	<section class="border-b border-[#b9c5bb] pb-5">
 		<h1 class="text-3xl font-black tracking-[-0.05em]">Riwayat</h1>
@@ -114,7 +115,10 @@
 					>
 						<a
 							class="group grid min-h-20 grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 hover:bg-[#e5ece5]"
-							href={resolve('/history/[id]', { id: session.id })}
+							href={resolve('/clubs/[clubId]/history/[id]', {
+								clubId: selectedClubId(),
+								id: session.id
+							})}
 							data-sveltekit-preload-data="hover"
 							onmouseenter={() => void prefetchPublicSession(session.id)}
 							onfocus={() => void prefetchPublicSession(session.id)}
@@ -144,7 +148,7 @@
 			</p>
 			<a
 				class="mt-5 inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
-				href={resolve('/live')}>Lihat Live</a
+				href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}>Lihat Live</a
 			>
 		</section>{/if}
 </AppShell>

@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import { selectedClubId } from '$lib/club-context';
 	import { ArrowLeft, ArrowRight, CircleDollarSign, ClipboardCheck } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import {
+		getPublicClub,
 		getPublicSessionAttendance,
 		getPublicSessionHistory,
 		type PublicSessionAttendee,
@@ -11,6 +13,7 @@
 	} from '$lib/data/dashboard';
 
 	let { params }: { params: { id: string } } = $props();
+	let clubName = $state('Klub');
 	let session = $state<PublicSessionHistory | null>(null);
 	let attendees = $state<PublicSessionAttendee[]>([]);
 	let loading = $state(true);
@@ -22,7 +25,11 @@
 	if (browser) {
 		void (async () => {
 			try {
-				const history = await getPublicSessionHistory();
+				const [publicClub, history] = await Promise.all([
+					getPublicClub(),
+					getPublicSessionHistory()
+				]);
+				clubName = publicClub?.name ?? clubName;
 				session = history.find((item) => item.id === params.id && item.closed_at) ?? null;
 				if (session) attendees = await getPublicSessionAttendance(params.id);
 			} catch (error) {
@@ -34,9 +41,9 @@
 	}
 </script>
 
-<svelte:head><title>Pastikan sebelum keluar — PB NEWBIE</title></svelte:head>
+<svelte:head><title>Pastikan sebelum keluar — Courtside</title></svelte:head>
 
-<AppShell current="" mode="REKAP SESI">
+<AppShell {clubName} current="" mode="REKAP SESI">
 	<div class="mx-auto max-w-lg">
 		{#if loading}
 			<p class="mt-8 text-sm font-bold" role="status">Memeriksa iuran dan pembayaran…</p>
@@ -46,7 +53,7 @@
 				<p class="mt-2 text-sm text-[#527169]">{loadError || 'Sesi tidak ditemukan.'}</p>
 				<a
 					class="mt-5 inline-flex min-h-11 items-center font-black text-[#38675b]"
-					href={resolve('/live')}
+					href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 				>
 					<ArrowLeft class="mr-2" size={18} /> Kembali ke Live
 				</a>
@@ -93,13 +100,19 @@
 				<div class="mt-7 grid gap-3">
 					<a
 						class="flex min-h-12 items-center justify-center gap-2 border border-[#163630] bg-[#fffaf0] px-4 text-sm font-black hover:bg-[#e5ece5]"
-						href={resolve('/session-close/[id]', { id: params.id })}
+						href={resolve('/clubs/[clubId]/session-close/[id]', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}
 					>
 						<ArrowLeft size={18} /> Kembali edit iuran & pembayaran
 					</a>
 					<a
 						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0] hover:bg-[#38675b]"
-						href={resolve('/history/[id]', { id: params.id })}
+						href={resolve('/clubs/[clubId]/history/[id]', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}
 					>
 						Selesai & lihat riwayat <ArrowRight size={17} />
 					</a>

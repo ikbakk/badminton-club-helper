@@ -14,7 +14,14 @@ web
 
 ## Product Purpose
 
-PB NEWBIE is a mobile-first helper for a casual one-court badminton club. It makes a real club night runnable end-to-end: check in players, choose a doubles match, record two sets, handle between-set substitutions, repeat, then close the session and confirm its fee.
+Courtside is a mobile-first helper for casual one-court badminton clubs. PB NEWBIE is one existing club, not the product entrypoint. It makes a real club night runnable end-to-end: check in players, choose a doubles match, record two sets, handle between-set substitutions, repeat, then close the session and confirm its fee.
+
+## Public entry
+
+- The product landing page opens without loading any club data.
+- Organizers sign up/sign in, then create or open their own club.
+- Each account can create one club; each club keeps the existing one-court workflow.
+- Public visitors open an explicit club link and remain read-only.
 
 ## Positioning
 
@@ -40,7 +47,7 @@ The product is a public, live courtside view with write actions available to sig
 
 ## Brand Commitments
 
-- The club name is PB NEWBIE.
+- The working product name is Courtside. Each club has its own name; PB NEWBIE is not a default club.
 - The interface is Indonesia-first.
 - The product must feel like a casual community badminton club, not an overly formal corporate tool or a gamified sports app.
 

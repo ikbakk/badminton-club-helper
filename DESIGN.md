@@ -2,7 +2,7 @@
 
 ## Court Lines
 
-PB NEWBIE is a mobile-first courtside interface. Its visual system treats the Live surface as a court object: the live match owns the strongest field, waiting players read as the sideline, and the next irreversible action uses clay orange.
+Courtside is a mobile-first interface for independent badminton clubs. Its visual system treats the Live surface as a court object: the live match owns the strongest field, waiting players read as the sideline, and the next irreversible action uses clay orange.
 
 ### Color roles
 

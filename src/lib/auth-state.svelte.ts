@@ -1,3 +1,4 @@
+import { selectedClubId } from '$lib/club-context';
 import type { Club } from '$lib/data/dashboard';
 
 const storageKey = 'pb-newbie:club-access';
@@ -6,7 +7,8 @@ export const authState = $state<{ club: Club | null }>({ club: null });
 export function loadCachedClub() {
 	try {
 		const value = localStorage.getItem(storageKey);
-		authState.club = value ? (JSON.parse(value) as Club) : null;
+		const club = value ? (JSON.parse(value) as Club) : null;
+		authState.club = club?.id === selectedClubId() ? club : null;
 	} catch {
 		authState.club = null;
 	}

@@ -20,7 +20,7 @@ async function setupHistory(page: import('@playwright/test').Page, admin: boolea
 				.replace(/\+/g, '-')
 				.replace(/\//g, '_');
 			localStorage.setItem(
-				'sb-zjqqjgdrojhqiylapvqd-auth-token',
+				'sb-courtside-e2e-auth-token',
 				JSON.stringify({
 					access_token: `e30.${payload}.sig`,
 					refresh_token: 'e2e-refresh',
@@ -74,7 +74,7 @@ async function setupHistory(page: import('@playwright/test').Page, admin: boolea
 
 test('public history does not expose admin evaluation diagnostics', async ({ page }) => {
 	await setupHistory(page, false);
-	await page.goto(`/history/${sessionId}`);
+	await page.goto(`/clubs/club-e2e/history/${sessionId}`);
 	await expect(page.getByRole('heading', { name: 'Evaluasi sesi' })).toHaveCount(0);
 });
 
@@ -82,7 +82,7 @@ test('Club Admin sees evaluation rendered from the deterministic session fixture
 	page
 }) => {
 	await setupHistory(page, true);
-	await page.goto(`/history/${sessionId}`);
+	await page.goto(`/clubs/club-e2e/history/${sessionId}`);
 	await expect(page.getByRole('heading', { name: 'Evaluasi sesi' })).toBeVisible();
 	await expect(page.getByText('Set ketat').first()).toBeVisible();
 	const downloadPromise = page.waitForEvent('download');

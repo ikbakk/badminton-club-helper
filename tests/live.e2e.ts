@@ -118,7 +118,10 @@ async function mockLiveBackend(
 			});
 		if (path.endsWith('/public_club_profile'))
 			return route.fulfill({ json: [{ id: 'club-e2e', name: 'PB NEWBIE' }] });
-		if (path.endsWith('/public_member_roster')) return route.fulfill({ json: [] });
+		if (path.endsWith('/public_member_roster'))
+			return route.fulfill({
+				json: withRoster ? [{ id: 'p1', display_name: 'Pemain 1', membership_type: 'MEMBER' }] : []
+			});
 		if (path.endsWith('/rpc/public_player_profile'))
 			return route.fulfill({
 				json: [
@@ -300,7 +303,7 @@ async function mockLiveBackend(
 	);
 	await page.addInitScript(() => {
 		localStorage.setItem(
-			'sb-zjqqjgdrojhqiylapvqd-auth-token',
+			'sb-courtside-e2e-auth-token',
 			JSON.stringify({
 				access_token: 'e2e-access-token',
 				token_type: 'bearer',
@@ -329,7 +332,14 @@ async function mockLiveBackend(
 }
 
 test('public visitor can open the read-only live view', async ({ page }) => {
-	await page.goto('/');
+	await page.route('**/rest/v1/**', (route) =>
+		route.fulfill({
+			json: route.request().url().includes('public_club_profile')
+				? [{ id: 'club-e2e', name: 'PB NEWBIE' }]
+				: []
+		})
+	);
+	await page.goto('/clubs/club-e2e/live');
 	await expect(page.getByText('PB NEWBIE', { exact: true })).toBeVisible();
 	await expect(page.getByRole('navigation', { name: 'Navigasi utama' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Riwayat' })).toBeVisible();
@@ -350,7 +360,7 @@ test('Live returns from supporting pages with cached state at mobile widths', as
 		{ width: 360, height: 780 }
 	]) {
 		await page.setViewportSize(viewport);
-		await page.goto('/live');
+		await page.goto('/clubs/club-e2e/live');
 		await expect(page.getByRole('button', { name: 'Check in pemain', exact: true })).toBeVisible();
 		await expect(page.getByLabel('Memeriksa sesi aktif')).toHaveCount(0);
 		expect(
@@ -379,7 +389,7 @@ test('admin checks in a selected group with one database request', async ({ page
 	page.on('request', (request) => {
 		if (request.url().endsWith('/rpc/check_in_players')) batchRequests.push(request.postDataJSON());
 	});
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Check in pemain', exact: true }).click();
 	const sheet = page.locator('.sve-sheet.court-sheet').first();
 	const viewportHeight = page.viewportSize()!.height;
@@ -409,7 +419,7 @@ test('admin checks in a selected group with one database request', async ({ page
 
 test('admin can end a session and continue on its dedicated close page', async ({ page }) => {
 	const backend = await mockLiveBackend(page);
-	await page.goto('/');
+	await page.goto('/clubs/club-e2e/live');
 
 	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
 	const confirm = page
@@ -459,7 +469,7 @@ test('admin can end a session and continue on its dedicated close page', async (
 
 test('active match prevents session close but keeps its action discoverable', async ({ page }) => {
 	await mockLiveBackend(page, true);
-	await page.goto('/');
+	await page.goto('/clubs/club-e2e/live');
 
 	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
 	const dialog = page.getByRole('dialog');
@@ -469,7 +479,7 @@ test('active match prevents session close but keeps its action discoverable', as
 
 test('failed score save keeps the operator input available for retry', async ({ page }) => {
 	await mockLiveBackend(page, true, true);
-	await page.goto('/');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByLabel('Skor Tim A').fill('21');
 	await page.getByLabel('Skor Tim B').fill('17');
 	await page.getByRole('button', { name: 'Selesaikan Set 1' }).click();
@@ -481,7 +491,7 @@ test('failed score save keeps the operator input available for retry', async ({ 
 
 test('substitution remains on its confirmation step when save fails', async ({ page }) => {
 	await mockLiveBackend(page, true, false, true);
-	await page.goto('/');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Ganti pemain' }).click();
 	await page.getByRole('button', { name: 'A', exact: true }).click();
 	await page.getByRole('button', { name: 'Lanjutkan', exact: true }).click();
@@ -498,7 +508,7 @@ test('admin accepts the current four-player recommendation and continues to manu
 	page
 }) => {
 	const backend = await mockLiveBackend(page, false, false, false, false, 6);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
@@ -523,7 +533,7 @@ test('Algorithm 2 offers exactly three legal pairings and deterministic recommen
 	page
 }) => {
 	await mockLiveBackend(page, false, false, false, false, 4);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
 	await sheet.getByRole('button', { name: 'Lanjutkan dengan rekomendasi' }).click();
@@ -540,7 +550,7 @@ for (const [index, teamA, teamB] of [
 ] as const) {
 	test(`admin can choose legal alternative pairing ${index}`, async ({ page }) => {
 		const backend = await mockLiveBackend(page, false, false, false, false, 4);
-		await page.goto('/live');
+		await page.goto('/clubs/club-e2e/live');
 		await page.getByRole('button', { name: 'Siapkan match' }).click();
 		const sheet = page.locator('.sve-sheet.court-sheet').last();
 		await sheet.getByRole('button', { name: 'Lanjutkan dengan rekomendasi' }).click();
@@ -557,7 +567,7 @@ test('pairing audit failure does not prevent the manually selected match from st
 	page
 }) => {
 	const backend = await mockLiveBackend(page, false, false, false, false, 4, false, true);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
 	await sheet.getByRole('button', { name: 'Lanjutkan dengan rekomendasi' }).click();
@@ -569,8 +579,8 @@ test('pairing audit failure does not prevent the manually selected match from st
 });
 
 test('player detail displays authoritative rating and confidence state', async ({ page }) => {
-	const backend = await mockLiveBackend(page);
-	await page.goto('/players/p1');
+	const backend = await mockLiveBackend(page, false, false, false, true);
+	await page.goto('/clubs/club-e2e/players/p1');
 	await expect(page.getByText('1248', { exact: true })).toBeVisible();
 	await expect(page.getByText('Stabil', { exact: true })).toBeVisible();
 	backend.setPublicRatingValue(1199.1);
@@ -582,7 +592,7 @@ test('admin can override multiple recommended players; actual four are sent with
 	page
 }) => {
 	const backend = await mockLiveBackend(page, false, false, false, false, 6);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
 	const checkboxes = sheet
@@ -614,7 +624,7 @@ test('admin can override multiple recommended players; actual four are sent with
 
 test('admin can override one recommended player', async ({ page }) => {
 	const backend = await mockLiveBackend(page, false, false, false, false, 6);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
 	const checkboxes = sheet
@@ -637,7 +647,7 @@ test('manual selection remains available when recommendation persistence fails',
 	page
 }) => {
 	const backend = await mockLiveBackend(page, false, false, false, false, 6, true);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await page.getByRole('button', { name: 'Siapkan match' }).click();
 	await expect(page.getByText('Recommendation unavailable')).toBeVisible();
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
@@ -655,6 +665,6 @@ test('fewer than four READY players have no actionable next-match recommendation
 	page
 }) => {
 	await mockLiveBackend(page, false, false, false, false, 3);
-	await page.goto('/live');
+	await page.goto('/clubs/club-e2e/live');
 	await expect(page.getByRole('button', { name: 'Siapkan match' })).toHaveCount(0);
 });

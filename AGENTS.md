@@ -2,7 +2,7 @@
 
 ## Project and phase
 
-PB NEWBIE is a one-court badminton club helper. V1 closeout: repository cleanup and 3–5 real club sessions. No feature work or algorithm tuning during validation.
+Courtside is a public product for one-court badminton clubs. PB NEWBIE is one existing club. The public entry flow is described in docs/public-product-entry.md. Preserve algorithm semantics during real-session validation.
 
 ## Architecture and authority
 

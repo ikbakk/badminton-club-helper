@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { browser } from '$app/environment';
+	import { clubHref, selectedClubId } from '$lib/club-context';
+	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import { prefetchPublicSurface, type Club } from '$lib/data/dashboard';
-	import { authState, loadCachedClub } from '$lib/auth-state.svelte';
+	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
+	import { authState, loadCachedClub, setCachedClub } from '$lib/auth-state.svelte';
 	import { History, House, Settings, UsersRound, Wallet } from '@lucide/svelte';
 
 	let {
 		children,
 		current,
-		clubName = 'PB NEWBIE',
+		clubName = 'Klub',
 		mode,
 		headerActions,
 		onaccesschange
@@ -23,14 +24,27 @@
 	} = $props();
 
 	const links = [
-		{ href: '/live', label: 'Live', icon: House },
-		{ href: '/players', label: 'Pemain', icon: UsersRound },
-		{ href: '/history', label: 'Riwayat', icon: History },
-		{ href: '/fund', label: 'Kas', icon: Wallet },
-		{ href: '/settings', label: 'Pengaturan', icon: Settings }
+		{ href: '/live', route: '/clubs/[clubId]/live', label: 'Live', icon: House },
+		{ href: '/players', route: '/clubs/[clubId]/players', label: 'Pemain', icon: UsersRound },
+		{ href: '/history', route: '/clubs/[clubId]/history', label: 'Riwayat', icon: History },
+		{ href: '/fund', route: '/clubs/[clubId]/fund', label: 'Kas', icon: Wallet },
+		{ href: '/settings', route: '/clubs/[clubId]/settings', label: 'Pengaturan', icon: Settings }
 	] as const;
+	let shareNotice = $state('');
+	async function copyClubLink() {
+		try {
+			await navigator.clipboard.writeText(new URL(clubHref('/live'), window.location.origin).href);
+			shareNotice = 'Tautan klub disalin.';
+		} catch {
+			shareNotice = 'Tautan belum bisa disalin. Bagikan alamat halaman Live dari browser.';
+		}
+	}
 	let visibleLinks = $derived(
-		links.filter((link) => link.href !== '/settings' || Boolean(authState.club?.is_club_admin))
+		links.filter(
+			(link) =>
+				link.href !== '/settings' ||
+				Boolean(authState.club?.id === selectedClubId() && authState.club?.is_club_admin)
+		)
 	);
 
 	const activeMode = $derived(
@@ -46,8 +60,21 @@
 							: 'PENGATURAN')
 	);
 
-	if (browser) loadCachedClub();
-	$effect(() => onaccesschange?.(authState.club));
+	onMount(() => {
+		let active = true;
+		loadCachedClub();
+		void getClub(selectedClubId())
+			.then((club) => {
+				if (active) setCachedClub(club);
+			})
+			.catch(() => {
+				if (active) setCachedClub(null);
+			});
+		return () => {
+			active = false;
+		};
+	});
+	$effect(() => onaccesschange?.(authState.club?.id === selectedClubId() ? authState.club : null));
 </script>
 
 <main class="min-h-dvh bg-[#f4f1e8] text-[#163630] lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -61,12 +88,12 @@
 			{#each visibleLinks as link (link.href)}
 				{@const Icon = link.icon}
 				<a
-					href={resolve(link.href)}
+					href={resolve(link.route, { clubId: selectedClubId() })}
 					data-sveltekit-preload-data="hover"
 					onmouseenter={() => void prefetchPublicSurface(link.href)}
 					onfocus={() => void prefetchPublicSurface(link.href)}
 					aria-current={current === link.href ? 'page' : undefined}
-					class={`flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1 border-r border-[#b9c5bb] px-2 text-center text-[11px] font-black transition last:border-r-0 lg:justify-start lg:gap-2 lg:border-r-0 lg:border-b lg:px-3 lg:text-left lg:text-xs ${current === link.href ? 'bg-[#163630] text-[#fffaf0] lg:border-[#163630]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
+					class={`flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 border-r border-[#b9c5bb] px-1 text-center text-[10px] font-black transition last:border-r-0 lg:flex-row lg:justify-start lg:gap-2 lg:border-r-0 lg:border-b lg:px-3 lg:text-left lg:text-xs ${current === link.href ? 'bg-[#163630] text-[#fffaf0] lg:border-[#163630]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
 					><Icon size={16} strokeWidth={2.25} /><span>{link.label}</span></a
 				>
 			{/each}
@@ -75,12 +102,12 @@
 			<div class="flex min-w-0 items-stretch gap-3 lg:block">
 				<a
 					class="flex min-w-0 flex-1 items-center gap-3"
-					href={resolve('/live')}
+					href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 					data-sveltekit-preload-data="hover"
 				>
 					<span
 						class="grid size-10 shrink-0 place-items-center bg-[#163630] text-xs font-black tracking-[-0.1em] text-[#f5bb61] shadow-[0_6px_14px_rgba(22,54,48,0.18)]"
-						>PB</span
+						>{clubName.slice(0, 2).toUpperCase()}</span
 					>
 					<span class="min-w-0"
 						><span class="block truncate text-sm font-black tracking-tight">{clubName}</span><span
@@ -95,8 +122,19 @@
 						{@render headerActions()}
 					</div>{/if}
 			</div>
+			<div class="mt-3 flex items-center gap-4 border-t border-[#b9c5bb] pt-1">
+				<button class="min-h-11 flex-1 text-left text-xs font-bold underline" onclick={copyClubLink}
+					>Salin tautan klub</button
+				>
+				<a
+					href={resolve('/start')}
+					class="flex min-h-11 flex-1 items-center text-xs font-bold underline"
+					>Akun &amp; klub saya</a
+				>
+			</div>
+			{#if shareNotice}<p role="status" class="text-xs leading-5">{shareNotice}</p>{/if}
 			<p class="mt-4 hidden text-xs leading-5 text-[#527169] lg:block">
-				Navigasi selalu literal. Rekap sesi adalah mode kerja yang jelas.
+				Courtside · Teman mengelola sesi klub.
 			</p>
 		</div>
 	</aside>

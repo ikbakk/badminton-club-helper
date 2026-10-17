@@ -6,6 +6,10 @@
 - Authenticated `CLUB_ADMIN` users are the only application write authority. There is no active Session Operator, PIN, device lease, takeover, or separate Finance Admin authority.
 - Some legacy lease/audit schema may remain for historical referential integrity. It does not grant authority.
 
+## Public entry and club context
+
+The product landing page is independent of club data. Organizers create or open their own club at `/start`; public viewers use explicit `/clubs/[clubId]/...` links. Club identities scope navigation, query snapshots, history, and fund reads. See [Public product entry](public-product-entry.md) for release prerequisites and verification.
+
 ## Stack and boundaries
 
 - SvelteKit, Svelte 5, TypeScript, Supabase/Postgres, TanStack Query, and Supabase Realtime invalidation.
