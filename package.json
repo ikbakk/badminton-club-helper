@@ -15,7 +15,8 @@
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
 		"test:e2e": "playwright test",
-		"verify": "npm run lint && npm run check && npm run test && npm run build"
+		"verify": "npm run lint && npm run check && npm run test && npm run build",
+		"simulate:session": "node --env-file-if-exists=.env.simulation scripts/simulate-session.mjs"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
