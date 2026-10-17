@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
@@ -13,38 +16,43 @@
 	} from '$lib/data/dashboard';
 
 	let { params }: { params: { id: string } } = $props();
-	let clubName = $state('Klub');
-	let session = $state<PublicSessionHistory | null>(null);
-	let attendees = $state<PublicSessionAttendee[]>([]);
-	let loading = $state(true);
-	let loadError = $state('');
+	const clubId = selectedClubId();
+	const recapQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'close-confirm', params.id),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const sessionId = params.id;
+			const [publicClub, history] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicSessionHistory(clubId)
+			]);
+			const session = history.find((item) => item.id === sessionId && item.closed_at) ?? null;
+			const attendees = session ? await getPublicSessionAttendance(sessionId, clubId) : [];
+			return { publicClub, session, attendees };
+		}
+	}));
+	let clubName = $derived(recapQuery.data?.publicClub?.name ?? 'Klub');
+	let session: PublicSessionHistory | null = $derived(recapQuery.data?.session ?? null);
+	let attendees: PublicSessionAttendee[] = $derived(recapQuery.data?.attendees ?? []);
+	let loading = $derived(recapQuery.isPending);
+	let loadError = $derived(recapQuery.isError ? 'Data sesi tidak dapat dimuat.' : '');
+
 	let paidCount = $derived(attendees.filter((person) => person.is_paid === true).length);
 	let unpaidCount = $derived(attendees.filter((person) => person.is_paid === false).length);
 	let feesConfirmed = $derived(Boolean(session?.fee_per_person));
-
-	if (browser) {
-		void (async () => {
-			try {
-				const [publicClub, history] = await Promise.all([
-					getPublicClub(),
-					getPublicSessionHistory()
-				]);
-				clubName = publicClub?.name ?? clubName;
-				session = history.find((item) => item.id === params.id && item.closed_at) ?? null;
-				if (session) attendees = await getPublicSessionAttendance(params.id);
-			} catch (error) {
-				loadError = error instanceof Error ? error.message : 'Data sesi tidak dapat dimuat.';
-			} finally {
-				loading = false;
-			}
-		})();
-	}
 </script>
 
 <svelte:head><title>Pastikan sebelum keluar — Courtside</title></svelte:head>
 
 <AppShell {clubName} current="" mode="REKAP SESI">
 	<div class="mx-auto max-w-lg">
+		<QueryNotice
+			failed={recapQuery.isError}
+			hasData={Boolean(recapQuery.data)}
+			retry={() => recapQuery.refetch()}
+			fetching={recapQuery.isFetching}
+		/>
 		{#if loading}
 			<p class="mt-8 text-sm font-bold" role="status">Memeriksa iuran dan pembayaran…</p>
 		{:else if loadError || !session}

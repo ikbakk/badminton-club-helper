@@ -48,6 +48,22 @@ describe('LiveController', () => {
 		controller.setAdminAuthorized(true);
 	});
 
+	it('ignores a second courtside command while the first write is unresolved', async () => {
+		let finish!: () => void;
+		api.checkInPlayer.mockImplementation(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = resolve;
+				})
+		);
+		const first = controller.checkIn('member-1');
+		const second = controller.checkIn('member-1');
+		expect(api.checkInPlayer).toHaveBeenCalledTimes(1);
+		finish();
+		await first;
+		await expect(second).resolves.toBe(false);
+	});
+
 	it('invalidates the authoritative Live query after a successful command', async () => {
 		api.checkInPlayer.mockResolvedValue(undefined);
 

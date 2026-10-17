@@ -1,5 +1,11 @@
 # UX and performance optimization
 
+## Current follow-up
+
+The public-club quality pass replaces the manual promise map with the shared browser QueryClient and a 15-second freshness window. Public surfaces now have club-scoped observer queries, explicit retry states, and cached content during refresh failures. Private admin roster uses a separate query cleared on access loss; fee input and payment debouncing remain local interaction state. SSR creates a request-local client. Supabase transport retries remain enabled; surface queries avoid adding another retry layer. Player rating retains explicit focus refresh.
+
+See `release-readiness.md` for remaining environment and real-session checks. The sections below record the original Live-only pass and its verification limits at that time.
+
 ## Scope and verification limits
 
 This pass focuses on the Live route, where the operator needs the current court state without losing it during synchronization. It does not change session rules, authorization, rotation or pairing behavior, ratings, finance, or the match lifecycle.

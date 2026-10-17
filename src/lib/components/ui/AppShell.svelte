@@ -90,8 +90,8 @@
 				<a
 					href={resolve(link.route, { clubId: selectedClubId() })}
 					data-sveltekit-preload-data="hover"
-					onmouseenter={() => void prefetchPublicSurface(link.href)}
-					onfocus={() => void prefetchPublicSurface(link.href)}
+					onmouseenter={() => void prefetchPublicSurface(link.href).catch(() => {})}
+					onfocus={() => void prefetchPublicSurface(link.href).catch(() => {})}
 					aria-current={current === link.href ? 'page' : undefined}
 					class={`flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 border-r border-[#b9c5bb] px-1 text-center text-[10px] font-black transition last:border-r-0 lg:flex-row lg:justify-start lg:gap-2 lg:border-r-0 lg:border-b lg:px-3 lg:text-left lg:text-xs ${current === link.href ? 'bg-[#163630] text-[#fffaf0] lg:border-[#163630]' : 'text-[#527169] hover:bg-[#e5ece5]'}`}
 					><Icon size={16} strokeWidth={2.25} /><span>{link.label}</span></a

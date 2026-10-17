@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { publicSurfaceKey } from '$lib/data/query-client';
+	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
@@ -13,64 +16,51 @@
 		getPublicPlayerProfile,
 		getPublicPlayerRating,
 		getPublicPlayerRecentSessions,
-		getPublicRoster,
 		type PublicPlayerProfile,
 		type PublicPlayerSession
 	} from '$lib/data/dashboard';
 	let { params }: { params: { id: string } } = $props();
-	let clubName = $state('Klub');
-	let player = $state<PublicPlayerProfile | null>(null);
-	let sessions = $state<PublicPlayerSession[]>([]);
-	let playerRating = $state<Awaited<ReturnType<typeof getPublicPlayerRating>>>(null);
-	let loading = $state(true);
-	let statisticsAvailable = $state(true);
+	const clubId = selectedClubId();
+	const profileQuery = createQuery(() => ({
+		queryKey: publicSurfaceKey(clubId, 'player', params.id),
+		enabled: browser,
+		retry: false,
+		queryFn: async () => {
+			const playerId = params.id;
+			const [club, player, sessions, rating] = await Promise.all([
+				getPublicClub(clubId),
+				getPublicPlayerProfile(playerId, clubId),
+				getPublicPlayerRecentSessions(playerId, clubId),
+				getPublicPlayerRating(playerId, clubId)
+			]);
+			return { club, player, sessions, rating };
+		}
+	}));
+	onMount(() => {
+		const refresh = () => void profileQuery.refetch();
+		window.addEventListener('focus', refresh);
+		return () => window.removeEventListener('focus', refresh);
+	});
+
+	let clubName = $derived(profileQuery.data?.club?.name ?? 'Klub');
+	let player: PublicPlayerProfile | null = $derived(profileQuery.data?.player ?? null);
+	let sessions: PublicPlayerSession[] = $derived(profileQuery.data?.sessions ?? []);
+	let playerRating = $derived(profileQuery.data?.rating ?? null);
+	let loading = $derived(profileQuery.isPending);
+	let statisticsAvailable = $derived(Boolean(profileQuery.data));
+
 	const date = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(value));
-	let refreshRating = async () => {
-		try {
-			playerRating = await getPublicPlayerRating(params.id);
-		} catch {
-			playerRating = null;
-		}
-	};
-	onMount(() => {
-		const refreshWhenVisible = () => {
-			if (document.visibilityState === 'visible') void refreshRating();
-		};
-		window.addEventListener('focus', refreshWhenVisible);
-		document.addEventListener('visibilitychange', refreshWhenVisible);
-		return () => {
-			window.removeEventListener('focus', refreshWhenVisible);
-			document.removeEventListener('visibilitychange', refreshWhenVisible);
-		};
-	});
-	if (browser)
-		void (async () => {
-			try {
-				const club = await getPublicClub();
-				clubName = club?.name ?? clubName;
-				try {
-					[player, sessions] = await Promise.all([
-						getPublicPlayerProfile(params.id),
-						getPublicPlayerRecentSessions(params.id)
-					]);
-					playerRating = await getPublicPlayerRating(params.id);
-				} catch {
-					const member = club
-						? (await getPublicRoster(club.id)).find((item) => item.id === params.id)
-						: null;
-					player = member ? { ...member, sessions: 0, sets: 0, wins: 0, losses: 0 } : null;
-					statisticsAvailable = false;
-					playerRating = await getPublicPlayerRating(params.id).catch(() => null);
-				}
-			} finally {
-				loading = false;
-			}
-		})();
 </script>
 
 <svelte:head><title>{player?.display_name ?? 'Pemain'} — Courtside</title></svelte:head>
 <AppShell current="/players" mode={player?.display_name ?? 'PEMAIN'} {clubName}>
+	<QueryNotice
+		failed={profileQuery.isError}
+		hasData={Boolean(profileQuery.data)}
+		retry={() => profileQuery.refetch()}
+		fetching={profileQuery.isFetching}
+	/>
 	<a
 		href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
 		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
@@ -187,7 +177,7 @@
 				{/if}
 			</section>
 		</section>
-	{:else}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
+	{:else if !profileQuery.isError}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
 			<h1 class="text-2xl font-black">Pemain tidak ditemukan.</h1>
 			<p class="mt-2 text-sm text-[#527169]">Profil ini mungkin sudah tidak aktif.</p>
 		</section>{/if}
