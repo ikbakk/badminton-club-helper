@@ -152,29 +152,34 @@ export class LiveController {
 		);
 	}
 
-	async prepareNextMatch(): Promise<{ id: string; recommendation: RotationRecommendation } | null> {
-		if (!this.session || !this.adminAuthorized || this.activeMatch || this.pending) return null;
+	get nextRecommendation(): RotationRecommendation | null {
+		if (!this.session || !this.adminAuthorized || this.activeMatch) return null;
 		const ready = this.participants.filter((participant) => participant.status === 'READY');
-		if (ready.length < 4 || !this.online) return null;
+		if (ready.length < 4) return null;
+		return recommendNextPlayers(
+			ready.map((participant) => ({
+				id: participant.id,
+				name: participant.name,
+				status: participant.status,
+				readySinceMs: participant.readySince?.getTime() ?? null,
+				eligibleOpportunities: participant.opportunities,
+				missedOpportunities: participant.missedOpportunities,
+				currentOpportunityDebt: participant.currentOpportunityDebt,
+				setsPlayed: participant.setsPlayed,
+				consecutiveRotations: participant.consecutiveMatches,
+				rotationsPlayed: participant.rotationsPlayed
+			})),
+			Date.now(),
+			undefined,
+			STARVATION_POLICIES.DEBT_4_OR_WAIT_45
+		);
+	}
+	async prepareNextMatch(): Promise<{ id: string; recommendation: RotationRecommendation } | null> {
+		if (this.pending || !this.online) return null;
+		const recommendation = this.nextRecommendation;
+		if (!recommendation) return null;
 		this.pending = 'Menyiapkan rekomendasi…';
 		try {
-			const recommendation = recommendNextPlayers(
-				ready.map((participant) => ({
-					id: participant.id,
-					name: participant.name,
-					status: participant.status,
-					readySinceMs: participant.readySince?.getTime() ?? null,
-					eligibleOpportunities: participant.opportunities,
-					missedOpportunities: participant.missedOpportunities,
-					currentOpportunityDebt: participant.currentOpportunityDebt,
-					setsPlayed: participant.setsPlayed,
-					consecutiveRotations: participant.consecutiveMatches,
-					rotationsPlayed: participant.rotationsPlayed
-				})),
-				Date.now(),
-				undefined,
-				STARVATION_POLICIES.DEBT_4_OR_WAIT_45
-			);
 			const id = (await this.runMutation(
 				() => saveRotationRecommendation(this.session!.id, recommendation),
 				false

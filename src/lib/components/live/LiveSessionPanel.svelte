@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { selectedClubId } from '$lib/club-context';
+	import { resolve } from '$app/paths';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import type { PublicSessionHistory } from '$lib/data/dashboard';
 	import type { LiveSession } from '$lib/data/live';
@@ -14,6 +16,7 @@
 		canManage = false,
 		online = true,
 		pending = '',
+		suggestedPlayers = [],
 		recentSessions = [],
 		onadminlogin,
 		onstartsession,
@@ -33,6 +36,7 @@
 		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
+		suggestedPlayers?: string[];
 		recentSessions?: PublicSessionHistory[];
 		onadminlogin: () => void;
 		onstartsession: () => void;
@@ -68,7 +72,7 @@
 	let ready = $derived(participants.filter((participant) => participant.status === 'READY'));
 	let startedAt = $derived(
 		session
-			? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
+			? new Intl.DateTimeFormat('id-ID', { hour: 'numeric', minute: '2-digit' }).format(
 					new Date(session.started_at)
 				)
 			: ''
@@ -109,8 +113,27 @@
 					Buka sesi ketika pemain pertama datang. Setelah itu, Live berubah menjadi papan lapangan
 					yang hanya menunjukkan apa yang perlu dilakukan berikutnya.
 				</p>
-				{#if canManage}<AppButton class="mt-7" onclick={onstartsession}
-						>Mulai sesi malam ini</AppButton
+				{#if canManage && recentSessions.length === 0}
+					<section class="mt-5 border-t border-[#b9c5bb] pt-4" aria-label="Panduan sesi pertama">
+						<h3 class="text-lg font-black">Sesi pertama klubmu</h3>
+						<ol class="mt-2 list-decimal space-y-2 pl-5 text-sm leading-6 text-[#527169]">
+							<li>
+								<a
+									class="inline-flex min-h-11 items-center font-bold underline"
+									href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
+									>Tambahkan pemain tetap</a
+								>, atau tambahkan tamu saat check in.
+							</li>
+							<li>Mulai sesi ketika pemain datang, lalu check in yang sudah hadir.</li>
+							<li>Setelah empat pemain READY, siapkan match dan periksa tim sebelum mulai.</li>
+						</ol>
+					</section>
+				{/if}
+
+				{#if canManage}<AppButton
+						class="mt-7"
+						disabled={!online || Boolean(pending)}
+						onclick={onstartsession}>{pending || 'Mulai sesi malam ini'}</AppButton
 					>
 				{:else}<AppButton class="mt-7" onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
 			</div>
@@ -172,7 +195,7 @@
 				></span>{canManage ? 'ADMIN AKTIF' : 'BERLANGSUNG'}</span
 			>
 		</div>
-		<div class="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
+		<div class={`relative z-10 px-5 sm:px-8 ${activeMatch ? 'py-8 sm:py-10' : 'py-5 sm:py-6'}`}>
 			{#if activeMatch}
 				<h2 class="text-xs font-black tracking-[0.14em] text-[#f5bb61]">
 					MATCH {activeMatch.sequence_number} · SET {currentSet?.setNumber ?? '—'} BERLANGSUNG
@@ -205,11 +228,11 @@
 					Lapangan siap digunakan.
 				</p>
 				<h2 class="mt-3 max-w-md text-3xl font-black tracking-[-0.04em]">
-					Belum ada peluit pertama.
+					Siap untuk match berikutnya.
 				</h2>
 			{/if}
 			<div
-				class="mt-10 flex flex-wrap items-end justify-between gap-5 border-t border-[#85a097]/45 pt-5"
+				class={`${activeMatch ? 'mt-10' : 'mt-5'} flex flex-wrap items-end justify-between gap-5 border-t border-[#85a097]/45 pt-5`}
 			>
 				<div>
 					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
@@ -255,6 +278,23 @@
 			{onsubstitute}
 		/>
 	</div>
+
+	{#if canManage && !activeMatch && suggestedPlayers.length === 4}
+		<section class="mt-5 border border-[#b9c5bb] bg-[#e5ece5] p-5" aria-label="Saran empat pemain">
+			<h3 class="text-lg font-black">Saran berikutnya</h3>
+			<ul class="mt-3 grid grid-cols-2 gap-2">
+				{#each suggestedPlayers as name, index (index)}<li
+						class="min-w-0 border border-[#b9c5bb] bg-[#fffaf0] px-3 py-3 font-bold break-words"
+					>
+						{name}
+					</li>{/each}
+			</ul>
+			<p class="mt-3 text-xs leading-5 text-[#527169]">
+				Saran sementara dari pemain READY. Dapat berubah saat status diperbarui; admin tetap memilih
+				ketika menyiapkan match.
+			</p>
+		</section>
+	{/if}
 
 	<div class="mt-5 grid gap-4">
 		{#each groups as group (group.status)}
