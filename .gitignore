@@ -34,3 +34,6 @@ supabase/.temp
 .impeccable
 .playwright-cli
 output/playwright
+
+# Generated synthetic-session reports
+simulation-results/

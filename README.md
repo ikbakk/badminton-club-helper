@@ -88,3 +88,7 @@ Install the Playwright browser once with `npx playwright install chromium`. Run 
 ```sh
 npx supabase db query --linked --file supabase/seed/demo_data.sql
 ```
+
+## Synthetic session testing
+
+Run `npm run simulate:session -- --players 12 --seed 42` for an offline randomized session with at least three full rotation starts per player. See [session simulation](docs/session-simulation.md) for seeded reports and the explicitly enabled local/staging database runner. No database is touched by the default command.
