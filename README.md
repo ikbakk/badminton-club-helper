@@ -92,3 +92,5 @@ npx supabase db query --linked --file supabase/seed/demo_data.sql
 ## Synthetic session testing
 
 Run `npm run simulate:session -- --players 12 --seed 42` for an offline randomized session with at least three full rotation starts per player. See [session simulation](docs/session-simulation.md) for seeded reports and the explicitly enabled local/staging database runner. No database is touched by the default command.
+
+For Work Agent changes, read [staging and preview setup](docs/staging-preview.md) and the [current readiness tracker](docs/work-agent-readiness.md). Remote writes must target the dedicated Supabase staging project and pass the fail-closed target guard; never use production data for task tests.

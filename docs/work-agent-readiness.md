@@ -1,0 +1,86 @@
+# Work Agent Readiness
+
+Last checked: 2026-10-20
+
+## Environment identities
+
+| Role                      | Project                  | Ref / ID               | Status                                                            |
+| ------------------------- | ------------------------ | ---------------------- | ----------------------------------------------------------------- |
+| Supabase staging          | `badminton-club-staging` | `prwujfcdkstifszkvqrs` | Active, ap-southeast-2; provisioned after quote showed `$0/month` |
+| Existing Supabase project | `badminton-club`         | `zjqqjgdrojhqiylapvqd` | Inactive; protected and untouched                                 |
+| Vercel app                | None linked              | —                      | Creation blocked by current Vercel connection scope               |
+
+Staging URL: `https://prwujfcdkstifszkvqrs.supabase.co`. Never store private keys here. No database rows or synthetic Auth users have been created.
+
+## Execution tracker
+
+| Plan task                               | State                             | Evidence / blocker                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Inventory and staging                | Partial                           | Dedicated staging project is active; exact-host staging target guard is implemented and passes 5 tests. No Vercel project was found. Project creation through the Vercel plugin returned 403 for scope `ikbakks-projects`, requiring that connection to be reauthenticated.                                                                                                                                                                                                                                                                                         |
+| 2. Fresh bootstrap / migration contract | Partial, not accepted as complete | All 37 checked-in SQL migrations were applied to the isolated staging project. The first empty-database attempt failed because `20260926224903_onboarding_and_secure_commands.sql` references `public.membership_type` before its creation in `202609270001_initial_schema.sql`. Applying base schema and security migrations first allowed SQL application. Plugin `apply_migration` recorded generated execution-time versions instead of repository migration versions; therefore this does not prove clean CLI bootstrap, ledger parity, or a future `db push`. |
+| 3. Authenticated lifecycle testing      | Blocked                           | No fixture rows or users were created. The connected Supabase tools expose publishable keys but provide no server-only staging-key retrieval operation. Need a secure way to configure that key, then implement and run actual Auth, authorization, session and rating tests.                                                                                                                                                                                                                                                                                       |
+| 4. Vercel Preview                       | Blocked                           | Vercel project creation failed with 403 for `ikbakks-projects`; no Preview URL exists. Preview also needs its Preview-only staging environment values, the server-only staging key, and Auth redirect configuration.                                                                                                                                                                                                                                                                                                                                                |
+
+## Staging schema application
+
+The isolated staging database has SQL from these 37 files applied in dependency-aware order. The initial failed attempt wrote no migration record. The Supabase plugin's remote ledger uses generated versions and is not equal to the checked-in version history.
+
+```text
+20260926224903_onboarding_and_secure_commands.sql
+20260926225808_club_dashboard_queries.sql
+20260926230952_public_club_profile.sql
+20260926232010_fix_roster_rating_insert.sql
+20260926232455_fix_pin_hash_extension_schema.sql
+202609270001_initial_schema.sql
+202609270002_security_and_commands.sql
+20260927120000_courtside_match_commands.sql
+20260927123000_courtside_close_commands.sql
+20260928091432_fix_guest_rating_insert.sql
+20260928095727_set_leave_after_match.sql
+20260928101354_public_read_models.sql
+20260929044228_core_recovery_commands.sql
+20260929044952_finance_admin_commands.sql
+20260929045857_restrict_finance_helper.sql
+20260929050133_restrict_default_function_execution.sql
+20260929050256_restrict_admin_rpcs_to_authenticated.sql
+20260929050338_promote_guest_to_member.sql
+20260929050715_finance_submissions.sql
+20260929051252_public_session_reports.sql
+20260929053828_admin_claim_operator_lease.sql
+20260929054051_session_attendee_payment_status.sql
+20261004122835_fix_start_match_ready_player_lookup.sql
+20261004133020_admin_login_session_controls.sql
+20261004141126_bulk_check_in_and_public_payment_status.sql
+20261004152042_deduplicate_public_session_matches.sql
+20261004163710_club_admin_finance_access.sql
+20261005120000_authorization_integrity_hardening.sql
+20261005130000_smart_rotation_fairness.sql
+20261005140000_drop_revoked_operator_lease_rpcs.sql
+20261006051207_algorithm_2_rating_persistence.sql
+20261006064254_algorithm_2_server_read_access.sql
+20261006102817_algorithm_2_pairing_audit_and_public_rating.sql
+20261006103627_harden_pairing_audit_validation.sql
+20261011105500_club_settings_and_payment_destinations.sql
+20261014110000_public_product_club_entry.sql
+20261017100000_player_session_summaries.sql
+```
+
+Security and performance advisors completed against staging. They reported 23 tables without policies, 7 security-definer views, callable security-definer functions, 25 unindexed foreign keys, and 2 unused indexes. These need review against intended access patterns; this setup task did not alter existing SQL or policy behavior. Staging tables currently contain zero rows.
+
+## Verification evidence
+
+- `npm ci`: PASS.
+- `npm run lint`: PASS in the second `npm run verify` attempt; Prettier check also passes for all changed files.
+- `npm run check`: PASS, 0 Svelte errors and warnings.
+- `node --test scripts/staging-target.test.mjs`: PASS, 5/5.
+- `npm run test:unit -- --run`: PASS, 98 passed, 3 skipped.
+- `npm run build`: PASS.
+- `npm run verify`: BLOCKED at Playwright E2E. The initial run exceeded the default 60-second web-server startup window during the 2-minute production build. The timeout is now 180 seconds. Chromium is not installed locally; its CDN download returned a corrupt 0 MiB archive, so browser tests cannot run in this environment. CI installs Chromium through its existing workflow.
+
+## Safety and continuation
+
+- Before remote work, inspect this tracker and the current Supabase migration ledger; do not blindly replay applied SQL.
+- Treat the plugin's generated migration versions as a schema application record, not proof of repository-history parity or clean CLI replay.
+- Keep the inactive `badminton-club` project untouched. Never reset staging while another preview or task depends on it.
+- Never put `SUPABASE_SERVICE_ROLE_KEY` in a `PUBLIC_` variable, frontend code, logs, this tracker, or a commit.
+- Record checks as PASS, FAIL, BLOCKED or NOT RUN with command/tool evidence.

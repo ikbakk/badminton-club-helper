@@ -32,6 +32,7 @@
 ## Current evidence and limits
 
 Inspected main at 21dc5af3acfea5efd0d7d5c4ad782aadaeaf4955 on 2026-10-20; re-read current main before implementation.
+
 - README and architecture show Supabase SDK/Auth, Realtime invalidation, trusted server routes and transactional database functions.
 - package.json has npm run verify; .github/workflows/verify.yml runs application verification and two reduced PostgreSQL read-model fixtures.
 - No supabase/config.toml, Dockerfile or Compose is tracked in that snapshot.
@@ -44,6 +45,7 @@ Inspected main at 21dc5af3acfea5efd0d7d5c4ad782aadaeaf4955 on 2026-10-20; re-rea
 ## File map
 
 Create:
+
 - docs/work-agent-readiness.md — compact task tracker, current staging/preview identity, compatible commit, blockers and sanitized evidence.
 - docs/staging-preview.md — setup, seed/test commands, Auth redirect configuration, preview use, migration promotion and recovery.
 - scripts/staging-target.mjs — shared fail-closed remote target validation.
@@ -55,6 +57,7 @@ Create:
 - supabase/bootstrap/README.md and supabase/bootstrap/baseline.sql — only if Task 2 proves a separate reviewed baseline is necessary.
 
 Modify:
+
 - AGENTS.md, README.md — default Work workflow and links.
 - package.json — staging commands; package-lock.json only when dependencies actually change.
 - .env.example — placeholders, no credentials.
