@@ -1,6 +1,6 @@
 # Work Agent Readiness
 
-Last checked: 2026-10-20
+Last checked: 2026-10-21
 
 ## Environment identities
 
@@ -8,7 +8,7 @@ Last checked: 2026-10-20
 | ------------------------- | ------------------------ | ---------------------- | ----------------------------------------------------------------- |
 | Supabase staging          | `badminton-club-staging` | `prwujfcdkstifszkvqrs` | Active, ap-southeast-2; provisioned after quote showed `$0/month` |
 | Existing Supabase project | `badminton-club`         | `zjqqjgdrojhqiylapvqd` | Inactive; protected and untouched                                 |
-| Vercel app                | None linked              | —                      | Creation blocked by current Vercel connection scope               |
+| Vercel app                | `rallymatch`             | —                      | User-configured Preview project using `main`; Preview access is gated by Vercel Pro |
 
 Staging URL: `https://prwujfcdkstifszkvqrs.supabase.co`. Never store private keys here. No database rows or synthetic Auth users have been created.
 
@@ -16,10 +16,10 @@ Staging URL: `https://prwujfcdkstifszkvqrs.supabase.co`. Never store private key
 
 | Plan task                               | State                             | Evidence / blocker                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Inventory and staging                | Partial                           | Dedicated staging project is active; exact-host staging target guard is implemented and passes 5 tests. No Vercel project was found. Project creation through the Vercel plugin returned 403 for scope `ikbakks-projects`, requiring that connection to be reauthenticated.                                                                                                                                                                                                                                                                                         |
+| 1. Inventory and staging                | Partial                           | Dedicated staging project is active; exact-host staging target guard is implemented and passes 5 tests. The user reports that the `rallymatch` Vercel project is configured to deploy `main` as Preview. The Vercel plugin returns 403 because Preview access requires the Pro subscription in this setup; this is an intentional plan gate, not a connection issue.                                                                                                                                                                                                                                                                                         |
 | 2. Fresh bootstrap / migration contract | Partial, not accepted as complete | All 37 checked-in SQL migrations were applied to the isolated staging project. The first empty-database attempt failed because `20260926224903_onboarding_and_secure_commands.sql` references `public.membership_type` before its creation in `202609270001_initial_schema.sql`. Applying base schema and security migrations first allowed SQL application. Plugin `apply_migration` recorded generated execution-time versions instead of repository migration versions; therefore this does not prove clean CLI bootstrap, ledger parity, or a future `db push`. |
 | 3. Authenticated lifecycle testing      | Blocked                           | No fixture rows or users were created. The connected Supabase tools expose publishable keys but provide no server-only staging-key retrieval operation. Need a secure way to configure that key, then implement and run actual Auth, authorization, session and rating tests.                                                                                                                                                                                                                                                                                       |
-| 4. Vercel Preview                       | Blocked                           | Vercel project creation failed with 403 for `ikbakks-projects`; no Preview URL exists. Preview also needs its Preview-only staging environment values, the server-only staging key, and Auth redirect configuration.                                                                                                                                                                                                                                                                                                                                                |
+| 4. Vercel Preview                       | Blocked                           | The `rallymatch` project is configured for Preview from `main` (user-reported). The Vercel plugin returns 403 at the Pro subscription gate, so a live Preview cannot be verified in this session. Preview also needs its Preview-only staging environment values, the server-only staging key, and Auth redirect configuration.                                                                                                                                                                                                                                                                                                                                                |
 
 ## Staging schema application
 
@@ -75,7 +75,7 @@ Security and performance advisors completed against staging. They reported 23 ta
 - `node --test scripts/staging-target.test.mjs`: PASS, 5/5.
 - `npm run test:unit -- --run`: PASS, 98 passed, 3 skipped.
 - `npm run build`: PASS.
-- `npm run verify`: PASS in GitHub Actions run 8 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
+- `npm run verify`: PASS in GitHub Actions run 9 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
 
 ## Safety and continuation
 
