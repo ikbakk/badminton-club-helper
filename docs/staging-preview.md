@@ -4,11 +4,11 @@ This project uses a dedicated Supabase project for non-production integration te
 
 ## Environment separation
 
-| Environment                           | Supabase target                            | Use                                               |
-| ------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
-| Work agent / task integration testing | `badminton-club-dev` project                | Isolated development/bootstrap database           |
-| Vercel Preview                        | `badminton-club-staging` project             | Open and try reviewed task changes from a URL     |
-| Vercel Production                     | Existing production project                | Real club data; never a test target               |
+| Environment                           | Supabase target                  | Use                                           |
+| ------------------------------------- | -------------------------------- | --------------------------------------------- |
+| Work agent / task integration testing | `badminton-club-dev` project     | Isolated development/bootstrap database       |
+| Vercel Preview                        | `badminton-club-staging` project | Open and try reviewed task changes from a URL |
+| Vercel Production                     | Existing production project      | Real club data; never a test target           |
 
 The development project is `wmudjpordbayncgrkaiu` (`https://wmudjpordbayncgrkaiu.supabase.co`) in `ap-southeast-2`; Supabase quoted `$0/month` before it was created. All 37 repo migrations now exist there after applying the initial schema/security migrations before the older dependent files. The empty-database replay confirmed that normal filename order currently fails on `public.membership_type`, and plugin-applied migration versions do not match repo versions. The existing staging project `prwujfcdkstifszkvqrs` remains the Preview/test target. Keys are private configuration; do not copy them into this file, a PR, or logs.
 
