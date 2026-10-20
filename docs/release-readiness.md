@@ -28,6 +28,14 @@
 - Check existing PB NEWBIE links and data after migration.
 - Review the first GitHub Actions run; local verification is not evidence of a hosted CI run.
 
+## Work Agent staging and Preview
+
+- A dedicated Supabase staging project is active. Its schema has had all 37 checked-in SQL files applied, but the plugin recorded generated execution-time migration versions. This is not proof of normal CLI replay or migration-ledger parity; see [the Work Agent readiness tracker](work-agent-readiness.md).
+- The initial empty-database replay reproduced a dependency failure: `20260926224903_onboarding_and_secure_commands.sql` references `public.membership_type` before `202609270001_initial_schema.sql` creates it. Resolve a reproducible clean-bootstrap path before treating database provisioning as complete.
+- The user reports that Vercel project `rallymatch` is configured to deploy `main` as Preview. The plugin returns 403 because Preview access requires the Pro subscription in this setup; this is an intentional plan gate, not a connection issue. A live Preview remains unverified until that gate allows access. Configure Preview-only staging credentials through a secure channel.
+- No test accounts or synthetic session data were created. Auth, RLS, lifecycle and trusted rating checks remain unverified until a secure staging server key and working Preview are available.
+- Local target guard tests pass. Production build, Svelte checks and 98 unit tests pass. Playwright's local server startup timeout is now 180 seconds to accommodate the two-minute build, but the local Chromium download returned a corrupt 0 MiB archive. GitHub Actions run 9 on the execution PR passed the full verify job (including Playwright) and the PostgreSQL fixture job.
+
 ## Real-session validation
 
 Run 3–5 actual club sessions. For each, export the admin evaluation and record perceived rotation fairness, team balance, and the courtside actions that caused friction. Follow `real-session-validation.md`; do not change algorithm weights or policies based on an isolated session.

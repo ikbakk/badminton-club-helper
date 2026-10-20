@@ -31,3 +31,12 @@ Courtside is a public product for one-court badminton clubs. PB NEWBIE is one ex
 - Run `npm run verify` before handoff. E2E needs Playwright browsers installed once (`npx playwright install chromium`).
 - Remote DB checks (`npx supabase migration list --linked`, `npx supabase db lint --linked`) require credentials and project linkage. Never commit secrets or expose `SUPABASE_SERVICE_ROLE_KEY` to the client.
 - Preserve transaction boundaries and authorization tests. Make migrations only for actual schema changes; never rewrite applied history.
+
+## Work Agent staging and preview
+
+- Before a task that touches Supabase or Vercel, read `docs/work-agent-readiness.md` and `docs/staging-preview.md`.
+- Use only the dedicated staging project for task verification. Never silently substitute the existing project or production credentials.
+- Remote writes require explicit opt-in and exact staging target validation. Keep service-role keys server-only and out of chat, logs and Git.
+- Apply migrations serially and preserve their checked-in history. If the available tool cannot preserve migration versions, record that limitation instead of claiming CLI replay parity.
+- For each task, run checks, apply only reviewed staging changes, and merge the reviewed task PR to `main` to trigger the `rallymatch` Vercel project, which the user reports is configured to deploy `main` as Preview. Verify the actual Preview URL and record the commit, migration evidence and test results in the tracker/PR when the Vercel plan permits access. If the Pro subscription gate blocks deployment or access, record the blocker and do not claim Preview verification. Production promotion is separate and always requires explicit authorization.
+- If Vercel, Auth or secret setup blocks the preview, finish independent local work and record the precise blocker and required secure setup step.

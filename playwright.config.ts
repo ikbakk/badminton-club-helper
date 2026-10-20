@@ -6,6 +6,7 @@ export default defineConfig({
 	webServer: {
 		command: 'npm run build && npm run preview',
 		port: 4173,
+		timeout: 180_000,
 		env: {
 			PUBLIC_SUPABASE_URL: 'https://courtside-e2e.supabase.co',
 			PUBLIC_SUPABASE_ANON_KEY: 'e2e-anon-key',
