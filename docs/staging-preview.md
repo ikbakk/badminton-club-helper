@@ -33,7 +33,7 @@ The current connected Supabase tools can inspect the staging project and expose 
 3. Run `npm ci`, `npm run verify`, and the staging-target guard tests. The default verification command must not write to a remote database.
 4. Apply reviewed schema changes to staging only after checking that the migration operation preserves the expected repository version. If the available tool creates an independent execution-time version, do not claim parity with the repo migration history.
 5. Seed only synthetic fixtures; track created IDs and clean up only those IDs. Never reset shared staging while another preview may use it.
-6. Deploy the PR commit to Vercel Preview, then verify the actual URL, public reads, real Auth, admin writes, trusted rating operations, mobile layout and persistence.
+6. Merge reviewed task changes to `main` to trigger the `rallymatch` Vercel project, which the user reports is configured to deploy `main` as Preview. Verify the actual Preview URL, public reads, real Auth, admin writes, trusted rating operations, mobile layout and persistence when the Vercel plan permits access. If the Pro subscription gate blocks deployment or access, record the exact blocker and do not claim Preview verification. Confirm the project target is Preview; production promotion remains separate and requires explicit authorization.
 7. In the PR and readiness tracker, record commit SHA, staging target, migration evidence, test commands and preview URL. Keep production deployment separate.
 
 ## Migration limitation found during setup
