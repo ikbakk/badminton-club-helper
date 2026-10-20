@@ -24,7 +24,7 @@ The checked-in `.env.example` contains placeholders. For remote integration test
 - `STAGING_TEST_PASSWORD` — unique synthetic account password, not a production password.
 - `STAGING_APP_URL` — Vercel Preview URL for browser tests.
 
-The current connected Supabase tools can inspect the staging project and expose publishable keys. They do not provide a server-only staging key retrieval operation. Set the secret through a secure dashboard/plugin path; never paste it into chat or commit it. The current Work Vercel connection also needs access to the `ikbakks-projects` scope before it can link the repo or manage environment variables.
+The current connected Supabase tools can inspect the staging project and expose publishable keys. They do not provide a server-only staging key retrieval operation. Set the secret through a secure dashboard/plugin path; never paste it into chat or commit it. The user reports that Vercel project `rallymatch` is configured to deploy branch `main` as a Preview. The plugin's 403 is an intentional Vercel Pro subscription gate in this setup; it is not a missing connection scope. Until the plan permits Preview deployment access, do not claim a live Preview was verified.
 
 ## Per-task workflow
 
