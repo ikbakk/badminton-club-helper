@@ -80,7 +80,7 @@ Security and performance advisors completed against staging. They reported 23 ta
 - `node --test scripts/staging-target.test.mjs`: PASS, 5/5.
 - `npm run test:unit -- --run`: PASS, 98 passed, 3 skipped.
 - `npm run build`: PASS.
-- `npm run verify`: PASS in GitHub Actions run 17 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. The docs checkpoint PR for the new dev project is awaiting CI. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
+- `npm run verify`: PASS in GitHub Actions run 17 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. The dev-project documentation PR #9 merged after CI run 21 passed both `verify` and `database-read-models`; the Vercel Pro-gated status was not used as a merge gate. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
 
 ## Safety and continuation
 
