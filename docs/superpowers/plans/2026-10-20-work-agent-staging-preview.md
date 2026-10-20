@@ -11,7 +11,7 @@
 
 - Trigger: when the user says **"kerjakan sesuai planning"**, read this file, AGENTS.md and the current tracker, then execute all unblocked tasks in order. The user intends to switch to Luna 6 high; do not change models automatically.
 - Planning only is authorized in the planning turn. Execution begins on the trigger.
-- Deliver code, verification evidence, focused PRs and a working preview URL. Do not merge or deploy production without explicit task-specific authorization.
+- Deliver code, verification evidence, focused PRs and a Vercel Preview URL. For this repository, merge reviewed task PRs to `main` to trigger the user-configured `rallymatch` Preview project. This standing workflow does not authorize Production promotion; never deploy Production without separate explicit task-specific authorization. If the Vercel Pro subscription gate blocks Preview access, record it as blocked and do not claim verification.
 - Docker is optional and is not an acceptance dependency. Do not add Dockerfiles, Compose, self-hosting, a new database provider or a replacement Auth system.
 - Routine implementation decisions are delegated to the executor. Do not repeatedly ask the user to approve steps already within this scope.
 - Creation of a paid resource requires quoting its actual cost and obtaining explicit agreement before creation. If blocked by billing, missing permissions or unsupported tooling, finish independent work and report the exact remaining setup.
@@ -39,7 +39,7 @@ Inspected main at 21dc5af3acfea5efd0d7d5c4ad782aadaeaf4955 on 2026-10-20; re-rea
 - Migration 20260926224903_onboarding_and_secure_commands.sql uses public.membership_type before 202609270001_initial_schema.sql creates it. This is a static finding, not a reproduced full migration failure.
 - Initial migration timestamps mix 12 and 14 digits; validate actual tool ordering and history rather than assuming lexical sorting is the complete diagnosis.
 - Supabase plugin list_projects succeeded. The visible badminton-club project ref is zjqqjgdrojhqiylapvqd and was reported INACTIVE. Treat it as protected production; inspect metadata only, do not restore, reset or mutate it for this plan.
-- Vercel access, project linkage, environment variables, actual database state and latest CI results have NOT been verified.
+- The user reports that Vercel project `rallymatch` is configured to deploy `main` as Preview. The Vercel plugin returned 403 at the Pro subscription gate; environment-variable access and live Preview verification remain unavailable until that gate is cleared.
 - Existing docs/release-readiness.md lists outstanding remote migration, Auth redirect/email and deployment checks; documentation is not evidence they are still outstanding or already complete.
 
 ## File map
@@ -134,13 +134,13 @@ Produces: working preview URL linked to its commit and migration state.
 - [ ] Set only Preview environment values to staging: PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY and server-only SUPABASE_SERVICE_ROLE_KEY. Keep Production values unchanged. Prefer plugin secret handling; if required secret access is unavailable, request the minimal secure setup action without asking for secrets in chat.
 - [ ] Configure staging Auth site/redirect URLs for the intended preview domains and password recovery. Use the documented narrowest suitable preview wildcard; do not change production Auth configuration.
 - [ ] Apply reviewed staging migrations before deploying dependent frontend code. Record commit/schema compatibility; serialize changes on shared staging.
-- [ ] Deploy the PR commit as Preview using supported Vercel tooling, inspect build logs, wait for ready state and inspect the actual URL.
+- [ ] Merge the reviewed task PR to `main` to trigger the user-configured `rallymatch` Preview deployment. Confirm that the target is Preview (never Production), inspect build status/logs and verify the actual URL when the Vercel plan permits access.
 - [ ] Run real-backend browser smoke against that URL, including a trusted server rating operation. Use the protected-deployment skill if Vercel protection blocks tests; do not disable account 2FA or protection casually.
 - [ ] Verify refresh/navigation, mobile viewport, public read-only access, server secret isolation and persistent writes. Distinguish actual email delivery testing from seeded email-confirmed login.
 - [ ] Update AGENTS.md: read tracker, use staging, run local checks, preserve migration files, deliver preview URL, never silently substitute production, report blocked checks.
-- [ ] Write docs/staging-preview.md with one-time setup and per-task routine: inspect → implement → verify → staging migration → preview → smoke → PR evidence.
+- [ ] Write docs/staging-preview.md with one-time setup and per-task routine: inspect → implement → verify → staging migration → merge to `main` → Vercel Preview → smoke → PR evidence.
 - [ ] Document production promotion separately: backup/recovery readiness, migration diff review, compatible rollout order, post-release smoke and forward-fix strategy. App rollback does not reverse database migrations; no automatic destructive down migration.
-- [ ] Gate: deliver preview URL, commit SHA, PR links, staging project identity, applied migration names and verification summary. No merge or production deployment.
+- [ ] Gate: deliver commit SHA, PR links, staging project identity, applied migration names and verification summary. Verify and report the Preview URL when available; if the Pro subscription gate blocks access, mark Preview verification BLOCKED. Production promotion remains separate.
 
 ## Execution and efficiency rules
 
