@@ -34,7 +34,7 @@
 - The initial empty-database replay reproduced a dependency failure: `20260926224903_onboarding_and_secure_commands.sql` references `public.membership_type` before `202609270001_initial_schema.sql` creates it. Resolve a reproducible clean-bootstrap path before treating database provisioning as complete.
 - No Vercel project or Preview URL is configured for this repository. The connected Vercel plugin could not create one because its current connection lacks access to `ikbakks-projects` (403). Reauthenticate that scope and configure Preview-only staging credentials through a secure channel.
 - No test accounts or synthetic session data were created. Auth, RLS, lifecycle and trusted rating checks remain unverified until a secure staging server key and working Preview are available.
-- Local target guard tests pass. Production build, Svelte checks and 98 unit tests pass. Playwright's local server startup timeout is now 180 seconds to accommodate the two-minute build, but the local Chromium download returned a corrupt 0 MiB archive, so browser tests remain unverified here. CI installs Chromium through its existing workflow; see the execution PR for the exact evidence.
+- Local target guard tests pass. Production build, Svelte checks and 98 unit tests pass. Playwright's local server startup timeout is now 180 seconds to accommodate the two-minute build, but the local Chromium download returned a corrupt 0 MiB archive. GitHub Actions run 8 on the execution PR passed the full verify job (including Playwright) and the PostgreSQL fixture job.
 
 ## Real-session validation
 

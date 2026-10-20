@@ -75,7 +75,7 @@ Security and performance advisors completed against staging. They reported 23 ta
 - `node --test scripts/staging-target.test.mjs`: PASS, 5/5.
 - `npm run test:unit -- --run`: PASS, 98 passed, 3 skipped.
 - `npm run build`: PASS.
-- `npm run verify`: BLOCKED at Playwright E2E. The initial run exceeded the default 60-second web-server startup window during the 2-minute production build. The timeout is now 180 seconds. Chromium is not installed locally; its CDN download returned a corrupt 0 MiB archive, so browser tests cannot run in this environment. CI installs Chromium through its existing workflow.
+- `npm run verify`: PASS in GitHub Actions run 8 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
 
 ## Safety and continuation
 
