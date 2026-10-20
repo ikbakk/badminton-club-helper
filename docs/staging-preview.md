@@ -4,13 +4,13 @@ This project uses a dedicated Supabase project for non-production integration te
 
 ## Environment separation
 
-| Environment                           | Supabase target                            | Use                                               |
-| ------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
-| Work agent / task integration testing | Dedicated `badminton-club-staging` project | Synthetic data and application integration checks |
-| Vercel Preview                        | Same dedicated staging project             | Open and try reviewed task changes from a URL     |
-| Vercel Production                     | Existing production project                | Real club data; never a test target               |
+| Environment                           | Supabase target                  | Use                                           |
+| ------------------------------------- | -------------------------------- | --------------------------------------------- |
+| Work agent / task integration testing | `badminton-club-dev` project     | Isolated development/bootstrap database       |
+| Vercel Preview                        | `badminton-club-staging` project | Open and try reviewed task changes from a URL |
+| Vercel Production                     | Existing production project      | Real club data; never a test target           |
 
-The initial staging project is `prwujfcdkstifszkvqrs`, in `ap-southeast-2`. It was created after the Supabase cost quote returned `$0/month`. Its keys are private configuration; do not copy them into this file, a PR, or logs.
+The development project is `wmudjpordbayncgrkaiu` (`https://wmudjpordbayncgrkaiu.supabase.co`) in `ap-southeast-2`; Supabase quoted `$0/month` before it was created. All 37 repo migrations now exist there after applying the initial schema/security migrations before the older dependent files. The empty-database replay confirmed that normal filename order currently fails on `public.membership_type`, and plugin-applied migration versions do not match repo versions. The existing staging project `prwujfcdkstifszkvqrs` remains the Preview/test target. Keys are private configuration; do not copy them into this file, a PR, or logs.
 
 ## Required variables
 
@@ -24,7 +24,7 @@ The checked-in `.env.example` contains placeholders. For remote integration test
 - `STAGING_TEST_PASSWORD` — unique synthetic account password, not a production password.
 - `STAGING_APP_URL` — Vercel Preview URL for browser tests.
 
-The current connected Supabase tools can inspect the staging project and expose publishable keys. They do not provide a server-only staging key retrieval operation. Set the secret through a secure dashboard/plugin path; never paste it into chat or commit it. The user reports that Vercel project `rallymatch` is configured to deploy branch `main` as a Preview. The plugin's 403 is an intentional Vercel Pro subscription gate in this setup; it is not a missing connection scope. Until the plan permits Preview deployment access, do not claim a live Preview was verified.
+The current connected Supabase tools can inspect these projects and expose publishable keys. They do not provide a server-only staging key retrieval operation. Set the secret through a secure dashboard/plugin path; never paste it into chat or commit it. The user reports that Vercel project `rallymatch` is configured to deploy branch `main` as a Preview. The plugin's 403 is an intentional Vercel Pro subscription gate in this setup; it is not a missing connection scope. Until the plan permits Preview deployment access, do not claim a live Preview was verified.
 
 ## Per-task workflow
 
@@ -38,7 +38,9 @@ The current connected Supabase tools can inspect the staging project and expose 
 
 ## Migration limitation found during setup
 
-The first lexically ordered migration, `20260926224903_onboarding_and_secure_commands.sql`, fails on an empty database because `public.membership_type` does not exist yet. Applying the base schema and security migration first lets the remaining checked-in SQL execute in this staging instance. That proves the SQL can be applied in a dependency-aware order, but does not prove normal Supabase CLI replay or migration-history parity: the Supabase plugin `apply_migration` records generated execution timestamps. Resolve the bootstrap and migration ledger with a clean reproducible procedure before treating new-database deployment as ready.
+On the empty dev project, the first lexically ordered migration, `20260926224903_onboarding_and_secure_commands.sql`, failed because `public.membership_type` did not exist yet. Applying `202609270001_initial_schema.sql` and `202609270002_security_and_commands.sql` first, then the other 35 files, succeeded. This is evidence that the SQL can create the schema in dependency order, not evidence that normal CLI replay works: `apply_migration` recorded generated execution-time versions (`20261020172854` through `20261020173736`), not repository migration timestamps. A clean, repeatable migration contract still needs a reviewed baseline/lineage design and a follow-up migration test before treating new-database setup as ready.
+
+Changing app environment values from the dev/staging project ref and URL to a production project only changes the database/Auth target; it does not transfer schema history, users, or rows. Provision and verify the production project separately before switching.
 
 ## Production promotion
 
