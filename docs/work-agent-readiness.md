@@ -6,20 +6,25 @@ Last checked: 2026-10-21
 
 | Role                      | Project                  | Ref / ID               | Status                                                            |
 | ------------------------- | ------------------------ | ---------------------- | ----------------------------------------------------------------- |
-| Supabase staging          | `badminton-club-staging` | `prwujfcdkstifszkvqrs` | Active, ap-southeast-2; provisioned after quote showed `$0/month` |
+| Supabase dev              | `badminton-club-dev`     | `wmudjpordbayncgrkaiu` | Active, ap-southeast-2; new project, quote `$0/month`              |
+| Supabase staging          | `badminton-club-staging` | `prwujfcdkstifszkvqrs` | Active, ap-southeast-2; existing Preview/test target               |
 | Existing Supabase project | `badminton-club`         | `zjqqjgdrojhqiylapvqd` | Inactive; protected and untouched                                 |
 | Vercel app                | `rallymatch`             | —                      | Main-to-Preview; Pro-gated (user-reported)                        |
 
-Staging URL: `https://prwujfcdkstifszkvqrs.supabase.co`. Never store private keys here. No database rows or synthetic Auth users have been created.
+Dev URL: `https://wmudjpordbayncgrkaiu.supabase.co`. Staging URL: `https://prwujfcdkstifszkvqrs.supabase.co`. Never store private keys here. No app rows or synthetic Auth users have been created in either project.
 
 ## Execution tracker
 
 | Plan task                               | State                             | Evidence / blocker                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Inventory and staging                | Partial                           | Dedicated staging project is active; exact-host staging target guard is implemented and passes 5 tests. User reports `rallymatch` deploys `main` as Preview. The Vercel 403 is an intentional Pro subscription gate, not a connection issue.                                                                                                                                                                                                                                                                                                                        |
-| 2. Fresh bootstrap / migration contract | Partial, not accepted as complete | All 37 checked-in SQL migrations were applied to the isolated staging project. The first empty-database attempt failed because `20260926224903_onboarding_and_secure_commands.sql` references `public.membership_type` before its creation in `202609270001_initial_schema.sql`. Applying base schema and security migrations first allowed SQL application. Plugin `apply_migration` recorded generated execution-time versions instead of repository migration versions; therefore this does not prove clean CLI bootstrap, ledger parity, or a future `db push`. |
+| 2. Fresh bootstrap / migration contract | Partial, not accepted as complete | On new, empty `badminton-club-dev`, raw first migration replay reproduced the failure: `public.membership_type` is missing. Applying `202609270001_initial_schema.sql` and `202609270002_security_and_commands.sql` first, then the other 35 migrations, succeeded; 37 repo migration names are recorded, 23 public tables exist, all have RLS enabled, and app tables are empty. Supabase `apply_migration` still assigns generated remote versions (first `20261020172854`, last `20261020173736`), so this is verified dependency-aware bootstrap, not CLI version parity or a normal `db push` contract. A reviewed baseline/lineage plan and append-only follow-up migration remain outstanding. Security advisor reports 23 RLS tables without policies, 7 security-definer views, and callable security-definer RPCs; review against the intended RPC-only access model before declaring security gate complete. |
 | 3. Authenticated lifecycle testing      | Blocked                           | No fixture rows or users were created. The connected Supabase tools expose publishable keys but provide no server-only staging-key retrieval operation. Need a secure way to configure that key, then implement and run actual Auth, authorization, session and rating tests.                                                                                                                                                                                                                                                                                       |
 | 4. Vercel Preview                       | Blocked                           | User reports `rallymatch` uses `main` for Preview. The Pro gate (403) blocks live verification; staging environment values and Auth redirects also remain to configure.                                                                                                                                                                                                                                                                                                                                                                                             |
+
+## Development schema bootstrap
+
+The new, empty dev database failed on the lexically first migration as expected, then accepted all 37 checked-in migration SQL files when the initial schema/security files were applied first and the remaining files were applied in filename order. The failed attempt added no ledger row. This gives the dev project the app schema without test data, but the Supabase plugin records generated versions rather than the repo timestamps; do not use this as evidence of `supabase db push` parity.
 
 ## Staging schema application
 
@@ -75,12 +80,13 @@ Security and performance advisors completed against staging. They reported 23 ta
 - `node --test scripts/staging-target.test.mjs`: PASS, 5/5.
 - `npm run test:unit -- --run`: PASS, 98 passed, 3 skipped.
 - `npm run build`: PASS.
-- `npm run verify`: PASS in GitHub Actions run 9 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
+- `npm run verify`: PASS in GitHub Actions run 17 on PR #8, including Playwright E2E; the separate `database-read-models` job also passed. The docs checkpoint PR for the new dev project is awaiting CI. Local Playwright is blocked because Chromium's CDN download returned a corrupt 0 MiB archive. The Playwright web-server timeout is now 180 seconds to accommodate the two-minute local production build.
 
 ## Safety and continuation
 
 - Before remote work, inspect this tracker and the current Supabase migration ledger; do not blindly replay applied SQL.
 - Treat the plugin's generated migration versions as a schema application record, not proof of repository-history parity or clean CLI replay.
+- Use `badminton-club-dev` for isolated development/bootstrap work; keep `badminton-club-staging` as the Preview/test target until the workflow is deliberately changed. Changing a project URL/ref redirects the app to that project's data; it does not copy users or database rows.
 - Keep the inactive `badminton-club` project untouched. Never reset staging while another preview or task depends on it.
 - Never put `SUPABASE_SERVICE_ROLE_KEY` in a `PUBLIC_` variable, frontend code, logs, this tracker, or a commit.
 - Record checks as PASS, FAIL, BLOCKED or NOT RUN with command/tool evidence.
