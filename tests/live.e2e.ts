@@ -15,7 +15,8 @@ async function mockLiveBackend(
 	withRoster = false,
 	readyCount = 0,
 	failRecommendation = false,
-	failPairingAudit = false
+	failPairingAudit = false,
+	delayAdminAccess = false
 ) {
 	let closed = false;
 	let feeConfirmed = false;
@@ -163,7 +164,8 @@ async function mockLiveBackend(
 		if (path.endsWith('/public_fund_summary'))
 			return route.fulfill({ json: [{ received: 0, expenses: 0, balance: 0 }] });
 		if (path.endsWith('/rpc/public_fund_activity')) return route.fulfill({ json: [] });
-		if (path.endsWith('/rpc/my_club'))
+		if (path.endsWith('/rpc/my_club')) {
+			if (delayAdminAccess) await new Promise((resolve) => setTimeout(resolve, 600));
 			return route.fulfill({
 				json: [
 					{
@@ -174,6 +176,7 @@ async function mockLiveBackend(
 					}
 				]
 			});
+		}
 		if (path.endsWith('/rpc/club_roster'))
 			return route.fulfill({
 				json: withRoster
@@ -330,6 +333,14 @@ async function mockLiveBackend(
 		setPublicRatingValue: (value: number) => (publicRatingValue = value)
 	};
 }
+
+test('shows admin access progress instead of a login action while permissions load', async ({ page }) => {
+	await mockLiveBackend(page, false, false, false, false, 0, false, false, true);
+	await page.goto('/clubs/club-e2e/live');
+
+	await expect(page.getByRole('button', { name: 'Memeriksa akses admin', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Masuk sebagai admin', exact: true })).toHaveCount(0);
+});
 
 test('public visitor can open the read-only live view', async ({ page }) => {
 	await page.route('**/rest/v1/**', (route) =>
