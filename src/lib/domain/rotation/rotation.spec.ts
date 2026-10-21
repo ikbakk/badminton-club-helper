@@ -23,6 +23,32 @@ const player = (id: string, overrides: Partial<RotationPlayerInput> = {}): Rotat
 const tenPlayers = () => Array.from({ length: 10 }, (_, index) => ({ id: `p${index + 1}` }));
 
 describe('Algorithm 1 scoring and recommendation', () => {
+	it('explains rotation recommendations in Indonesian with singular, plural, and readable waits', () => {
+		const one = recommendNextPlayers(
+			[player('one', { currentOpportunityDebt: 1, missedOpportunities: 1, readySinceMs: 0 })],
+			60_000
+		).rankedCandidates[0].reasons.join(' · ');
+		const plural = recommendNextPlayers(
+			[player('many', { currentOpportunityDebt: 2, missedOpportunities: 2, readySinceMs: 0 })],
+			125 * 60_000
+		).rankedCandidates[0].reasons.join(' · ');
+		expect(one).toContain('1 kesempatan rotasi saat siap');
+		expect(one).toContain('1 menit');
+		expect(plural).toContain('2 kesempatan rotasi saat siap');
+		expect(plural).toContain('2 jam 5 menit');
+		expect(plural).not.toMatch(/Missed|READY for|SHOULD PLAY/);
+	});
+	it('uses Indonesian for consecutive-play and fallback explanations', () => {
+		const result = recommendNextPlayers(
+			[player('a', { consecutiveRotations: 2 }), player('b'), player('c'), player('d')],
+			0
+		);
+		const reasons = result.rankedCandidates.find(
+			(candidate) => candidate.playerId === 'a'
+		)!.reasons;
+		expect(reasons.join(' ')).toContain('2 match berturut-turut');
+		expect(reasons.join(' ')).toContain('sebagai pengganti');
+	});
 	it('centralizes explainable weights and prioritizes current opportunity debt', () => {
 		const result = recommendNextPlayers(
 			[
@@ -74,7 +100,7 @@ describe('Algorithm 1 scoring and recommendation', () => {
 		expect(result.diagnostics.consecutiveFallbackUsed).toBe(true);
 		expect(
 			result.rankedCandidates.find((candidate) => candidate.playerId === 'a')?.reasons.join(' ')
-		).toContain('fill-in');
+		).toContain('sebagai pengganti');
 	});
 	it('filters every non-READY state and returns a deterministic four-player result', () => {
 		const states = ['PLAYING', 'RESTING', 'AWAY', 'OUT', 'LEFT'] as const;
@@ -674,7 +700,7 @@ describe('adversarial Smart Rotation regression scenarios', () => {
 		expect(result.selectedPlayerIds).toContain('debt1');
 		expect(
 			result.rankedCandidates.find((candidate) => candidate.playerId === 'hot0')?.reasons.join(' ')
-		).toContain('2 or more');
+		).toContain('2 match berturut-turut');
 	});
 
 	it('runs a controlled fixed-grid weight sensitivity sweep without changing fatigue rules', () => {

@@ -24,7 +24,11 @@ import type { RotationRecommendation } from '$lib/domain/rotation/types';
 import type { PairingOption } from '$lib/domain/rating';
 
 type Notice = (message: string) => void;
-type RunMutation = (action: () => Promise<unknown>, invalidateLive: boolean) => Promise<unknown>;
+type RunMutation = (
+	action: () => Promise<unknown>,
+	invalidateLive: boolean,
+	waitForRefresh?: boolean
+) => Promise<unknown>;
 
 function errorMessage(error: unknown, fallback: string) {
 	if (error instanceof Error) return error.message;
@@ -106,7 +110,7 @@ export class LiveController {
 		await this.queryClient.invalidateQueries({ queryKey: this.queryKey }, { cancelRefetch: false });
 	}
 
-	private async runCommand(label: string, action: () => Promise<unknown>) {
+	private async runCommand(label: string, action: () => Promise<unknown>, waitForRefresh = true) {
 		if (this.pending) return false;
 		if (!this.online) {
 			this.notify('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
@@ -114,7 +118,7 @@ export class LiveController {
 		}
 		this.pending = label;
 		try {
-			await this.runMutation(action, true);
+			await this.runMutation(action, true, waitForRefresh);
 			return true;
 		} catch (error) {
 			this.notify(errorMessage(error, 'Perubahan belum tersimpan. Coba lagi.'));
@@ -236,8 +240,10 @@ export class LiveController {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
 		const set = this.activeMatch?.sets.find((candidate) => candidate.status === 'IN_PROGRESS');
 		if (!set) return Promise.resolve(false);
-		return this.runCommand('Menyimpan skor…', () =>
-			completeSet(this.session!.id, this.session!.club_id, set.id, teamA, teamB)
+		return this.runCommand(
+			'Menyimpan skor…',
+			() => completeSet(this.session!.id, this.session!.club_id, set.id, teamA, teamB),
+			false
 		);
 	}
 

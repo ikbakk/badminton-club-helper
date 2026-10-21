@@ -32,6 +32,43 @@ test('history failure has retry and never claims the club has no sessions', asyn
 	await expect(page.getByText('10 pemain', { exact: false })).toBeVisible();
 });
 
+test('history keeps an empty closed session visible and labels it without a zero duration', async ({
+	page
+}) => {
+	await page.route('**/rest/v1/**', (route) => {
+		const path = new URL(route.request().url()).pathname;
+		if (path.endsWith('/public_club_profile'))
+			return route.fulfill({ json: [{ id: 'club-e2e', name: 'Test Club' }] });
+		if (path.endsWith('/public_session_history'))
+			return route.fulfill({
+				json: [
+					{
+						id: 'empty-session',
+						started_at: '2026-10-10T10:00:00Z',
+						closed_at: '2026-10-10T10:00:00Z',
+						attendance: 0,
+						fee_per_person: null
+					},
+					{
+						id: 'played-session',
+						started_at: '2026-10-09T10:00:00Z',
+						closed_at: '2026-10-09T13:00:00Z',
+						attendance: 8,
+						fee_per_person: 15000
+					}
+				]
+			});
+		return route.fulfill({ json: [] });
+	});
+	await page.goto('/clubs/club-e2e/history');
+	const emptySession = page
+		.getByRole('link')
+		.filter({ hasText: 'Sesi kosong · tidak ada pemain hadir' });
+	await expect(emptySession).toBeVisible();
+	await expect(emptySession).not.toContainText('0j 0m');
+	await expect(page.getByRole('link').filter({ hasText: '8 pemain · 3j 0m' })).toBeVisible();
+});
+
 test('fund failure is recoverable and does not display a fabricated zero balance', async ({
 	page
 }) => {

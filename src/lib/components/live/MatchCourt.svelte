@@ -58,6 +58,9 @@
 	let correctionA = $state('');
 	let correctionB = $state('');
 	let selectedPairing = $state<PairingOption | null>(null);
+	let confirmedScoreSet = $state<number | null>(null);
+	let scoreSaving = $state(false);
+	let scoreSaveSlow = $state(false);
 
 	let ready = $derived(participants.filter((player) => player.status === 'READY'));
 	let playingSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
@@ -139,12 +142,23 @@
 	}
 
 	async function submitScore() {
+		if (scoreSaving || confirmedScoreSet === playingSet?.setNumber) return;
 		const a = Number(scoreA);
 		const b = Number(scoreB);
 		if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return;
-		if (await oncomplete(a, b)) {
-			scoreA = '';
-			scoreB = '';
+		scoreSaving = true;
+		scoreSaveSlow = false;
+		const slowTimer = setTimeout(() => (scoreSaveSlow = true), 1500);
+		try {
+			if (await oncomplete(a, b)) {
+				confirmedScoreSet = playingSet?.setNumber ?? null;
+				scoreA = '';
+				scoreB = '';
+			}
+		} finally {
+			clearTimeout(slowTimer);
+			scoreSaving = false;
+			scoreSaveSlow = false;
 		}
 	}
 
@@ -342,10 +356,39 @@
 						<AppButton
 							class="w-full"
 							onclick={submitScore}
-							disabled={Boolean(pending) || !online || !scoreA || !scoreB}
-							>{pending || `Selesaikan Set ${playingSet.setNumber}`}</AppButton
+							disabled={Boolean(pending) ||
+								scoreSaving ||
+								confirmedScoreSet === playingSet.setNumber ||
+								!online ||
+								!scoreA ||
+								!scoreB}
+							>{pending ||
+								(confirmedScoreSet === playingSet.setNumber
+									? 'Skor dikonfirmasi'
+									: `Selesaikan Set ${playingSet.setNumber}`)}</AppButton
 						>
 					</div>
+					{#if scoreSaving}
+						<p
+							class="mt-3 text-sm font-bold text-[#527169]"
+							role="status"
+							aria-live="polite"
+							aria-atomic="true"
+						>
+							{scoreSaveSlow
+								? 'Penyimpanan masih berlangsung. Jangan kirim ulang skor.'
+								: 'Menunggu konfirmasi server…'}
+						</p>
+					{:else if confirmedScoreSet === playingSet.setNumber}
+						<p
+							class="mt-3 text-sm font-bold text-[#38675b]"
+							role="status"
+							aria-live="polite"
+							aria-atomic="true"
+						>
+							Skor Set {playingSet.setNumber} dikonfirmasi server. Memperbarui kondisi lapangan…
+						</p>
+					{/if}
 				</div>
 			{/if}
 			{#if completedSets.length || canManage}
@@ -486,7 +529,7 @@
 											<b class="text-sm text-[#163630]">{player.name}</b>
 											{#if candidate?.tier === 'SHOULD_PLAY'}
 												<span class="bg-[#f5bb61] px-2 py-1 text-[10px] font-black text-[#163630]"
-													>SHOULD PLAY</span
+													>Prioritas tinggi</span
 												>
 											{/if}
 										</div>

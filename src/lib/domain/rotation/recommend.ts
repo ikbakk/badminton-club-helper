@@ -72,13 +72,13 @@ export function recommendNextPlayers(
 				...(tier === 'SHOULD_PLAY'
 					? [
 							debtThresholdReached
-								? `SHOULD PLAY: missed ${metrics.currentOpportunityDebt} eligible rotations in a row`
-								: `SHOULD PLAY: READY for ${Math.floor(metrics.currentReadyWaitMs / 60_000)} minutes`
+								? 'Layak diprioritaskan karena giliran siap terlewat'
+								: 'Layak diprioritaskan karena sudah lama menunggu'
 						]
 					: []),
 				...explainCandidate(metrics, selectedIds.has(player.id)),
 				...(fallbackUsed && selectedIds.has(player.id) && metrics.consecutiveRotations >= 2
-					? ['Limited READY alternatives; selected as a fill-in despite consecutive-play limit']
+					? ['Pemain siap terbatas; dipilih sebagai pengganti meski baru bermain berturut-turut']
 					: [])
 			],
 			metrics
