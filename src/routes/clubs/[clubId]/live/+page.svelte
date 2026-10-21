@@ -90,7 +90,9 @@
 	let online = $state(true);
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
-	let authAccessState = $state<'idle' | 'signing-in' | 'checking' | 'denied' | 'error'>('idle');
+	let authAccessState = $state<'idle' | 'signing-in' | 'checking' | 'ready' | 'denied' | 'error'>(
+		'idle'
+	);
 	let manualAuthInProgress = false;
 	let showCheckIn = $state(false);
 	let showEndSession = $state(false);
@@ -187,12 +189,10 @@
 	async function passwordLogin() {
 		manualAuthInProgress = true;
 		authAccessState = 'signing-in';
-		pending = 'Sedang masuk…';
 		try {
 			await signInWithPassword(email, password);
 			userEmail = email.trim();
 			password = '';
-			pending = 'Memeriksa akses admin…';
 			const access = await refreshAccount();
 			if (access?.is_club_admin) {
 				adminLoginOpen = false;
@@ -203,7 +203,6 @@
 			notifyError(error, 'Tidak bisa masuk. Periksa email dan kata sandi, lalu coba lagi.');
 		} finally {
 			manualAuthInProgress = false;
-			pending = '';
 		}
 	}
 
@@ -446,39 +445,39 @@
 					</div>
 				</div>
 			{:else}
-			<form
-				class="p-6 text-[#163630]"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void passwordLogin();
-				}}
-			>
-				<h2 class="text-2xl font-black tracking-[-0.04em]">Masuk sebagai admin</h2>
-				<p class="mt-2 text-sm leading-6 text-[#527169]">
-					Gunakan akun admin klub untuk mengelola sesi.
-				</p>
-				<label class="mt-5 block text-sm font-bold"
-					>Email<input
-						class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
-						type="email"
-						bind:value={email}
-						autocomplete="email"
-						placeholder="nama@email.com"
-					/></label
-				><label class="mt-4 block text-sm font-bold"
-					>Kata sandi<input
-						class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
-						type="password"
-						bind:value={password}
-						autocomplete="current-password"
-					/></label
+				<form
+					class="p-6 text-[#163630]"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void passwordLogin();
+					}}
 				>
-				<div class="mt-6">
-					<AppButton class="w-full justify-center" type="submit" disabled={!email || !password}
-						>{pending || 'Masuk'}</AppButton
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Masuk sebagai admin</h2>
+					<p class="mt-2 text-sm leading-6 text-[#527169]">
+						Gunakan akun admin klub untuk mengelola sesi.
+					</p>
+					<label class="mt-5 block text-sm font-bold"
+						>Email<input
+							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+							type="email"
+							bind:value={email}
+							autocomplete="email"
+							placeholder="nama@email.com"
+						/></label
+					><label class="mt-4 block text-sm font-bold"
+						>Kata sandi<input
+							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+							type="password"
+							bind:value={password}
+							autocomplete="current-password"
+						/></label
 					>
-				</div>
-			</form>
+					<div class="mt-6">
+						<AppButton class="w-full justify-center" type="submit" disabled={!email || !password}
+							>Masuk</AppButton
+						>
+					</div>
+				</form>
 			{/if}
 		</CourtDialog>
 	{/if}

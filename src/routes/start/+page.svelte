@@ -9,7 +9,7 @@
 	import { bootstrapClub, invalidatePublicData, type Club } from '$lib/data/dashboard';
 	import { setCachedClub } from '$lib/auth-state.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
-import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
+	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	let signup = $state(page.url.searchParams.get('mode') === 'signup');
 	let recovery = $state(false);
 	let email = $state('');
@@ -294,7 +294,10 @@ import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 				Hanya ingin melihat sesi? Buka tautan klub yang dibagikan admin.
 			</p>
 		{/if}
-		{#if error && !accountLoadFailed}<p role="alert" class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm">
+		{#if error && !accountLoadFailed}<p
+				role="alert"
+				class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm"
+			>
 				{error}
 			</p>{/if}
 		{#if notice}<p role="status" class="mt-5 border-l-4 border-[#38675b] bg-[#e5ece5] p-4 text-sm">
