@@ -51,6 +51,7 @@
 	let attendees = $state<FinanceSessionAttendee[]>([]);
 	let matchCount = $derived(closeQuery.data?.matchCount ?? 0);
 	let fee = $state('');
+	let feeSuggested = $state(false);
 	let loading = $derived(closeQuery.isPending);
 	let savingFee = $state(false);
 	let savingPlayers = $state<Record<string, boolean>>({});
@@ -92,7 +93,10 @@
 		if (!club?.is_club_admin || !session) return;
 		if (!fee) {
 			const suggestion = await suggestSessionFee(session.id);
-			if (suggestion) fee = String(suggestion);
+			if (suggestion && !fee) {
+				fee = String(suggestion);
+				feeSuggested = true;
+			}
 		}
 		if (session.fee_per_person) attendees = await getFinanceSessionAttendees(club.id, session.id);
 	}
@@ -229,7 +233,14 @@
 
 	async function saveFee() {
 		const amount = Number(fee);
-		if (savingFee || !session || !Number.isSafeInteger(amount) || amount <= 0) return;
+		if (
+			savingFee ||
+			!session ||
+			session.attendance < 1 ||
+			!Number.isSafeInteger(amount) ||
+			amount <= 0
+		)
+			return;
 		savingFee = true;
 		notice = '';
 		try {
@@ -368,6 +379,14 @@
 							void saveFee();
 						}}
 					>
+						<p class="mt-3 text-sm leading-6 text-[#527169]" role="note">
+							{#if feeSuggested}
+								Nilai terisi dari iuran sesi terakhir. Tinjau atau ubah sebelum membuat tagihan.
+							{:else}
+								Belum ada iuran sesi sebelumnya. Masukkan nilai yang disepakati sebelum membuat
+								tagihan.
+							{/if}
+						</p>
 						<label class="block text-sm font-bold" for="session-fee">Iuran per orang</label>
 						<div class="mt-2 flex items-stretch gap-3">
 							<span class="flex items-center border border-[#d6ddd3] bg-[#e5ece5] px-4 font-bold"
@@ -375,6 +394,7 @@
 							>
 							<input
 								id="session-fee"
+								type="number"
 								class="min-h-14 min-w-0 flex-1 rounded-md border border-[#163630] bg-[#fffaf0] px-4 text-xl font-bold tabular-nums"
 								inputmode="numeric"
 								required
@@ -382,9 +402,31 @@
 								bind:value={fee}
 							/>
 						</div>
-						<p class="mt-3 text-sm font-bold text-[#527169]">Total tagihan: {money(totalDue)}</p>
+						<div class="mt-4 grid gap-1 border-y border-[#d6ddd3] py-3 text-sm">
+							<p class="flex justify-between gap-3">
+								<span>Jumlah pemain</span><b>{session.attendance}</b>
+							</p>
+							<p class="flex justify-between gap-3">
+								<span>Iuran per orang</span><b
+									>{Number(fee) > 0 ? money(Number(fee)) : 'Belum diisi'}</b
+								>
+							</p>
+							<p class="flex justify-between gap-3 text-base">
+								<span>Total tagihan yang akan dibuat</span><b
+									>{Number(fee) > 0 ? money(totalDue) : 'Belum dihitung'}</b
+								>
+							</p>
+						</div>
+						{#if session.attendance === 0}
+							<p class="mt-3 text-sm font-bold text-[#9a3d25]">
+								Tidak ada pemain hadir, jadi tidak ada tagihan yang perlu dibuat.
+							</p>
+						{/if}
 						<div class="mt-5 flex flex-wrap gap-3">
-							<AppButton type="submit" disabled={savingFee || !Number(fee)}>
+							<AppButton
+								type="submit"
+								disabled={savingFee || session.attendance === 0 || !Number(fee)}
+							>
 								{savingFee ? 'Menyimpan…' : 'Konfirmasi iuran & buat tagihan'}
 							</AppButton>
 							<AppButton variant="secondary" onclick={reopen}>Buka lagi sesi</AppButton>

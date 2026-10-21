@@ -29,21 +29,28 @@ describe('LiveController', () => {
 	const notice = vi.fn();
 	let controller: LiveController;
 	let queryClient: QueryClient;
+	let refreshModes: Array<boolean | undefined>;
 
 	beforeEach(() => {
 		vi.resetAllMocks();
 		queryClient = new QueryClient();
+		refreshModes = [];
 		vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
-		controller = new LiveController(notice, queryClient, async (action, invalidateLive) => {
-			const result = await action();
-			if (invalidateLive) {
-				await queryClient.invalidateQueries(
-					{ queryKey: ['live', 'active-session'] },
-					{ cancelRefetch: false }
-				);
+		controller = new LiveController(
+			notice,
+			queryClient,
+			async (action, invalidateLive, waitForRefresh) => {
+				refreshModes.push(waitForRefresh);
+				const result = await action();
+				if (invalidateLive && waitForRefresh !== false) {
+					await queryClient.invalidateQueries(
+						{ queryKey: ['live', 'active-session'] },
+						{ cancelRefetch: false }
+					);
+				}
+				return result;
 			}
-			return result;
-		});
+		);
 		controller.session = session;
 		controller.setAdminAuthorized(true);
 	});
@@ -229,6 +236,27 @@ describe('LiveController', () => {
 			'recommendation-1',
 			undefined
 		);
+	});
+
+	it('releases the live-screen refresh wait after the server confirms a score', async () => {
+		controller.activeMatch = {
+			id: 'match-1',
+			session_id: 'session-1',
+			sequence_number: 1,
+			sets: [
+				{
+					id: 'set-1',
+					setNumber: 1,
+					status: 'IN_PROGRESS',
+					teamAScore: null,
+					teamBScore: null,
+					players: []
+				}
+			]
+		};
+
+		await expect(controller.completeSet(21, 17)).resolves.toBe(true);
+		expect(refreshModes).toEqual([false]);
 	});
 
 	it('keeps score completion unsuccessful when the server rejects it', async () => {

@@ -54,10 +54,22 @@
 	}));
 	const liveCommandMutation = createMutation(
 		() => ({
-			mutationFn: ({ action }: { action: () => Promise<unknown>; invalidateLive: boolean }) =>
-				action(),
+			mutationFn: ({
+				action
+			}: {
+				action: () => Promise<unknown>;
+				invalidateLive: boolean;
+				waitForRefresh?: boolean;
+			}) => action(),
 			onSuccess: async (_result, variables) => {
 				if (!variables.invalidateLive) return;
+				if (variables.waitForRefresh === false) {
+					void queryClient
+						.invalidateQueries({ queryKey: scopedLiveQueryKey }, { cancelRefetch: false })
+						.catch(() => undefined);
+					invalidatePublicData();
+					return;
+				}
 				await queryClient.invalidateQueries(
 					{ queryKey: scopedLiveQueryKey },
 					{ cancelRefetch: false }
@@ -81,7 +93,8 @@
 	let live = new LiveController(
 		(message) => toast.error(message),
 		queryClient,
-		(action, invalidateLive) => liveCommandMutation.mutateAsync({ action, invalidateLive }),
+		(action, invalidateLive, waitForRefresh) =>
+			liveCommandMutation.mutateAsync({ action, invalidateLive, waitForRefresh }),
 		scopedLiveQueryKey
 	);
 	let session = $derived(liveSnapshot.session);

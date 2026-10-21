@@ -21,6 +21,7 @@ async function mockLiveBackend(
 ) {
 	let closed = false;
 	let feeConfirmed = false;
+	let feeConfirmCount = 0;
 	let paidWriteCount = 0;
 	let startMatchBody: Record<string, unknown> | null = null;
 	let saveRecommendationBody: Record<string, unknown> | null = null;
@@ -238,6 +239,7 @@ async function mockLiveBackend(
 		}
 		if (path.endsWith('/rpc/suggest_session_fee')) return route.fulfill({ json: 15000 });
 		if (path.endsWith('/rpc/confirm_session_fee')) {
+			feeConfirmCount += 1;
 			feeConfirmed = true;
 			return route.fulfill({ json: 2 });
 		}
@@ -350,6 +352,7 @@ async function mockLiveBackend(
 	}
 	return {
 		getPaidWriteCount: () => paidWriteCount,
+		getFeeConfirmCount: () => feeConfirmCount,
 		getStartMatchBody: () => startMatchBody,
 		getSaveRecommendationBody: () => saveRecommendationBody,
 		getSavePairingBody: () => savePairingBody,
@@ -476,7 +479,14 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await expect(page.getByRole('heading', { name: 'Rekap sesi belum dikonfirmasi' })).toBeVisible();
 	await page.getByRole('link', { name: 'Lanjutkan rekap' }).click();
 	await expect(page.getByRole('link', { name: 'Konfirmasi rekap' })).toBeVisible();
+	await expect(page.getByText('Jumlah pemain').locator('..')).toContainText('2');
+	await expect(page.getByText('Iuran per orang').last().locator('..')).toContainText('Rp15.000');
+	await expect(page.getByText('Total tagihan yang akan dibuat').locator('..')).toContainText(
+		'Rp30.000'
+	);
+	expect(backend.getFeeConfirmCount()).toBe(0);
 	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
+	await expect.poll(() => backend.getFeeConfirmCount()).toBe(1);
 	await expect(page.getByRole('heading', { name: 'Checklist pembayaran' })).toBeVisible();
 	await expect(page.getByText('Ayu')).toBeVisible();
 	const firstPaidToggle = page.getByRole('checkbox').first();
@@ -536,6 +546,34 @@ test('failed score save keeps the operator input available for retry', async ({ 
 	await expect(page.getByLabel('Skor Tim B')).toHaveValue('17');
 });
 
+test('score save gives delayed feedback and blocks duplicate submission until server confirmation', async ({
+	page
+}) => {
+	await mockLiveBackend(page, true);
+	let releaseSave!: () => void;
+	let requests = 0;
+	const saveGate = new Promise<void>((resolve) => (releaseSave = resolve));
+	await page.route('**/api/live/complete-set', async (route) => {
+		requests += 1;
+		await saveGate;
+		await route.fulfill({ json: { result: 'SET_2' } });
+	});
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByLabel('Skor Tim A').fill('21');
+	await page.getByLabel('Skor Tim B').fill('17');
+	await page.getByRole('button', { name: 'Selesaikan Set 1' }).click();
+	const saveButton = page.getByRole('button', { name: 'Menyimpan skor…' });
+	await expect(saveButton).toBeDisabled();
+	await expect(
+		page.getByRole('status').filter({ hasText: 'Menunggu konfirmasi server' })
+	).toBeVisible();
+	await expect(page.getByText('Penyimpanan masih berlangsung')).toBeVisible({ timeout: 5000 });
+	await expect(page.getByRole('status').filter({ hasText: 'dikonfirmasi server' })).toHaveCount(0);
+	releaseSave();
+	await expect(page.getByRole('status').filter({ hasText: 'dikonfirmasi server' })).toBeVisible();
+	expect(requests).toBe(1);
+});
+
 test('substitution remains on its confirmation step when save fails', async ({ page }) => {
 	await mockLiveBackend(page, true, false, true);
 	await page.goto('/clubs/club-e2e/live');
@@ -560,7 +598,7 @@ test('admin accepts the current four-player recommendation and continues to manu
 
 	const sheet = page.locator('.sve-sheet.court-sheet').last();
 	await expect(sheet.getByRole('region', { name: 'Rekomendasi pemain Algorithm 1' })).toBeVisible();
-	await expect(sheet.getByText('SHOULD PLAY', { exact: true }).first()).toBeVisible();
+	await expect(sheet.getByText('Prioritas tinggi', { exact: true }).first()).toBeVisible();
 	const recommendation = backend.getSaveRecommendationBody()!;
 	const recommendedIds = recommendation.p_recommended_player_ids as string[];
 	await sheet.getByRole('button', { name: 'Lanjutkan dengan rekomendasi' }).click();

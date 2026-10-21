@@ -135,12 +135,16 @@
 							onmouseenter={() => void prefetchPublicSession(session.id)}
 							onfocus={() => void prefetchPublicSession(session.id)}
 							><span
-								><b class="block text-xl tracking-[-0.03em]">{date(session.started_at)}</b><span
-									class="mt-1 block text-sm text-[#527169]"
-									>{session.attendance} pemain · {duration(
-										session.started_at,
-										session.closed_at
-									)}</span
+								><b class="block text-xl tracking-[-0.03em]">{date(session.started_at)}</b
+								>{#if session.attendance === 0}<span
+										class="mt-1 block text-sm font-bold text-[#38675b]"
+										>Sesi kosong · tidak ada pemain hadir</span
+									>{:else}<span class="mt-1 block text-sm text-[#527169]"
+										>{session.attendance} pemain · {duration(
+											session.started_at,
+											session.closed_at
+										)}</span
+									>{/if}
 								></span
 							><ArrowRight
 								class="text-[#38675b] transition-transform group-hover:translate-x-1"
