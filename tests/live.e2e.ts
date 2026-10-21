@@ -15,7 +15,9 @@ async function mockLiveBackend(
 	withRoster = false,
 	readyCount = 0,
 	failRecommendation = false,
-	failPairingAudit = false
+	failPairingAudit = false,
+	delayAdminAccess = false,
+	authenticated = true
 ) {
 	let closed = false;
 	let feeConfirmed = false;
@@ -163,7 +165,8 @@ async function mockLiveBackend(
 		if (path.endsWith('/public_fund_summary'))
 			return route.fulfill({ json: [{ received: 0, expenses: 0, balance: 0 }] });
 		if (path.endsWith('/rpc/public_fund_activity')) return route.fulfill({ json: [] });
-		if (path.endsWith('/rpc/my_club'))
+		if (path.endsWith('/rpc/my_club')) {
+			if (delayAdminAccess) await new Promise((resolve) => setTimeout(resolve, 600));
 			return route.fulfill({
 				json: [
 					{
@@ -174,6 +177,7 @@ async function mockLiveBackend(
 					}
 				]
 			});
+		}
 		if (path.endsWith('/rpc/club_roster'))
 			return route.fulfill({
 				json: withRoster
@@ -281,6 +285,26 @@ async function mockLiveBackend(
 		}
 		return route.fulfill({ json: [] });
 	});
+	await page.route('**/auth/v1/token?grant_type=password', (route) =>
+		route.fulfill({
+			json: {
+				access_token: 'e2e-access-token',
+				token_type: 'bearer',
+				expires_in: 3600,
+				expires_at: Math.floor(Date.now() / 1000) + 3600,
+				refresh_token: 'e2e-refresh-token',
+				user: {
+					id: 'admin-e2e',
+					aud: 'authenticated',
+					role: 'authenticated',
+					email: 'admin@example.com',
+					app_metadata: {},
+					user_metadata: {},
+					created_at: '2026-10-01T00:00:00Z'
+				}
+			}
+		})
+	);
 	await page.route('**/auth/v1/user', (route) =>
 		route.fulfill({
 			json: {
@@ -301,27 +325,29 @@ async function mockLiveBackend(
 				: { json: { result: 'SET_2' } }
 		)
 	);
-	await page.addInitScript(() => {
-		localStorage.setItem(
-			'sb-courtside-e2e-auth-token',
-			JSON.stringify({
-				access_token: 'e2e-access-token',
-				token_type: 'bearer',
-				expires_in: 3600,
-				expires_at: Math.floor(Date.now() / 1000) + 3600,
-				refresh_token: 'e2e-refresh-token',
-				user: {
-					id: 'admin-e2e',
-					aud: 'authenticated',
-					role: 'authenticated',
-					email: 'admin@example.com',
-					app_metadata: {},
-					user_metadata: {},
-					created_at: '2026-10-01T00:00:00Z'
-				}
-			})
-		);
-	});
+	if (authenticated) {
+		await page.addInitScript(() => {
+			localStorage.setItem(
+				'sb-courtside-e2e-auth-token',
+				JSON.stringify({
+					access_token: 'e2e-access-token',
+					token_type: 'bearer',
+					expires_in: 3600,
+					expires_at: Math.floor(Date.now() / 1000) + 3600,
+					refresh_token: 'e2e-refresh-token',
+					user: {
+						id: 'admin-e2e',
+						aud: 'authenticated',
+						role: 'authenticated',
+						email: 'admin@example.com',
+						app_metadata: {},
+						user_metadata: {},
+						created_at: '2026-10-01T00:00:00Z'
+					}
+				})
+			);
+		});
+	}
 	return {
 		getPaidWriteCount: () => paidWriteCount,
 		getStartMatchBody: () => startMatchBody,
@@ -330,6 +356,20 @@ async function mockLiveBackend(
 		setPublicRatingValue: (value: number) => (publicRatingValue = value)
 	};
 }
+
+test('keeps the admin access check visible after sign-in while permissions load', async ({
+	page
+}) => {
+	await mockLiveBackend(page, false, false, false, false, 0, false, false, true, false);
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByRole('button', { name: 'Masuk sebagai admin', exact: true }).click();
+	await page.getByLabel('Email').fill('admin@example.com');
+	await page.getByLabel('Kata sandi').fill('password123');
+	await page.getByRole('button', { name: 'Masuk', exact: true }).click();
+
+	await expect(page.getByRole('status').filter({ hasText: 'Memeriksa akses klub' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Masuk sebagai admin' })).toHaveCount(0);
+});
 
 test('public visitor can open the read-only live view', async ({ page }) => {
 	await page.route('**/rest/v1/**', (route) =>
