@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AuthFrame from '$lib/components/ui/AuthFrame.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -144,164 +145,161 @@
 		content="noindex"
 	/></svelte:head
 >
-<main class="mx-auto min-h-dvh max-w-lg px-5 py-8 text-[#163630]">
-	<a href={resolve('/')} class="inline-flex min-h-11 items-center font-black">← Courtside</a>
-	<section class="mt-10 border-y border-[#b9c5bb] py-8">
-		{#if loading}
-			<div
-				class="grid gap-4 py-2"
-				role="status"
-				aria-busy="true"
-				aria-label="Memeriksa akun dan klub"
+<AuthFrame>
+	{#if loading}
+		<div
+			class="grid gap-4 py-2"
+			role="status"
+			aria-busy="true"
+			aria-label="Memeriksa akun dan klub"
+		>
+			<div class="max-w-xs"><LoadingSkeleton height="1.5rem" /></div>
+			<div class="max-w-md"><LoadingSkeleton height="2.5rem" /></div>
+			<div class="max-w-sm"><LoadingSkeleton height="1rem" /></div>
+			<div class="mt-2"><LoadingSkeleton height="4.5rem" /></div>
+		</div>
+	{:else if accountLoadFailed}
+		<div role="alert">
+			<h1 class="text-2xl font-bold tracking-tight">Klub belum bisa dimuat.</h1>
+			<p class="mt-3 text-sm leading-6 text-[#527169]">
+				{error || 'Daftar klub belum berhasil dibaca. Coba periksa lagi.'}
+			</p>
+			<AppButton class="mt-5" onclick={() => void loadAccount()} disabled={pending}
+				>Coba lagi</AppButton
 			>
-				<div class="max-w-xs"><LoadingSkeleton height="1.5rem" /></div>
-				<div class="max-w-md"><LoadingSkeleton height="2.5rem" /></div>
-				<div class="max-w-sm"><LoadingSkeleton height="1rem" /></div>
-				<div class="mt-2"><LoadingSkeleton height="4.5rem" /></div>
-			</div>
-		{:else if accountLoadFailed}
-			<div role="alert">
-				<h1 class="text-2xl font-black tracking-tight">Klub belum bisa dimuat.</h1>
-				<p class="mt-3 text-sm leading-6 text-[#527169]">
-					{error || 'Daftar klub belum berhasil dibaca. Coba periksa lagi.'}
-				</p>
-				<AppButton class="mt-5" onclick={() => void loadAccount()} disabled={pending}
-					>Coba lagi</AppButton
-				>
-			</div>
-		{:else if userEmail}
-			<p class="text-xs font-black tracking-widest text-[#527169]">AKUN ADMIN</p>
-			<h1 class="mt-3 text-4xl font-black tracking-tight">
-				{clubs.length ? 'Klub saya.' : 'Buat klubmu.'}
-			</h1>
-			<p class="mt-3 text-sm break-all text-[#527169]">{userEmail}</p>
-			{#if clubs.length}
-				{#each clubs as club (club.id)}<a
-						class="mt-6 flex min-h-16 items-center justify-between border border-[#b9c5bb] bg-[#fffaf0] p-4 font-black"
-						href={resolve('/clubs/[clubId]/live', { clubId: club.id })}
-						>{club.name}<span aria-hidden="true">→</span></a
-					>{/each}
-			{:else}
-				<p class="mt-5 text-sm leading-6">
-					Kamu menjadi admin klub ini. Anggota bisa melihat sesi melalui tautan klub tanpa membuat
-					akun.
-				</p>
-				<form
-					class="mt-6"
-					onsubmit={(event) => {
-						event.preventDefault();
-						void createClub();
-					}}
-				>
-					<label class="block font-bold" for="club-name">Nama klub</label><input
-						id="club-name"
-						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-						bind:value={clubName}
-						required
-						minlength="2"
-						maxlength="80"
-						placeholder="Contoh: Klub Sabtu"
-						disabled={pending}
-					/>
-					<AppButton
-						type="submit"
-						class="mt-5 w-full justify-center"
-						disabled={pending || clubName.trim().length < 2}
-						>{pending ? 'Membuat klub…' : 'Buat klub'}</AppButton
-					>
-				</form>
-			{/if}
-			<AppButton class="mt-6" variant="ghost" onclick={signOut} disabled={pending}
-				>Keluar dari akun</AppButton
-			>
+		</div>
+	{:else if userEmail}
+		<p class="text-xs font-bold tracking-widest text-[#527169]">AKUN ADMIN</p>
+		<h1 class="mt-3 text-4xl font-bold tracking-tight">
+			{clubs.length ? 'Klub saya.' : 'Buat klubmu.'}
+		</h1>
+		<p class="mt-3 text-sm break-all text-[#527169]">{userEmail}</p>
+		{#if clubs.length}
+			{#each clubs as club (club.id)}<a
+					class="mt-6 flex min-h-16 items-center justify-between border border-[#d6ddd3] bg-[#fffaf0] p-4 font-bold"
+					href={resolve('/clubs/[clubId]/live', { clubId: club.id })}
+					>{club.name}<span aria-hidden="true">→</span></a
+				>{/each}
 		{:else}
-			<p class="text-xs font-black tracking-widest text-[#527169]">MULAI DARI KLUB KAMU</p>
-			<h1 class="mt-3 text-4xl font-black tracking-tight">
-				{recovery ? 'Pulihkan akun.' : signup ? 'Buat akun admin.' : 'Selamat datang lagi.'}
-			</h1>
-			<p class="mt-4 text-sm leading-6 text-[#527169]">
-				{recovery
-					? 'Kami akan mengirim tautan untuk membuat kata sandi baru.'
-					: signup
-						? 'Buat akun, beri nama klub, lalu siapkan sesi pertama.'
-						: 'Masuk untuk membuka klub yang kamu kelola.'}
+			<p class="mt-5 text-sm leading-6">
+				Kamu menjadi admin klub ini. Anggota bisa melihat sesi melalui tautan klub tanpa membuat
+				akun.
 			</p>
 			<form
 				class="mt-6"
 				onsubmit={(event) => {
 					event.preventDefault();
-					void authenticate();
+					void createClub();
 				}}
 			>
-				<label class="block font-bold" for="email">Email</label><input
-					id="email"
-					type="email"
-					autocomplete="email"
-					class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-					bind:value={email}
+				<label class="block font-bold" for="club-name">Nama klub</label><input
+					id="club-name"
+					class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
+					bind:value={clubName}
+					required
+					minlength="2"
+					maxlength="80"
+					placeholder="Contoh: Klub Sabtu"
+					disabled={pending}
+				/>
+				<AppButton
+					type="submit"
+					class="mt-5 w-full justify-center"
+					disabled={pending || clubName.trim().length < 2}
+					>{pending ? 'Membuat klub…' : 'Buat klub'}</AppButton
+				>
+			</form>
+		{/if}
+		<AppButton class="mt-6" variant="ghost" onclick={signOut} disabled={pending}
+			>Keluar dari akun</AppButton
+		>
+	{:else}
+		<p class="text-xs font-bold tracking-widest text-[#527169]">MULAI DARI KLUB KAMU</p>
+		<h1 class="mt-3 text-4xl font-bold tracking-tight">
+			{recovery ? 'Pulihkan akun.' : signup ? 'Buat akun admin.' : 'Selamat datang lagi.'}
+		</h1>
+		<p class="mt-4 text-sm leading-6 text-[#527169]">
+			{recovery
+				? 'Kami akan mengirim tautan untuk membuat kata sandi baru.'
+				: signup
+					? 'Buat akun, beri nama klub, lalu siapkan sesi pertama.'
+					: 'Masuk untuk membuka klub yang kamu kelola.'}
+		</p>
+		<form
+			class="mt-6"
+			onsubmit={(event) => {
+				event.preventDefault();
+				void authenticate();
+			}}
+		>
+			<label class="block font-bold" for="email">Email</label><input
+				id="email"
+				type="email"
+				autocomplete="email"
+				class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
+				bind:value={email}
+				required
+				disabled={pending}
+			/>
+			{#if !recovery}<label class="mt-5 block font-bold" for="password">Kata sandi</label><input
+					id="password"
+					type="password"
+					autocomplete={signup ? 'new-password' : 'current-password'}
+					minlength={signup ? 8 : undefined}
+					class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
+					bind:value={password}
 					required
 					disabled={pending}
 				/>
-				{#if !recovery}<label class="mt-5 block font-bold" for="password">Kata sandi</label><input
-						id="password"
-						type="password"
-						autocomplete={signup ? 'new-password' : 'current-password'}
-						minlength={signup ? 8 : undefined}
-						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-						bind:value={password}
-						required
-						disabled={pending}
-					/>
-					{#if signup}<p class="mt-2 text-xs text-[#527169]">
-							Minimal 8 karakter. Konfirmasi email mungkin diperlukan.
-						</p>{/if}{/if}
-				<AppButton type="submit" class="mt-6 w-full justify-center" disabled={pending}
-					>{pending
-						? 'Memproses…'
-						: recovery
-							? 'Kirim tautan pemulihan'
-							: signup
-								? 'Buat akun'
-								: 'Masuk'}</AppButton
-				>
-			</form>
-			<button
-				class="mt-4 min-h-11 text-sm font-bold underline"
+				{#if signup}<p class="mt-2 text-xs text-[#527169]">
+						Minimal 8 karakter. Konfirmasi email mungkin diperlukan.
+					</p>{/if}{/if}
+			<AppButton type="submit" class="mt-6 w-full justify-center" disabled={pending}
+				>{pending
+					? 'Memproses…'
+					: recovery
+						? 'Kirim tautan pemulihan'
+						: signup
+							? 'Buat akun'
+							: 'Masuk'}</AppButton
+			>
+		</form>
+		<button
+			class="mt-4 min-h-11 rounded-md text-sm font-bold underline"
+			disabled={pending}
+			onclick={() => {
+				if (recovery) recovery = false;
+				else signup = !signup;
+				error = '';
+				notice = '';
+			}}
+			>{recovery
+				? 'Kembali ke masuk'
+				: signup
+					? 'Sudah punya akun? Masuk'
+					: 'Belum punya akun? Buat akun'}</button
+		>
+		{#if !signup && !recovery}<button
+				class="ml-4 min-h-11 rounded-md text-sm font-bold underline"
 				disabled={pending}
 				onclick={() => {
-					if (recovery) recovery = false;
-					else signup = !signup;
+					recovery = true;
 					error = '';
 					notice = '';
-				}}
-				>{recovery
-					? 'Kembali ke masuk'
-					: signup
-						? 'Sudah punya akun? Masuk'
-						: 'Belum punya akun? Buat akun'}</button
-			>
-			{#if !signup && !recovery}<button
-					class="ml-4 min-h-11 text-sm font-bold underline"
-					disabled={pending}
-					onclick={() => {
-						recovery = true;
-						error = '';
-						notice = '';
-						password = '';
-					}}>Lupa kata sandi?</button
-				>{/if}
-			<p class="mt-6 border-t border-[#b9c5bb] pt-5 text-sm leading-6 text-[#527169]">
-				Hanya ingin melihat sesi? Buka tautan klub yang dibagikan admin.
-			</p>
-		{/if}
-		{#if error && !accountLoadFailed}<p
-				role="alert"
-				class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm"
-			>
-				{error}
-			</p>{/if}
-		{#if notice}<p role="status" class="mt-5 border-l-4 border-[#38675b] bg-[#e5ece5] p-4 text-sm">
-				{notice}
-			</p>{/if}
-	</section>
-</main>
+					password = '';
+				}}>Lupa kata sandi?</button
+			>{/if}
+		<p class="mt-6 border-t border-[#d6ddd3] pt-5 text-sm leading-6 text-[#527169]">
+			Hanya ingin melihat sesi? Buka tautan klub yang dibagikan admin.
+		</p>
+	{/if}
+	{#if error && !accountLoadFailed}<p
+			role="alert"
+			class="mt-5 rounded-md border border-[#e7b8aa] bg-[#fff1ec] p-4 text-sm"
+		>
+			{error}
+		</p>{/if}
+	{#if notice}<p role="status" class="mt-5 border-l-4 border-[#38675b] bg-[#e5ece5] p-4 text-sm">
+			{notice}
+		</p>{/if}
+</AuthFrame>

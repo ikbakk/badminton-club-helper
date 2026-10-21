@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AuthFrame from '$lib/components/ui/AuthFrame.svelte';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
@@ -75,56 +76,56 @@
 		content="no-referrer"
 	/></svelte:head
 >
-<main class="mx-auto min-h-dvh max-w-lg px-5 py-8 text-[#163630]">
-	<a href={resolve('/')} class="inline-flex min-h-11 items-center font-black">← Courtside</a>
-	<section class="mt-10 border-y border-[#b9c5bb] py-8">
-		<h1 class="text-4xl font-black tracking-tight">Kata sandi baru.</h1>
-		{#if checking}<p role="status" class="mt-5">Memeriksa tautan…</p>
-		{:else if authorized}
-			{#if saved}<p role="status" class="mt-5">Kata sandi tersimpan.</p>{/if}
-			<form
-				class="mt-6"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void save();
-				}}
-			>
-				{#if !saved}
-					<label class="block font-bold" for="new-password">Kata sandi baru</label>
-					<input
-						id="new-password"
-						type="password"
-						autocomplete="new-password"
-						required
-						minlength="8"
-						bind:value={password}
-						disabled={pending}
-						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-					/>
-					<p class="mt-2 text-xs text-[#527169]">Minimal 8 karakter.</p>
-					<label class="mt-5 block font-bold" for="confirm-password">Ulangi kata sandi</label>
-					<input
-						id="confirm-password"
-						type="password"
-						autocomplete="new-password"
-						required
-						minlength="8"
-						bind:value={confirmation}
-						disabled={pending}
-						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-					/>
-				{/if}
-				<AppButton type="submit" disabled={pending} class="mt-6 w-full justify-center"
-					>{pending ? 'Memproses…' : saved ? 'Lanjutkan ke masuk' : 'Simpan kata sandi'}</AppButton
-				>
-			</form>
-		{/if}
-		{#if error}<p role="alert" class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm">
-				{error}
-			</p>{/if}
-		<a
-			href={resolve('/start')}
-			class="mt-5 inline-flex min-h-11 items-center text-sm font-bold underline">Kembali ke masuk</a
+<AuthFrame>
+	<h1 class="text-4xl font-bold tracking-tight">Kata sandi baru.</h1>
+	{#if checking}<p role="status" class="mt-5">Memeriksa tautan…</p>
+	{:else if authorized}
+		{#if saved}<p role="status" class="mt-5">Kata sandi tersimpan.</p>{/if}
+		<form
+			class="mt-6"
+			onsubmit={(event) => {
+				event.preventDefault();
+				void save();
+			}}
 		>
-	</section>
-</main>
+			{#if !saved}
+				<label class="block font-bold" for="new-password">Kata sandi baru</label>
+				<input
+					id="new-password"
+					type="password"
+					autocomplete="new-password"
+					required
+					minlength="8"
+					bind:value={password}
+					disabled={pending}
+					class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
+				/>
+				<p class="mt-2 text-xs text-[#527169]">Minimal 8 karakter.</p>
+				<label class="mt-5 block font-bold" for="confirm-password">Ulangi kata sandi</label>
+				<input
+					id="confirm-password"
+					type="password"
+					autocomplete="new-password"
+					required
+					minlength="8"
+					bind:value={confirmation}
+					disabled={pending}
+					class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
+				/>
+			{/if}
+			<AppButton type="submit" disabled={pending} class="mt-6 w-full justify-center"
+				>{pending ? 'Memproses…' : saved ? 'Lanjutkan ke masuk' : 'Simpan kata sandi'}</AppButton
+			>
+		</form>
+	{/if}
+	{#if error}<p
+			role="alert"
+			class="mt-5 rounded-md border border-[#e7b8aa] bg-[#fff1ec] p-4 text-sm"
+		>
+			{error}
+		</p>{/if}
+	<a
+		href={resolve('/start')}
+		class="mt-5 inline-flex min-h-11 items-center text-sm font-bold underline">Kembali ke masuk</a
+	>
+</AuthFrame>

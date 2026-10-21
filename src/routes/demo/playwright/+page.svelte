@@ -1,1 +1,5 @@
-<h1>Playwright e2e test demo</h1>
+<script lang="ts">
+	import DemoSession from '$lib/components/landing/DemoSession.svelte';
+</script>
+
+<DemoSession />

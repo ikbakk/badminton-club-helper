@@ -39,7 +39,7 @@
 					>
 						<span class="relative grid size-6 shrink-0 place-items-center">
 							<input
-								class="peer absolute inset-0 z-10 m-0 size-full cursor-pointer appearance-none border-2 border-[#9aada3] bg-transparent checked:border-[#163630] checked:bg-[#163630] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e2653e]"
+								class="peer absolute inset-0 z-10 m-0 size-full cursor-pointer appearance-none rounded-md border-2 border-[#9aada3] bg-transparent checked:border-[#163630] checked:bg-[#163630] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e2653e]"
 								type="checkbox"
 								checked={selected.includes(option.value)}
 								disabled={option.disabled ||

@@ -270,30 +270,30 @@
 	/>
 	<a
 		href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
-		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+		class="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#38675b]"
 		><ArrowLeft size={18} />Kembali ke Live</a
 	>
 	{#if loading}
-		<section class="mt-6 border-y border-[#b9c5bb] py-6" role="status" aria-busy="true">
+		<section class="mt-6 border-y border-[#d6ddd3] py-6" role="status" aria-busy="true">
 			<p class="text-sm font-bold text-[#527169]">Memuat rekap malam ini…</p>
 			<div class="mt-3 h-3 animate-pulse bg-[#d9e2da]"></div>
 		</section>
 	{:else if !session}
-		<section class="mt-6 border-y border-[#b9c5bb] py-6">
-			<h1 class="text-3xl font-black tracking-[-0.05em]">Sesi tidak ditemukan</h1>
+		<section class="mt-6 border-y border-[#d6ddd3] py-6">
+			<h1 class="text-3xl font-bold tracking-[-0.035em]">Sesi tidak ditemukan</h1>
 			<p class="mt-3 text-sm leading-6 text-[#527169]">
 				Sesi mungkin belum ditutup atau sudah dihapus.
 			</p>
 		</section>
 	{:else}
 		<header
-			class="mt-6 border-y border-[#163630] bg-[#163630] px-5 py-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.16)]"
+			class="mt-6 rounded-[10px] border border-[#163630] bg-[#163630] px-5 py-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.16)]"
 		>
 			<div class="flex flex-wrap items-start justify-between gap-3">
-				<h1 class="text-3xl font-black tracking-[-0.05em]">Rekap sesi selesai</h1>
+				<h1 class="text-3xl font-bold tracking-[-0.035em]">Rekap sesi selesai</h1>
 				{#if isAdmin}
 					<a
-						class="inline-flex min-h-11 items-center bg-[#e2653e] px-4 text-sm font-black text-[#fffaf0]"
+						class="court-button court-button--primary"
 						href={resolve('/clubs/[clubId]/session-close/[id]/confirm', {
 							clubId: selectedClubId(),
 							id: params.id
@@ -316,9 +316,9 @@
 		</header>
 
 		{#if !isAdmin}
-			<section class="mt-7 border-y border-[#b9c5bb]">
-				<div class="grid grid-cols-2 border-b border-[#b9c5bb] bg-[#e5ece5] sm:grid-cols-3">
-					<p class="border-r border-[#b9c5bb] p-4 text-sm">
+			<section class="mt-7 border-y border-[#d6ddd3]">
+				<div class="grid grid-cols-2 border-b border-[#d6ddd3] bg-[#e5ece5] sm:grid-cols-3">
+					<p class="border-r border-[#d6ddd3] p-4 text-sm">
 						<span class="block text-[#527169]">Pemain hadir</span><b
 							class="mt-1 block text-2xl tabular-nums">{session.attendance}</b
 						>
@@ -329,7 +329,7 @@
 						>
 					</p>
 					<p
-						class="col-span-2 border-t border-[#b9c5bb] p-4 text-sm sm:col-span-1 sm:border-t-0 sm:border-l"
+						class="col-span-2 border-t border-[#d6ddd3] p-4 text-sm sm:col-span-1 sm:border-t-0 sm:border-l"
 					>
 						<span class="block text-[#527169]">Iuran sesi</span><b
 							class="mt-1 block text-xl tabular-nums"
@@ -340,12 +340,12 @@
 					</p>
 				</div>
 				<div class="px-5 py-5">
-					<h2 class="text-xl font-black">Malam ini sudah tercatat.</h2>
+					<h2 class="text-xl font-bold">Malam ini sudah tercatat.</h2>
 					<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
 						Riwayat pertandingan dan kehadiran tersedia untuk semua member setelah sesi ditutup.
 					</p>
 					<a
-						class="mt-5 inline-flex min-h-11 items-center gap-2 font-black text-[#38675b]"
+						class="mt-5 inline-flex min-h-11 items-center gap-2 font-bold text-[#38675b]"
 						href={resolve('/clubs/[clubId]/history/[id]', {
 							clubId: selectedClubId(),
 							id: params.id
@@ -354,8 +354,8 @@
 				</div>
 			</section>
 		{:else}
-			<section class="mt-6 border-b border-[#b9c5bb] pb-6">
-				<h2 class="text-2xl font-black tracking-[-0.04em]">Tetapkan iuran per orang</h2>
+			<section class="mt-6 border-b border-[#d6ddd3] pb-6">
+				<h2 class="text-2xl font-bold tracking-[-0.04em]">Tetapkan iuran per orang</h2>
 				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
 					Konfirmasi iuran membuat tagihan sesi untuk setiap pemain yang hadir. Nilai ini akan masuk
 					ke riwayat.
@@ -370,12 +370,12 @@
 					>
 						<label class="block text-sm font-bold" for="session-fee">Iuran per orang</label>
 						<div class="mt-2 flex items-stretch gap-3">
-							<span class="flex items-center border border-[#b9c5bb] bg-[#e5ece5] px-4 font-black"
+							<span class="flex items-center border border-[#d6ddd3] bg-[#e5ece5] px-4 font-bold"
 								>Rp</span
 							>
 							<input
 								id="session-fee"
-								class="min-h-14 min-w-0 flex-1 border border-[#163630] bg-[#fffaf0] px-4 text-xl font-black tabular-nums"
+								class="min-h-14 min-w-0 flex-1 rounded-md border border-[#163630] bg-[#fffaf0] px-4 text-xl font-bold tabular-nums"
 								inputmode="numeric"
 								required
 								min="1"
@@ -391,7 +391,7 @@
 						</div>
 					</form>
 				{:else}
-					<p class="mt-4 text-3xl font-black tabular-nums">
+					<p class="mt-4 text-3xl font-bold tabular-nums">
 						{money(session.fee_per_person)} <span class="text-base">/ orang</span>
 					</p>
 					<p class="mt-1 text-sm text-[#527169]">
@@ -403,24 +403,24 @@
 			{#if session.fee_per_person !== null}
 				<section class="mt-6">
 					<div
-						class="flex flex-wrap items-end justify-between gap-3 border-b border-[#b9c5bb] pb-4"
+						class="flex flex-wrap items-end justify-between gap-3 border-b border-[#d6ddd3] pb-4"
 					>
 						<div>
-							<h2 class="text-2xl font-black tracking-[-0.04em]">Checklist pembayaran</h2>
+							<h2 class="text-2xl font-bold tracking-[-0.04em]">Checklist pembayaran</h2>
 							<p class="mt-1 text-sm text-[#527169]">Centang pemain yang sudah membayar.</p>
 						</div>
-						<p class="text-sm font-black tabular-nums">
+						<p class="text-sm font-bold tabular-nums">
 							{paidCount}/{attendees.length} lunas
 						</p>
 					</div>
 					{#if attendees.length}
-						<ul class="divide-y divide-[#b9c5bb] border-b border-[#b9c5bb]">
+						<ul class="divide-y divide-[#b9c5bb] border-b border-[#d6ddd3]">
 							{#each attendees as person (person.player_id)}
 								<li>
 									<label class="flex min-h-16 cursor-pointer items-center gap-4 py-3">
 										<input
 											type="checkbox"
-											class="size-6 accent-[#163630]"
+											class="size-6 rounded-md accent-[#163630]"
 											checked={isPaid(person)}
 											disabled={continuing}
 											onchange={(event) => queuePaidChange(person, event.currentTarget.checked)}
@@ -431,7 +431,7 @@
 										</span>
 										<span
 											class={isPaid(person)
-												? 'text-sm font-black text-[#38675b]'
+												? 'text-sm font-bold text-[#38675b]'
 												: 'text-sm font-bold text-[#9a3d25]'}
 										>
 											{savingPlayers[person.player_id]
@@ -447,7 +447,7 @@
 							{/each}
 						</ul>
 					{:else}
-						<p class="border-b border-[#b9c5bb] py-5 text-sm text-[#527169]">
+						<p class="border-b border-[#d6ddd3] py-5 text-sm text-[#527169]">
 							Belum ada pemain hadir pada sesi ini.
 						</p>
 					{/if}
@@ -457,7 +457,7 @@
 	{/if}
 
 	{#if notice}
-		<p class="mt-5 border border-[#b9c5bb] bg-[#e5ece5] p-4 text-sm font-bold" role="status">
+		<p class="mt-5 border border-[#d6ddd3] bg-[#e5ece5] p-4 text-sm font-bold" role="status">
 			{notice}
 		</p>
 	{/if}

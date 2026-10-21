@@ -193,33 +193,35 @@
 		fetching={fundQuery.isFetching}
 	/>
 	{#if loading}<section
-			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0]"
+			class="rounded-[10px] border border-[#163630] bg-[#163630] p-6 text-[#fffaf0]"
 			role="status"
 			aria-busy="true"
 			aria-label="Membuka kas klub"
 		>
-			<h1 class="text-2xl font-black tracking-[-0.04em]">Kas klub</h1>
+			<h1 class="text-2xl font-bold tracking-[-0.04em]">Kas klub</h1>
 			<div class="mt-6 w-2/5"><LoadingSkeleton height="2.5rem" /></div>
 		</section>
 	{:else if fundQuery.data}<section
-			class="border-y border-[#163630] bg-[#163630] p-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)]"
+			class="rounded-[10px] border border-[#163630] bg-[#163630] p-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)]"
 		>
-			<h1 class="text-2xl font-black tracking-[-0.04em]">Kas klub</h1>
+			<h1 class="text-2xl font-bold tracking-[-0.04em]">Kas klub</h1>
 			<p class="mt-6 text-sm font-bold text-[#a7c5b9]">
 				Sisa kas dari iuran sesi dan pengeluaran klub
 			</p>
-			<p class="mt-1 text-5xl font-black tracking-[-0.065em] tabular-nums">
+			<p class="mt-1 text-5xl font-bold tracking-[-0.035em] tabular-nums">
 				{money(summary?.balance ?? 0)}
 			</p>
 		</section>
-		{#if paymentDestinations}<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-5">
-				<h2 class="text-xl font-black">Tujuan pembayaran iuran</h2>
+		{#if paymentDestinations}<section
+				class="court-panel mt-5 border border-[#d6ddd3] bg-[#fffaf0] p-5"
+			>
+				<h2 class="text-xl font-bold">Tujuan pembayaran iuran</h2>
 				<p class="mt-1 text-sm leading-6 text-[#527169]">
 					Gunakan tujuan berikut untuk pembayaran manual. Pembayaran dianggap lunas setelah
 					dikonfirmasi admin klub.
 				</p>
 				{#if paymentDestinations.bank_account_number}<div
-						class="mt-4 border-t border-[#b9c5bb] pt-4"
+						class="mt-4 border-t border-[#d6ddd3] pt-4"
 					>
 						<b class="block"
 							>Transfer bank{paymentDestinations.bank_name
@@ -231,17 +233,17 @@
 								>Atas nama {paymentDestinations.bank_account_name}</span
 							>{/if}
 					</div>{/if}
-				{#if paymentDestinations.shopeepay_number}<div class="mt-4 border-t border-[#b9c5bb] pt-4">
+				{#if paymentDestinations.shopeepay_number}<div class="mt-4 border-t border-[#d6ddd3] pt-4">
 						<b class="block">ShopeePay</b>
 						<span class="mt-1 block text-sm">{paymentDestinations.shopeepay_number}</span>
 						{#if paymentDestinations.shopeepay_name}<span class="text-sm text-[#527169]"
 								>Atas nama {paymentDestinations.shopeepay_name}</span
 							>{/if}
 					</div>{/if}
-				{#if paymentDestinations.qris_image_url}<div class="mt-4 border-t border-[#b9c5bb] pt-4">
+				{#if paymentDestinations.qris_image_url}<div class="mt-4 border-t border-[#d6ddd3] pt-4">
 						<b class="block">QRIS</b>
 						<img
-							class="mt-3 max-h-72 max-w-full border border-[#b9c5bb] bg-white object-contain p-2"
+							class="mt-3 max-h-72 max-w-full border border-[#d6ddd3] bg-white object-contain p-2"
 							src={paymentDestinations.qris_image_url}
 							alt="Kode QRIS pembayaran klub"
 							loading="lazy"
@@ -250,10 +252,10 @@
 					</div>{/if}
 			</section>{/if}
 
-		<section class="mt-6 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
-			<label class="grid gap-2 text-xs font-black tracking-[0.12em] text-[#38675b]"
+		<section class="court-panel mt-6 border-y border-[#d6ddd3] bg-[#e5ece5] px-5 py-4">
+			<label class="grid gap-2 text-xs font-bold tracking-[0.12em] text-[#38675b]"
 				>PERIODE<select
-					class="min-h-11 border border-[#b9c5bb] bg-[#fffaf0] px-3 text-sm font-bold tracking-normal text-[#163630]"
+					class="min-h-11 rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3 text-sm font-bold tracking-normal text-[#163630]"
 					bind:value={selectedMonth}
 				>
 					<option value="all">Semua periode</option>
@@ -263,24 +265,23 @@
 		</section>
 
 		<Tabs.Root bind:value={selectedTab} class="mt-7">
-			<Tabs.List class="border-[#b9c5bb]">
-				<Tabs.Trigger value="income" class="min-h-12 px-4 text-sm font-black"
-					>Pemasukan</Tabs.Trigger
+			<Tabs.List class="border-[#d6ddd3]">
+				<Tabs.Trigger value="income" class="min-h-12 px-4 text-sm font-bold">Pemasukan</Tabs.Trigger
 				>
-				<Tabs.Trigger value="expense" class="min-h-12 px-4 text-sm font-black"
+				<Tabs.Trigger value="expense" class="min-h-12 px-4 text-sm font-bold"
 					>Pengeluaran</Tabs.Trigger
 				>
 			</Tabs.List>
 
 			<Tabs.Content value="income">
 				<section class="pt-5">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Iuran sesi</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Iuran sesi</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Iuran yang sudah ditandai lunas akan masuk ke sisa kas.
 					</p>
-					{#if incomeActivity.length}<ul class="mt-4 border-y border-[#b9c5bb] bg-[#fffaf0]">
+					{#if incomeActivity.length}<ul class="mt-4 border-y border-[#d6ddd3] bg-[#fffaf0]">
 							{#each incomeActivity as item (item.id)}<li
-									class="flex min-h-14 items-center justify-between gap-4 border-b border-[#b9c5bb] px-4 py-3 last:border-b-0"
+									class="flex min-h-14 items-center justify-between gap-4 border-b border-[#d6ddd3] px-4 py-3 last:border-b-0"
 								>
 									<span
 										><b class="block">{item.label}</b><span class="text-xs text-[#527169]"
@@ -288,18 +289,18 @@
 										></span
 									><b class="text-[#38675b]">+{money(item.amount)}</b>
 								</li>{/each}
-						</ul>{:else}<p class="mt-4 border-y border-[#b9c5bb] py-5 text-sm text-[#527169]">
+						</ul>{:else}<p class="mt-4 border-y border-[#d6ddd3] py-5 text-sm text-[#527169]">
 							Belum ada iuran lunas untuk periode ini.
 						</p>{/if}
 				</section>
-				{#if canManage}<section class="mt-8 border-t border-[#b9c5bb] pt-5">
-						<h2 class="text-xl font-black">Status pembayaran sesi</h2>
+				{#if canManage}<section class="mt-8 border-t border-[#d6ddd3] pt-5">
+						<h2 class="text-xl font-bold">Status pembayaran sesi</h2>
 						{#if filteredSessions.length}<ul
-								class="mt-4 divide-y divide-[#b9c5bb] border border-[#b9c5bb] bg-[#fffaf0]"
+								class="mt-4 divide-y divide-[#b9c5bb] border border-[#d6ddd3] bg-[#fffaf0]"
 							>
 								{#each filteredSessions as session (session.session_id)}<li>
 										<button
-											class="flex min-h-16 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+											class="flex min-h-16 w-full items-center justify-between gap-3 rounded-md px-4 py-3 text-left"
 											onclick={() => void toggleSession(session.session_id)}
 											aria-expanded={expandedSession === session.session_id}
 										>
@@ -315,16 +316,16 @@
 											>
 										</button>
 										{#if expandedSession === session.session_id}<ul
-												class="border-t border-[#b9c5bb] bg-[#f4f1e8] p-2"
+												class="border-t border-[#d6ddd3] bg-[#f4f1e8] p-2"
 											>
 												{#each attendees[session.session_id] ?? [] as person (person.player_id)}<li>
 														<button
-															class="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left"
+															class="flex min-h-12 w-full items-center justify-between gap-3 rounded-md px-3 text-left"
 															disabled={Boolean(pending)}
 															onclick={() => void togglePaid(session.session_id, person)}
 															><span>{person.display_name}</span><span
 																class={person.paid_at
-																	? 'font-black text-[#38675b]'
+																	? 'font-bold text-[#38675b]'
 																	: 'font-bold text-[#9a3d25]'}
 																>{person.paid_at ? 'Lunas' : 'Belum bayar'} · {money(
 																	person.amount
@@ -334,7 +335,7 @@
 													</li>{/each}
 											</ul>{/if}
 									</li>{/each}
-							</ul>{:else}<p class="mt-4 border-y border-[#b9c5bb] py-5 text-sm text-[#527169]">
+							</ul>{:else}<p class="mt-4 border-y border-[#d6ddd3] py-5 text-sm text-[#527169]">
 								Sesi yang ditutup dan sudah ditetapkan biayanya akan muncul di sini.
 							</p>{/if}
 					</section>{/if}
@@ -342,13 +343,13 @@
 
 			<Tabs.Content value="expense">
 				<section class="pt-5">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Pengeluaran klub</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Pengeluaran klub</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Sewa lapangan dan tambahan kok mengurangi sisa kas klub.
 					</p>
-					{#if expenseActivity.length}<ul class="mt-4 border-y border-[#b9c5bb] bg-[#fffaf0]">
+					{#if expenseActivity.length}<ul class="mt-4 border-y border-[#d6ddd3] bg-[#fffaf0]">
 							{#each expenseActivity as item (item.id)}<li
-									class="flex min-h-14 items-center justify-between gap-4 border-b border-[#b9c5bb] px-4 py-3 last:border-b-0"
+									class="flex min-h-14 items-center justify-between gap-4 border-b border-[#d6ddd3] px-4 py-3 last:border-b-0"
 								>
 									<span
 										><b class="block">{item.label}</b><span class="text-xs text-[#527169]"
@@ -356,16 +357,16 @@
 										></span
 									><b class="text-[#9a3d25]">−{money(Math.abs(item.amount))}</b>
 								</li>{/each}
-						</ul>{:else}<p class="mt-4 border-y border-[#b9c5bb] py-5 text-sm text-[#527169]">
+						</ul>{:else}<p class="mt-4 border-y border-[#d6ddd3] py-5 text-sm text-[#527169]">
 							Belum ada pengeluaran untuk periode ini.
 						</p>{/if}
 				</section>
-				{#if canManage}<section class="mt-8 border-t border-[#b9c5bb] pt-5">
-						<h2 class="text-xl font-black">Catat pengeluaran</h2>
-						<form class="mt-4 border border-[#b9c5bb] bg-[#fffaf0] p-5" onsubmit={saveExpense}>
+				{#if canManage}<section class="mt-8 border-t border-[#d6ddd3] pt-5">
+						<h2 class="text-xl font-bold">Catat pengeluaran</h2>
+						<form class="mt-4 border border-[#d6ddd3] bg-[#fffaf0] p-5" onsubmit={saveExpense}>
 							<label class="block text-sm font-bold"
 								>Kategori<select
-									class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+									class="mt-2 min-h-11 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
 									bind:value={expenseCategory}
 									><option value="COURT">Sewa lapangan</option><option value="SHUTTLECOCK"
 										>Tambahan kok</option
@@ -374,7 +375,7 @@
 							>
 							<label class="mt-3 block text-sm font-bold"
 								>Jumlah<input
-									class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+									class="mt-2 min-h-11 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
 									inputmode="numeric"
 									bind:value={expenseAmount}
 									placeholder="120000"
@@ -382,13 +383,13 @@
 							>
 							<label class="mt-3 block text-sm font-bold"
 								>Catatan (opsional)<input
-									class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+									class="mt-2 min-h-11 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3"
 									bind:value={expenseDescription}
 									placeholder="Sewa lapangan"
 								/></label
 							>
 							<button
-								class="mt-5 min-h-11 bg-[#163630] px-4 text-sm font-black text-[#fffaf0] disabled:opacity-50"
+								class="mt-5 min-h-11 rounded-md bg-[#163630] px-4 text-sm font-bold text-[#fffaf0] disabled:opacity-50"
 								disabled={Boolean(pending) || Number(expenseAmount) <= 0}
 								>{pending || 'Simpan pengeluaran'}</button
 							>
@@ -396,8 +397,10 @@
 					</section>{/if}
 			</Tabs.Content>
 		</Tabs.Root>
-		{#if !canManage}<section class="mt-8 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-5">
-				<h2 class="text-xl font-black tracking-[-0.04em]">Catatan kas klub</h2>
+		{#if !canManage}<section
+				class="court-panel mt-8 border-y border-[#d6ddd3] bg-[#e5ece5] px-5 py-5"
+			>
+				<h2 class="text-xl font-bold tracking-[-0.04em]">Catatan kas klub</h2>
 				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
 					Kas dihitung dari iuran sesi yang sudah ditandai lunas, dikurangi sewa lapangan dan
 					tambahan kok. Riwayat di atas dapat dilihat semua member.

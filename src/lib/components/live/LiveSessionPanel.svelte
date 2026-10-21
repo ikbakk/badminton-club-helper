@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { selectedClubId } from '$lib/club-context';
 	import { resolve } from '$app/paths';
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import type { PublicSessionHistory } from '$lib/data/dashboard';
@@ -15,6 +16,7 @@
 		participants,
 		activeMatch,
 		canManage = false,
+		headingLevel = 1,
 		authChecking = false,
 		online = true,
 		pending = '',
@@ -36,6 +38,7 @@
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
 		canManage?: boolean;
+		headingLevel?: 1 | 2;
 		authChecking?: boolean;
 		online?: boolean;
 		pending?: string;
@@ -90,23 +93,12 @@
 					: 'Empat pemain siap untuk match berikutnya.'
 	);
 	let recentClosedSessions = $derived(recentSessions.filter((item) => item.closed_at).slice(0, 2));
-	let currentSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
-	let completedSets = $derived(activeMatch?.sets.filter((set) => set.status === 'COMPLETED') ?? []);
-	let teamA = $derived(
-		currentSet?.players.filter((player) => player.team === 'A').map((player) => player.name) ?? []
-	);
-	let teamB = $derived(
-		currentSet?.players.filter((player) => player.team === 'B').map((player) => player.name) ?? []
-	);
-	let playingCount = $derived(
-		participants.filter((participant) => participant.status === 'PLAYING').length
-	);
 	const sessionDate = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(value));
 </script>
 
 {#if !session}
-	<section class="border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.09)]">
+	<section class="court-panel">
 		<div class="grid lg:grid-cols-[1.2fr_0.8fr]">
 			<div class="p-6 sm:p-9">
 				<h2 class="max-w-[11ch] text-4xl font-black tracking-[-0.04em] text-[#163630] sm:text-5xl">
@@ -172,109 +164,14 @@
 		</div>
 	</section>
 {:else}
-	<section
-		class="relative isolate overflow-visible border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_18px_34px_rgba(22,54,48,0.18)]"
-	>
-		{#if activeMatch}
-			<div
-				aria-hidden="true"
-				class="pointer-events-none absolute top-8 left-1/2 z-0 -translate-x-1/2 text-[clamp(3.5rem,16vw,9rem)] leading-none font-black tracking-[-0.1em] whitespace-nowrap text-[#85a097]/10"
-			>
-				MATCH {activeMatch.sequence_number} · SET {currentSet?.setNumber ?? '—'}
-			</div>
-			<div
-				aria-hidden="true"
-				class="pointer-events-none absolute -right-[0.12em] -bottom-[0.23em] z-0 max-w-[125%] text-right text-[clamp(3rem,13vw,7rem)] leading-[0.72] font-black tracking-[-0.08em] whitespace-nowrap text-[#85a097]/10"
-			>
-				{[...teamA, ...teamB].join(' · ')}
-			</div>
-		{/if}
-		<div
-			aria-hidden="true"
-			class="pointer-events-none absolute inset-x-[10%] top-12 bottom-0 border-x border-[#85a097]/15"
-		></div>
-		<div
-			aria-hidden="true"
-			class="pointer-events-none absolute inset-x-[10%] top-12 border-t border-[#85a097]/15"
-		></div>
-		<div
-			class="relative flex items-center justify-between gap-4 border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
-		>
-			<span>MALAM INI · MULAI {startedAt}</span><span
-				class="inline-flex items-center gap-2 text-[#f5bb61]"
-				><span class="size-2 rounded-full bg-[#f5bb61] shadow-[0_0_0_4px_rgba(245,187,97,0.16)]"
-				></span>{canManage ? 'ADMIN AKTIF' : 'BERLANGSUNG'}</span
-			>
+	<div class="session-heading">
+		<div>
+			<svelte:element this={headingLevel === 1 ? 'h1' : 'h2'}>Sesi malam ini</svelte:element>
+			<p>Mulai {startedAt} · {participants.length} pemain hadir</p>
 		</div>
-		<div class={`relative z-10 px-5 sm:px-8 ${activeMatch ? 'py-8 sm:py-10' : 'py-5 sm:py-6'}`}>
-			{#if activeMatch}
-				<h2 class="text-xs font-black tracking-[0.14em] text-[#f5bb61]">
-					MATCH {activeMatch.sequence_number} · SET {currentSet?.setNumber ?? '—'} BERLANGSUNG
-				</h2>
-				<div
-					class="mt-12 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center text-2xl leading-[0.96] font-black tracking-[-0.04em] sm:mt-16 sm:text-4xl"
-				>
-					<div>
-						{#each teamA as player (player)}<span class="block">{player}</span>{:else}Tim A{/each}
-					</div>
-					<span class="text-xs tracking-[0.14em] text-[#f5bb61]">VS</span>
-					<div>
-						{#each teamB as player (player)}<span class="block">{player}</span>{:else}Tim B{/each}
-					</div>
-				</div>
-				<div class="mt-9 flex flex-wrap justify-center gap-2" aria-label="Riwayat set">
-					{#each completedSets as set (set.setNumber)}
-						<span
-							class="border border-[#85a097]/55 px-3 py-2 text-xs font-black text-[#d4e1db] tabular-nums"
-							>SET {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
-						>
-					{/each}
-					<span
-						class="border border-[#f5bb61]/70 bg-[#f5bb61] px-3 py-2 text-xs font-black text-[#163630]"
-						>SET {currentSet?.setNumber ?? '—'} · DI LAPANGAN</span
-					>
-				</div>
-			{:else}
-				<p class="max-w-md text-xs font-black tracking-[0.14em] text-[#f5bb61]">
-					Lapangan siap digunakan.
-				</p>
-				<h2 class="mt-3 max-w-md text-3xl font-black tracking-[-0.04em]">
-					Siap untuk match berikutnya.
-				</h2>
-			{/if}
-			<div
-				class={`${activeMatch ? 'mt-10' : 'mt-5'} flex flex-wrap items-end justify-between gap-5 border-t border-[#85a097]/45 pt-5`}
-			>
-				<div>
-					<p class="max-w-md text-sm leading-6 text-[#d4e1db]">{nextAction}</p>
-					<p class="mt-2 text-xs font-black tracking-[0.1em] text-[#a7c5b9]">
-						{playingCount ? `${playingCount} PEMAIN DI LAPANGAN` : 'LAPANGAN KOSONG'} · {ready.length}
-						MENUNGGU
-					</p>
-				</div>
-				<div
-					class="grid w-full grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3 sm:w-auto sm:min-w-80"
-				>
-					{#if canManage}<AppButton disabled={!online} onclick={oncheckin} class="w-full"
-							>Check in pemain</AppButton
-						>{:else if authChecking}<div
-							class="w-full max-w-[12rem]"
-							role="status"
-							aria-busy="true"
-							aria-label="Memeriksa akses admin"
-						>
-							<LoadingSkeleton height="2.75rem" />
-						</div>{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
-					{#if canManage}<AppButton
-							variant="danger"
-							class="w-full px-2"
-							disabled={!online || Boolean(pending)}
-							onclick={onendsession}>Akhiri sesi</AppButton
-						>{/if}
-				</div>
-			</div>
-		</div>
-	</section>
+		<span class="live-badge"><span></span>Live</span>
+	</div>
+
 	{#if !online}<p
 			class="mt-4 border border-[#e7b8aa] bg-[#fff1ec] p-3 text-sm font-bold text-[#9a3d25]"
 		>
@@ -297,14 +194,28 @@
 		/>
 	</div>
 
+	<div class="session-tools">
+		<p>{nextAction}</p>
+		<div>
+			{#if canManage}<AppButton variant="secondary" disabled={!online} onclick={oncheckin}
+					>Check in pemain</AppButton
+				><AppButton variant="ghost" disabled={!online || Boolean(pending)} onclick={onendsession}
+					>Akhiri sesi</AppButton
+				>
+			{:else if authChecking}<div class="w-32" role="status" aria-label="Memeriksa akses admin">
+					<LoadingSkeleton height="2.75rem" />
+				</div>
+			{:else}<AppButton variant="secondary" onclick={onadminlogin}>Masuk sebagai admin</AppButton
+				>{/if}
+		</div>
+	</div>
+
 	{#if canManage && !activeMatch && suggestedPlayers.length === 4}
-		<section class="mt-5 border border-[#b9c5bb] bg-[#e5ece5] p-5" aria-label="Saran empat pemain">
-			<h3 class="text-lg font-black">Saran berikutnya</h3>
-			<ul class="mt-3 grid grid-cols-2 gap-2">
-				{#each suggestedPlayers as name, index (index)}<li
-						class="min-w-0 border border-[#b9c5bb] bg-[#fffaf0] px-3 py-3 font-bold break-words"
-					>
-						{name}
+		<section class="court-panel mt-5 p-5" aria-label="Saran empat pemain">
+			<h3 class="text-sm font-bold">Giliran berikutnya</h3>
+			<ul class="next-players">
+				{#each suggestedPlayers as name, index (index)}<li class="next-player">
+						<Avatar {name} /><span>{name}</span>
 					</li>{/each}
 			</ul>
 			<p class="mt-3 text-xs leading-5 text-[#527169]">
@@ -326,3 +237,72 @@
 		{/each}
 	</div>
 {/if}
+
+<style>
+	.session-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		margin: 0 0 20px;
+	}
+	.session-heading :is(h1, h2) {
+		font-size: 22px;
+		font-weight: 800;
+		letter-spacing: -0.03em;
+	}
+	.session-heading p {
+		font-size: 12px;
+		color: var(--court-muted);
+		margin-top: 6px;
+	}
+	.live-badge {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 10px;
+		background: #f7eedb;
+		border-radius: 20px;
+		font-size: 10px;
+		font-weight: 700;
+	}
+	.live-badge span {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: #ad780c;
+	}
+	.session-tools {
+		margin: 16px 0 24px;
+	}
+	.session-tools > p {
+		font-size: 12px;
+		line-height: 1.6;
+		color: var(--court-muted);
+		margin-bottom: 12px;
+	}
+	.session-tools > div {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		flex-wrap: wrap;
+	}
+	.next-players {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 10px;
+		margin-top: 18px;
+	}
+	.next-player {
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-direction: column;
+		font-size: 11px;
+		font-weight: 600;
+		text-align: center;
+		overflow-wrap: anywhere;
+	}
+</style>

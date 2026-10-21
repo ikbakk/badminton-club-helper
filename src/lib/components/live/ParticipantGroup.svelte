@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 
 	let {
@@ -16,9 +17,9 @@
 	} = $props();
 
 	const rowColors: Record<ParticipantStatus, string> = {
-		READY: 'bg-[#e7f0e8] hover:bg-[#dceadf]',
-		PLAYING: 'bg-[#e6ebf7] hover:bg-[#d9e3f6]',
-		RESTING: 'bg-[#e8eff1] hover:bg-[#dce8eb]',
+		READY: 'bg-[#fffaf0] hover:bg-[#edf2ea]',
+		PLAYING: 'bg-[#f0f3ed] hover:bg-[#e5ece5]',
+		RESTING: 'bg-[#f4f1e8] hover:bg-[#ece8de]',
 		AWAY: 'bg-[#fff1d4] hover:bg-[#fae2ae]',
 		OUT: 'bg-[#fbe7e1] hover:bg-[#f7d7cf]',
 		LEFT: 'bg-[#eeede8] hover:bg-[#e4e2da]'
@@ -52,11 +53,9 @@
 </script>
 
 {#if participants.length}
-	<section
-		class="overflow-hidden border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_8px_20px_rgba(22,54,48,0.06)]"
-	>
+	<section class="court-panel participant-group">
 		<div class="flex items-center justify-between border-b border-[#b9c5bb] px-4 py-3">
-			<h3 class="text-xs font-black tracking-[0.14em] text-[#38675b]">{title}</h3>
+			<h3 class="text-xs font-bold tracking-[0.02em] text-[#38675b]">{title}</h3>
 			<span class="px-2.5 py-1 text-xs font-black text-[#163630]">{participants.length}</span>
 		</div>
 		<ul class="divide-y divide-[#d6ddd5]">
@@ -67,7 +66,7 @@
 							onclick={() => onselect?.(participant)}
 							class={`flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors focus:ring-4 focus:ring-[#f2c6b9] focus:outline-none focus:ring-inset ${rowColors[status]}`}
 						>
-							<span class="min-w-0 flex-1"
+							<Avatar name={participant.name} /><span class="min-w-0 flex-1"
 								><span class="block truncate text-sm font-bold text-[#163630]"
 									>{participant.name}</span
 								><span class="block text-xs font-medium text-[#527169]"
@@ -80,7 +79,7 @@
 						</button>
 					{:else}
 						<div class={`flex min-h-14 items-center gap-3 px-4 py-3 ${rowColors[status]}`}>
-							<span class="min-w-0 flex-1"
+							<Avatar name={participant.name} /><span class="min-w-0 flex-1"
 								><span class="block truncate text-sm font-bold text-[#163630]"
 									>{participant.name}</span
 								><span class="block text-xs font-medium text-[#527169]"

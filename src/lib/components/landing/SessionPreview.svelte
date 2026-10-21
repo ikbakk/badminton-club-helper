@@ -1,111 +1,138 @@
 <script lang="ts">
-	import MatchCourt from '$lib/components/live/MatchCourt.svelte';
-	import ParticipantGroup from '$lib/components/live/ParticipantGroup.svelte';
-	import type { Participant } from '$lib/domain/types';
-	import type { ActiveMatch } from '$lib/data/live';
-	const participants: Participant[] = ['Dara', 'Raka', 'Nina', 'Bima'].map((name, i) => ({
-		id: `demo-${i}`,
-		name,
-		membership: 'MEMBER',
-		rating: 1200,
-		uncertainty: 280,
-		status: 'READY',
-		consecutiveMatches: 0,
-		opportunities: 0,
-		missedOpportunities: 0,
-		currentOpportunityDebt: 0,
-		rotationsPlayed: 1,
-		setsPlayed: 2
-	}));
-	const activeMatch: ActiveMatch = {
-		id: 'demo-match',
-		session_id: 'demo-session',
-		sequence_number: 3,
-		sets: [
-			{
-				id: 'demo-set',
-				setNumber: 1,
-				status: 'IN_PROGRESS',
-				teamAScore: null,
-				teamBScore: null,
-				players: ['Andi', 'Sari', 'Dika', 'Reno'].map((name, i) => ({
-					id: `playing-${i}`,
-					name,
-					team: i < 2 ? 'A' : 'B'
-				}))
-			}
-		]
-	};
+	import Avatar from '$lib/components/ui/Avatar.svelte';
+	let { compact = false }: { compact?: boolean } = $props();
+	const next = ['Dara', 'Raka', 'Nina', 'Bima'];
 </script>
 
-<div class="preview" aria-label="Contoh tampilan aplikasi dengan data fiktif">
-	<div class="heading"><strong>Klub Sabtu</strong><span>Contoh sesi</span></div>
-	<div class="tabs">
-		<strong>Live</strong><span>Pemain</span><span>Riwayat</span><span>Kas</span>
+<div
+	class:compact
+	class="session-preview"
+	aria-label="Contoh tampilan pertandingan dengan data fiktif"
+>
+	<div class="sample-match">
+		<div class="sample-club"><strong>Klub Sabtu</strong><span>Contoh</span></div>
+		<p class="sample-meta">Match 3 · Set 1 selesai</p>
+		<div class="sample-teams"><span>Andi + Sari</span><span>Dika + Reno</span></div>
+		<div class="sample-scores"><span>21</span><b>:</b><span>18</span></div>
+		<p class="sample-result">Skor akhir set</p>
 	</div>
-	<MatchCourt
-		{participants}
-		{activeMatch}
-		onpreparenext={async () => null}
-		onstart={async () => false}
-		oncomplete={async () => false}
-		oncorrect={async () => false}
-		onabandon={() => {}}
-		onsubstitute={async () => false}
-	/>
-	<div class="waiting"><ParticipantGroup title="SIAP MAIN" status="READY" {participants} /></div>
-	<p class="caption">
-		Data contoh. Tampilan pertandingan dan daftar pemain dari aplikasi Courtside.
-	</p>
+	<div class="sample-next">
+		<strong>Berikutnya</strong>
+		<div>
+			{#each next as name (name)}<span><Avatar {name} size="sm" /><small>{name}</small></span
+				>{/each}
+		</div>
+	</div>
+	<p class="caption">Tampilan contoh · data fiktif</p>
 </div>
 
 <style>
-	.preview {
-		background: #f4f1e8;
-		color: #163630;
-		padding: 20px;
-		box-shadow: 0 20px 50px rgb(0 0 0 / 20%);
+	.session-preview {
+		width: 100%;
+		color: var(--court-chalk);
 	}
-	.heading {
+	.sample-match {
+		background: var(--court-ink);
+		border: 1px solid #789586;
+		border-radius: 10px;
+		padding: 19px 18px 24px;
+		box-shadow: 0 12px 30px rgb(12 36 31 / 24%);
+	}
+	.sample-club {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
-	}
-	.heading strong {
-		font-size: 22px;
-		font-weight: 900;
-		letter-spacing: -0.03em;
-	}
-	.heading span {
 		font-size: 11px;
-		color: #38675b;
 	}
-	.tabs {
+	.sample-club span {
+		font-size: 9px;
+		color: #d2ddd4;
+		border: 1px solid #577c6c;
+		border-radius: 20px;
+		padding: 3px 7px;
+	}
+	.sample-meta {
+		text-align: center;
+		font-size: 10px;
+		margin: 24px 0 18px;
+		color: #d2ddd4;
+	}
+	.sample-teams {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 14px;
+		text-align: center;
+		font-size: 11px;
+		font-weight: 650;
+	}
+	.sample-scores {
+		display: grid;
+		grid-template-columns: 1fr 14px 1fr;
+		align-items: center;
+		gap: 12px;
+		margin-top: 12px;
+		text-align: center;
+	}
+	.sample-scores span {
+		border: 1px solid #66877a;
+		border-radius: 6px;
+		background: rgb(255 250 240 / 7%);
+		font-size: 40px;
+		font-weight: 800;
+		padding: 6px 0;
+		font-variant-numeric: tabular-nums;
+	}
+	.sample-scores b {
+		font-size: 20px;
+	}
+	.sample-result {
+		font-size: 9px;
+		text-align: center;
+		color: #d2ddd4;
+		margin-top: 10px;
+	}
+	.sample-next {
+		position: relative;
+		margin: -2px -12px 0;
+		background: var(--court-chalk);
+		padding: 16px;
+		border: 1px solid var(--court-line);
+		border-radius: 10px;
+		color: var(--court-ink);
+		box-shadow: 0 8px 24px rgb(12 36 31 / 12%);
+	}
+	.sample-next > strong {
+		font-size: 11px;
+	}
+	.sample-next > div {
 		display: flex;
 		justify-content: space-between;
-		border-bottom: 1px solid #b9c5bb;
-		margin: 12px 0 16px;
-		font-size: 12px;
-	}
-	.tabs > * {
-		padding: 10px 4px;
-	}
-	.tabs strong {
-		border-bottom: 3px solid #e2653e;
-	}
-	.waiting {
 		margin-top: 12px;
 	}
-	.caption {
-		font-size: 10px;
-		line-height: 1.5;
-		color: #38675b;
-		margin: 12px 0 0;
+	.sample-next > div > span {
+		display: flex;
+		align-items: center;
+		flex-direction: column;
+		gap: 6px;
 	}
-	@media (max-width: 400px) {
-		.preview {
-			padding: 12px;
-		}
+	.sample-next small {
+		font-size: 9px;
+	}
+	.caption {
+		font-size: 9px;
+		text-align: center;
+		color: var(--court-chalk);
+		margin-top: 10px;
+		text-shadow: 0 1px 4px var(--court-ink);
+	}
+	.compact .sample-meta {
+		margin: 16px 0;
+	}
+	.compact .sample-match {
+		padding: 16px;
+	}
+	.compact .sample-scores span {
+		font-size: 32px;
 	}
 </style>

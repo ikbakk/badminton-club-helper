@@ -56,11 +56,11 @@
 		{#if loading}
 			<p class="mt-8 text-sm font-bold" role="status">Memeriksa iuran dan pembayaran…</p>
 		{:else if loadError || !session}
-			<section class="mt-8 border-y border-[#b9c5bb] py-6">
-				<h1 class="text-2xl font-black">Rekap tidak tersedia</h1>
+			<section class="mt-8 border-y border-[#d6ddd3] py-6">
+				<h1 class="text-2xl font-bold">Rekap tidak tersedia</h1>
 				<p class="mt-2 text-sm text-[#527169]">{loadError || 'Sesi tidak ditemukan.'}</p>
 				<a
-					class="mt-5 inline-flex min-h-11 items-center font-black text-[#38675b]"
+					class="mt-5 inline-flex min-h-11 items-center font-bold text-[#38675b]"
 					href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 				>
 					<ArrowLeft class="mr-2" size={18} /> Kembali ke Live
@@ -68,24 +68,24 @@
 			</section>
 		{:else}
 			<section>
-				<h1 class="text-3xl font-black tracking-[-0.05em]">Sesi selesai. Lanjut ke riwayat?</h1>
+				<h1 class="text-3xl font-bold tracking-[-0.035em]">Sesi selesai. Lanjut ke riwayat?</h1>
 				<p class="mt-3 text-sm leading-6 text-[#527169]">
 					Pastikan rekap sesi sudah benar. Kamu masih bisa kembali untuk mengubah checklist
 					pembayaran.
 				</p>
 
-				<dl class="mt-6 divide-y divide-[#b9c5bb] border-y border-[#b9c5bb] bg-[#fffaf0] px-4">
+				<dl class="mt-6 divide-y divide-[#b9c5bb] border-y border-[#d6ddd3] bg-[#fffaf0] px-4">
 					<div class="flex min-h-14 items-center justify-between gap-4">
 						<dt class="flex items-center gap-2 text-sm font-bold">
 							<ClipboardCheck size={17} /> Hadir
 						</dt>
-						<dd class="font-black tabular-nums">{session.attendance} pemain</dd>
+						<dd class="font-bold tabular-nums">{session.attendance} pemain</dd>
 					</div>
 					<div class="flex min-h-14 items-center justify-between gap-4">
 						<dt class="flex items-center gap-2 text-sm font-bold">
 							<CircleDollarSign size={17} /> Pembayaran
 						</dt>
-						<dd class="text-right text-sm font-black tabular-nums">
+						<dd class="text-right text-sm font-bold tabular-nums">
 							{#if feesConfirmed}{paidCount} lunas · {unpaidCount} belum
 							{:else}Iuran belum dikonfirmasi{/if}
 						</dd>
@@ -107,7 +107,7 @@
 
 				<div class="mt-7 grid gap-3">
 					<a
-						class="flex min-h-12 items-center justify-center gap-2 border border-[#163630] bg-[#fffaf0] px-4 text-sm font-black hover:bg-[#e5ece5]"
+						class="flex min-h-12 items-center justify-center gap-2 border border-[#163630] bg-[#fffaf0] px-4 text-sm font-bold hover:bg-[#e5ece5]"
 						href={resolve('/clubs/[clubId]/session-close/[id]', {
 							clubId: selectedClubId(),
 							id: params.id
@@ -116,7 +116,7 @@
 						<ArrowLeft size={18} /> Kembali edit iuran & pembayaran
 					</a>
 					<a
-						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0] hover:bg-[#38675b]"
+						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-bold text-[#fffaf0] hover:bg-[#38675b]"
 						href={resolve('/clubs/[clubId]/history/[id]', {
 							clubId: selectedClubId(),
 							id: params.id

@@ -1,0 +1,10 @@
+{
+ "schemaVersion":2,
+ "title":"Courtside",
+ "extensions":{
+  "shadows":[{"name":"panel","value":"0 8px 24px rgb(22 54 48 / 6%)","purpose":"Quiet elevated content"},{"name":"menu","value":"0 12px 32px rgb(22 54 48 / 12%)","purpose":"Account menu above page"}],
+  "motion":[{"name":"control","value":"160ms","purpose":"Control color feedback; reduced motion respected"}],
+  "breakpoints":[{"name":"landing-stack","value":"700px"},{"name":"content-wide","value":"768px"},{"name":"sidebar","value":"1024px"}]
+ },
+ "narrative":{"northStar":"Main bareng, giliran lebih teratur","overview":"Sport editorial landing and quiet, usable operational screens.","dos":["Use real persisted data for operational content.","Keep final-set scoring semantics.","Use visible focus and safe-area-aware navigation."],"donts":["Do not invent rankings or live point tracking.","Do not expose admin controls to viewers."]}
+}

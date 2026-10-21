@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { onMount } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { publicSurfaceKey } from '$lib/data/query-client';
@@ -68,7 +69,7 @@
 	/>
 	<a
 		href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
-		class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+		class="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#38675b]"
 		><ArrowLeft size={18} />Kembali ke pemain</a
 	>
 	{#if loading}<section
@@ -80,23 +81,23 @@
 			<div class="w-3/5"><LoadingSkeleton height="2.5rem" /></div>
 			<p class="mt-2 text-sm font-bold text-[#527169]">Anggota klub</p>
 			<div
-				class="mt-7 grid grid-cols-2 border border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-4"
+				class="mt-7 grid grid-cols-2 border border-[#d6ddd3] bg-[#fffaf0] sm:grid-cols-4"
 				aria-hidden="true"
 			>
 				{#each ['Sesi', 'Set', 'Menang', 'Kalah'] as stat (stat)}<div
-						class="border-r border-b border-[#b9c5bb] p-4 last:border-r-0"
+						class="border-r border-b border-[#d6ddd3] p-4 last:border-r-0"
 					>
 						<div class="w-12"><LoadingSkeleton height="1.75rem" /></div>
 						<span class="mt-2 block text-sm">{stat}</span>
 					</div>{/each}
 			</div>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Rating</h2>
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Rating</h2>
 				<div class="mt-3 w-3/4"><LoadingSkeleton /></div>
 			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Sesi terbaru</h2>
-				<div class="mt-3 border-y border-[#b9c5bb] bg-[#fffaf0]" aria-hidden="true">
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Sesi terbaru</h2>
+				<div class="mt-3 border-y border-[#d6ddd3] bg-[#fffaf0]" aria-hidden="true">
 					{#each [1, 2] as row (row)}<div
 							class="flex min-h-12 items-center border-b border-[#e5ece5] px-4 last:border-0"
 						>
@@ -106,16 +107,33 @@
 			</section>
 		</section>
 	{:else if player}<section class="mt-6">
-			<h1 class="max-w-[12ch] text-5xl font-black tracking-[-0.065em] text-[#163630] sm:text-6xl">
-				{player.display_name}
-			</h1>
-			<p class="mt-3 text-xs font-black tracking-[0.12em] text-[#527169]">
-				{player.membership_type === 'MEMBER' ? 'ANGGOTA KLUB' : 'TAMU KLUB'}
-			</p>
-			<section class="mt-9 border-y border-[#b9c5bb]" aria-label="Ringkasan per sesi">
+			<div class="player-identity">
+				<Avatar name={player.display_name} size="lg" />
+				<div>
+					<h1>{player.display_name}</h1>
+					<p>{player.membership_type === 'MEMBER' ? 'Anggota klub' : 'Tamu klub'}</p>
+				</div>
+			</div>
+
+			<section class="court-panel profile-rating mt-6 p-5">
+				<h2 class="text-xs font-semibold">Rating</h2>
+				{#if playerRating}
+					<p class="mt-2 text-4xl font-bold tracking-[-0.04em] text-[#163630] tabular-nums">
+						{Math.round(playerRating.rating)}
+					</p>
+					<p class="mt-1 text-sm font-bold text-[#527169]">
+						{getRatingConfidenceLabel(playerRating.uncertainty) === 'ESTABLISHED'
+							? 'Stabil'
+							: 'Masih dikalibrasi'}
+					</p>
+				{:else}
+					<p class="mt-2 text-sm leading-6 text-[#527169]">Rating belum tersedia.</p>
+				{/if}
+			</section>
+			<section class="mt-6 border-y border-[#d6ddd3]" aria-label="Ringkasan per sesi">
 				<div class="flex items-baseline justify-between gap-4 px-1 py-4">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Ringkasan per sesi</h2>
-					<span class="text-sm font-black text-[#38675b]">{player.sessions} hadir</span>
+					<h2 class="text-lg font-bold tracking-[-0.025em]">Sesi terbaru</h2>
+					<span class="text-sm font-bold text-[#38675b]">{player.sessions} hadir</span>
 				</div>
 				<QueryNotice
 					failed={summaryQuery.isError}
@@ -128,10 +146,10 @@
 					</p>
 				{:else if summaries.length}<ul>
 						{#each summaries as summary (summary.session_id)}<li
-								class="border-t border-[#b9c5bb] py-4"
+								class="border-t border-[#d6ddd3] py-4"
 							>
 								<a
-									class="inline-flex min-h-11 items-center gap-2 text-lg font-black underline"
+									class="inline-flex min-h-11 items-center gap-2 text-lg font-bold underline"
 									href={summary.closed_at
 										? resolve('/clubs/[clubId]/history/[id]', { clubId, id: summary.session_id })
 										: resolve('/clubs/[clubId]/live', { clubId })}
@@ -152,21 +170,21 @@
 								</p>
 							</li>{/each}
 					</ul>{:else if !summaryQuery.isError}<p
-						class="border-t border-[#b9c5bb] py-5 text-sm text-[#527169]"
+						class="border-t border-[#d6ddd3] py-5 text-sm text-[#527169]"
 					>
 						Belum ada sesi yang tercatat.
 					</p>{/if}
 			</section>
 
-			{#if statisticsAvailable}<section class="mt-9 border-y border-[#b9c5bb]">
+			{#if statisticsAvailable}<section class="mt-6 border-y border-[#d6ddd3]">
 					<div class="grid grid-cols-2 sm:grid-cols-4">
-						<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
+						<p class="border-r border-b border-[#d6ddd3] p-4 text-sm">
 							<b class="block text-2xl tabular-nums">{player.sessions}</b>Sesi
 						</p>
-						<p class="border-r border-b border-[#b9c5bb] p-4 text-sm">
+						<p class="border-r border-b border-[#d6ddd3] p-4 text-sm">
 							<b class="block text-2xl tabular-nums">{player.sets}</b>Set
 						</p>
-						<p class="border-r border-[#b9c5bb] p-4 text-sm">
+						<p class="border-r border-[#d6ddd3] p-4 text-sm">
 							<b class="block text-2xl tabular-nums">{player.wins}</b>Menang
 						</p>
 						<p class="p-4 text-sm">
@@ -174,28 +192,38 @@
 						</p>
 					</div>
 				</section>{:else}<p
-					class="mt-9 border-y border-[#b9c5bb] py-4 text-sm leading-6 text-[#527169]"
+					class="mt-9 border-y border-[#d6ddd3] py-4 text-sm leading-6 text-[#527169]"
 				>
 					Statistik akan tersedia setelah read model profil pemain diterapkan.
 				</p>{/if}
-			<section class="mt-9 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Rating</h2>
-				{#if playerRating}
-					<p class="mt-2 text-4xl font-black tracking-[-0.04em] text-[#163630] tabular-nums">
-						{Math.round(playerRating.rating)}
-					</p>
-					<p class="mt-1 text-sm font-bold text-[#527169]">
-						{getRatingConfidenceLabel(playerRating.uncertainty) === 'ESTABLISHED'
-							? 'Stabil'
-							: 'Masih dikalibrasi'}
-					</p>
-				{:else}
-					<p class="mt-2 text-sm leading-6 text-[#527169]">Rating belum tersedia.</p>
-				{/if}
-			</section>
 		</section>
-	{:else if !profileQuery.isError}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
-			<h1 class="text-2xl font-black">Pemain tidak ditemukan.</h1>
+	{:else if !profileQuery.isError}<section
+			class="court-panel mt-7 border border-[#d6ddd3] bg-[#fffaf0] p-6"
+		>
+			<h1 class="text-2xl font-bold">Pemain tidak ditemukan.</h1>
 			<p class="mt-2 text-sm text-[#527169]">Profil ini mungkin sudah tidak aktif.</p>
 		</section>{/if}
 </AppShell>
+
+<style>
+	.player-identity {
+		display: flex;
+		gap: 20px;
+		align-items: center;
+		margin: 24px 0;
+	}
+	.player-identity > div {
+		min-width: 0;
+	}
+	.player-identity h1 {
+		overflow-wrap: anywhere;
+	}
+	.player-identity p {
+		margin-top: 7px;
+		font-size: 13px;
+		color: var(--court-muted);
+	}
+	.profile-rating {
+		background: var(--court-chalk);
+	}
+</style>

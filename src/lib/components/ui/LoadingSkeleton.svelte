@@ -17,5 +17,5 @@
 	{width}
 	{height}
 	class={className}
-	style="--sve-color-default-surface: #e5ece5; --sve-color-default: #fffaf0; --sve-radius-sm: 0"
+	style="--sve-color-default-surface: #e5ece5; --sve-color-default: #fffaf0; --sve-radius-sm: 6px"
 />

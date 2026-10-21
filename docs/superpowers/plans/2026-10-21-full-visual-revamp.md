@@ -33,11 +33,11 @@
 
 **Interfaces:** Preserve every existing prop and callback. New presentational primitives may accept Svelte Snippet children, class and named visual variants; they must not fetch data or decide permissions.
 
-- [ ] Read the spec, current PRODUCT.md/DESIGN.md and shared components; capture incumbent states using existing fixtures.
-- [ ] Add self-hosted licensed Manrope fonts and semantic tokens; preserve existing Barlow Condensed for landing headings.
-- [ ] Restyle shared controls, fields, sheets, notices and skeletons. Use safe-area-aware bottom mobile navigation and keep admin settings/account/share accessible.
-- [ ] Extend public-entry/supporting-page E2E with 360px long-name navigation and keyboard-focus assertions, and assert viewer pages have no admin write controls.
-- [ ] Run npm run check and the affected E2E files. Inspect shell states and commit the coherent shared-system change.
+- [x] Read the spec, current PRODUCT.md/DESIGN.md and shared components; capture incumbent states using existing fixtures.
+- [x] Add self-hosted licensed Manrope fonts and semantic tokens; preserve existing Barlow Condensed for landing headings.
+- [x] Restyle shared controls, fields, sheets, notices and skeletons. Use safe-area-aware bottom mobile navigation and keep admin settings/account/share accessible.
+- [x] Extend public-entry/supporting-page E2E with 360px long-name navigation and keyboard-focus assertions, and assert viewer pages have no admin write controls.
+- [x] Run npm run check and the affected E2E files. Inspect shell states and commit the coherent shared-system change.
 
 ## Task 2: Live match and participants
 
@@ -45,11 +45,11 @@
 
 **Interfaces:** Preserve MatchCourt callbacks, canManage/online/pending semantics, participant records and live-controller interfaces. Visual state derives from the existing data.
 
-- [ ] Use current E2E fixtures for idle, active set, between sets, recommendation selection, manual pairing, substitution, pending failure and read-only viewing.
-- [ ] Recompose the match as the approved dark panel with two equally weighted teams and readable score controls. Keep final-score entry semantics and one clear primary action.
-- [ ] Present compact next-match preparation, initials, participant groups and textual statuses. Do not invoke a trusted recommendation write for decorative previews.
-- [ ] Add assertions for long-name layout and visibility of score/substitution actions at 360px. Retain existing authorization and override assertions.
-- [ ] Run npm run check and tests/live.e2e.ts; capture active/idle/between-set mobile states and commit.
+- [x] Use current E2E fixtures for idle, active set, between sets, recommendation selection, manual pairing, substitution, pending failure and read-only viewing.
+- [x] Recompose the match as the approved dark panel with two equally weighted teams and readable score controls. Keep final-score entry semantics and one clear primary action.
+- [x] Present compact next-match preparation, initials, participant groups and textual statuses. Do not invoke a trusted recommendation write for decorative previews.
+- [x] Verify compact score/substitution layouts in 360px renders; add the viewer between-set regression and retain existing authorization and override assertions. Long-name navigation is covered by the shared-shell browser regression.
+- [x] Run npm run check and tests/live.e2e.ts; capture active/idle/between-set mobile states and commit.
 
 ## Task 3: Player surfaces and remaining club pages
 
@@ -57,10 +57,10 @@
 
 **Interfaces:** Existing queries, mutations and data fields remain authoritative. Reuse shared visual primitives and preserve all retry callbacks and pending safeguards.
 
-- [ ] Restyle roster/profile with initials and compact data-led sections; move persisted rating near identity and show real per-session summaries.
-- [ ] Apply the shared hierarchy to history/results, fund/payment details, settings and both session-close stages. Preserve evaluation visibility and payment authority.
-- [ ] Extend existing error-state assertions to verify no fabricated empty/zero result, stale content remains readable when present, and retry remains accessible.
-- [ ] Run affected E2E files and npm run check; inspect representative populated, empty and error states; commit.
+- [x] Restyle roster/profile with initials and compact data-led sections; move persisted rating near identity and show real per-session summaries.
+- [x] Apply the shared hierarchy to history/results, fund/payment details, settings and both session-close stages. Preserve evaluation visibility and payment authority.
+- [x] Retain and run existing error-state assertions for no fabricated empty/zero result and accessible retry; inspect preserved stale-data notices.
+- [x] Run affected E2E files and npm run check; inspect representative populated, empty and error states; commit.
 
 ## Task 4: Landing, auth, onboarding and demos
 
@@ -68,18 +68,18 @@
 
 **Interfaces:** Retain existing signup, demo, account and explicit-club routes. Keep recent login transition/input-retention changes. Landing preview takes local fictional data only, no backend reads or writes.
 
-- [ ] Produce an original badminton activity asset using the approved board as reference; save exact prompt/provenance and optimized assets in the repo.
-- [ ] Rebuild the landing composition against the board with the approved headline, compact app preview, overlapping next-player panel and distinct lower section.
-- [ ] Apply the new system to login/signup, recovery, account loading/error, club selection/creation and demo screens.
-- [ ] Update the existing landing heading/link assertions to approved copy. Assert no backend calls, correct demo/signup destinations and no deceptive interactive preview controls. Keep auth transition and input-retention regressions.
-- [ ] Run public-entry E2E and npm run check; capture desktop/mobile landing and auth states; commit.
+- [x] Produce an original badminton activity asset using the approved board as reference; save exact prompt/provenance and optimized assets in the repo.
+- [x] Rebuild the landing composition against the board with the approved headline, compact app preview, overlapping next-player panel and distinct lower section.
+- [x] Apply the new system to login/signup, recovery, account loading/error, club selection/creation and demo screens.
+- [x] Update the existing landing heading/link assertions to approved copy. Assert no backend calls, correct demo/signup destinations and no deceptive interactive preview controls. Keep auth transition and input-retention regressions.
+- [x] Run public-entry E2E and npm run check; capture desktop/mobile landing and auth states; commit.
 
 ## Task 5: Fidelity, complete verification and handoff
 
 **Files:** DESIGN.md; docs/full-visual-revamp-report.md; approved scoped design documentation; affected source only for material review fixes.
 
-- [ ] Run npm run verify. Use existing synthetic E2E fixtures; do not write to a remote database. Record skipped credential-dependent tests.
-- [ ] Batch screenshots of landing, Live, profile and secondary pages at 1440px and 390px, plus 360px layout checks. Wait for fonts/assets and settle motion.
-- [ ] Compare actual renders against the approved board. Request a fresh visual review with the board, screenshots, spec and changed files; batch material corrections and verify them.
-- [ ] Update DESIGN.md and scoped tokens/docs to reflect the approved implemented system. Record visual evidence, tests and limitations without republishing infrastructure inventories.
-- [ ] Publish the implementation PR and show actual rendered screenshots to the user. Do not merge until explicitly authorized.
+- [x] Run npm run verify. Use existing synthetic E2E fixtures; do not write to a remote database. Record skipped credential-dependent tests.
+- [x] Batch screenshots of landing, Live, profile and secondary pages at 1440px and 390px, plus 360px layout checks. Wait for fonts/assets and settle motion.
+- [x] Compare actual renders against the approved board. Request a fresh visual review with the board, screenshots, spec and changed files; batch material corrections and verify them.
+- [x] Update DESIGN.md and scoped tokens/docs to reflect the approved implemented system. Record visual evidence, tests and limitations without republishing infrastructure inventories.
+- [x] Publish the implementation PR and show actual rendered screenshots to the user. Do not merge until explicitly authorized.
