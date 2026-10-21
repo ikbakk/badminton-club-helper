@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
+	import DemoSession from '$lib/components/landing/DemoSession.svelte';
 </script>
 
-<a href={resolve('/demo/playwright')}>playwright</a>
+<DemoSession />

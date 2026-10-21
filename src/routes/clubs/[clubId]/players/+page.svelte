@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { untrack } from 'svelte';
 
@@ -117,36 +118,36 @@
 		retry={() => adminRosterQuery.refetch()}
 		fetching={adminRosterQuery.isFetching}
 	/>
-	<section class="border-b border-[#b9c5bb] pb-5">
-		<div class="flex items-end justify-between gap-4">
+	<section class="border-b border-[#d6ddd3] pb-5">
+		<div class="flex flex-wrap items-end justify-between gap-4">
 			<div>
-				<h1 class="text-3xl font-black tracking-[-0.05em]">Pemain</h1>
+				<h1 class="text-3xl font-bold tracking-[-0.035em]">Pemain</h1>
 				<p class="mt-2 text-sm leading-6 text-[#527169]">
 					Anggota klub yang bisa ikut sesi malam ini.
 				</p>
 			</div>
 			{#if loading}<span class="w-18 shrink-0"><LoadingSkeleton height="1rem" /></span>
-			{:else}<p class="shrink-0 text-right text-sm font-black text-[#38675b]">
+			{:else}<p class="shrink-0 text-right text-sm font-bold text-[#38675b]">
 					{members.length} anggota{guests.length ? ` · ${guests.length} tamu` : ''}
 				</p>{/if}
 		</div>
 	</section>
 	{#if club?.is_club_admin}
-		<section class="mt-5 border-y border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
+		<section class="court-panel mt-5 border-y border-[#d6ddd3] bg-[#e5ece5] px-5 py-4">
 			<div class="flex flex-wrap items-center justify-between gap-3">
-				<h2 class="text-lg font-black">Tambah pemain</h2>
+				<h2 class="text-lg font-bold">Tambah pemain</h2>
 				<p class="text-sm text-[#527169]">Langsung masuk ke roster klub.</p>
 			</div>
 			<div class="mt-3 flex gap-3">
 				<input
-					class="min-h-11 min-w-0 flex-1 border border-[#b9c5bb] bg-[#fffaf0] px-3 font-bold"
+					class="min-h-11 min-w-0 flex-1 rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3 font-bold"
 					bind:value={name}
 					placeholder="Nama pemain"
 				/><AppButton disabled={!name.trim() || pending} onclick={createPlayer}>Tambah</AppButton>
 			</div>
 		</section>
 	{/if}
-	<section class="mt-5 border-y border-[#b9c5bb] bg-[#fffaf0]">
+	<section class="court-panel mt-5 border-y border-[#d6ddd3] bg-[#fffaf0]">
 		{#if loading}<div
 				class="divide-y divide-[#b9c5bb]"
 				role="status"
@@ -165,16 +166,16 @@
 			{#snippet rosterGroup(title: string, players: typeof roster)}
 				{#if players.length}<div>
 						<h2
-							class="border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-3 text-xs font-black tracking-[0.12em] text-[#38675b]"
+							class="border-b border-[#d6ddd3] bg-[#e5ece5] px-5 py-3 text-xs font-bold tracking-[0.12em] text-[#38675b]"
 						>
 							{title} · {players.length}
 						</h2>
 						<ul>
 							{#each players as player (player.id)}<li
-									class="border-b border-[#b9c5bb] last:border-b-0"
+									class="border-b border-[#d6ddd3] last:border-b-0"
 								>
 									<a
-										class="group flex min-h-16 items-center justify-between gap-4 px-5 py-3 hover:bg-[#e5ece5]"
+										class="group flex min-h-20 items-center gap-4 px-5 py-4 hover:bg-[#e5ece5]"
 										href={resolve('/clubs/[clubId]/players/[id]', {
 											clubId: selectedClubId(),
 											id: player.id
@@ -182,9 +183,10 @@
 										data-sveltekit-preload-data="hover"
 										onmouseenter={() => void prefetchPublicPlayer(player.id)}
 										onfocus={() => void prefetchPublicPlayer(player.id)}
-										><span
-											><b class="block text-lg tracking-[-0.02em]">{player.display_name}</b><span
-												class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]"
+										><Avatar name={player.display_name} /><span class="min-w-0 flex-1"
+											><b class="block text-base font-bold tracking-[-0.02em] break-words"
+												>{player.display_name}</b
+											><span class="mt-1 block text-xs font-bold tracking-[0.1em] text-[#527169]"
 												>{player.membership_type === 'MEMBER' ? 'ANGGOTA KLUB' : 'TAMU'}</span
 											></span
 										><ArrowRight
@@ -193,7 +195,7 @@
 										/></a
 									>
 									{#if club?.is_club_admin && player.membership_type === 'GUEST'}<button
-											class="mb-3 ml-5 min-h-9 border border-[#b9c5bb] bg-[#fffaf0] px-3 text-xs font-black text-[#38675b]"
+											class="mb-3 ml-5 min-h-11 rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3 text-xs font-bold text-[#38675b]"
 											onclick={() => void promoteGuest(player.id)}>Jadikan anggota</button
 										>{/if}
 								</li>{/each}
@@ -203,7 +205,7 @@
 			{@render rosterGroup('ANGGOTA', members)}
 			{@render rosterGroup('TAMU', guests)}
 		{:else if !rosterQuery.isError}<div class="p-7">
-				<h2 class="text-xl font-black">Belum ada member.</h2>
+				<h2 class="text-xl font-bold">Belum ada member.</h2>
 				<p class="mt-2 max-w-sm text-sm leading-6 text-[#527169]">
 					Daftar pemain akan muncul di sini setelah admin klub menambahkan pemain.
 				</p>

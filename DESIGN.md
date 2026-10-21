@@ -1,34 +1,93 @@
-# Design system
+---
+name: Courtside
+description: Sport editorial identity for casual badminton clubs
+colors:
+  ink: '#163630'
+  deep: '#0c241f'
+  chalk: '#fffaf0'
+  ground: '#f4f1e8'
+  soft: '#e5ece5'
+  line: '#d6ddd3'
+  muted: '#38675b'
+  action: '#e2653e'
+  action-deep: '#a94225'
+typography:
+  display:
+    fontFamily: Barlow Condensed, sans-serif
+    fontWeight: 800
+    lineHeight: 0.94
+    letterSpacing: '-0.025em'
+  body:
+    fontFamily: Manrope, sans-serif
+    fontWeight: 400
+    lineHeight: 1.7
+  title:
+    fontFamily: Manrope, sans-serif
+    fontWeight: 800
+    lineHeight: 1.2
+    letterSpacing: '-0.035em'
+rounded:
+  control: 6px
+  panel: 10px
+spacing:
+  compact: 8px
+  field: 16px
+  mobile-page: 20px
+  section: 24px
+components:
+  button-primary:
+    backgroundColor: '{colors.action}'
+    textColor: '{colors.deep}'
+    rounded: '{rounded.control}'
+    height: 44px
+    padding: 11px 17px
+  button-secondary:
+    backgroundColor: '{colors.chalk}'
+    textColor: '{colors.ink}'
+    rounded: '{rounded.control}'
+    height: 44px
+    padding: 11px 17px
+---
 
-## Court Lines
+# Courtside design system
 
-Courtside is a mobile-first interface for independent badminton clubs. Its visual system treats the Live surface as a court object: the live match owns the strongest field, waiting players read as the sideline, and the next irreversible action uses clay orange.
+## Overview
 
-### Color roles
+The approved three-screen concept (landing, Live mobile, player profile) is the visual reference. The identity pairs expressive badminton photography and condensed landing type with restrained operational screens. App state and the next action receive emphasis; decoration stays secondary.
 
-- **Court ink:** `#163630` — Live field, primary navigation, high-priority score context.
-- **Chalk:** `#fffaf0` — primary reading surface and controls.
-- **Court ground:** `#f4f1e8` — page background.
-- **Sideline:** `#b9c5bb` and `#e5ece5` — structural rules and quiet status fields.
-- **Action clay:** `#e2653e` — primary operator action and focus accent.
-- **Signal gold:** `#f5bb61` — live-state indicator only.
+## Colors
 
-### Layout and components
+Ink carries match context and headings. Chalk is the reading surface, ground separates sections, and soft green identifies avatars and quiet fields. Clay is the primary action; dark text on clay is required. Use action-deep for small accent text on light surfaces. Gold indicates a live state, never a general marketing accent. Keep body contrast at least 4.5:1.
 
-- Use clean one-pixel rules, square or lightly softened corners, and soft downward shadows; avoid stacks of rounded cards.
-- The header is quiet; Live carries the page’s primary state.
-- The Court panel is dark and has faint internal court markings. Team names and final scores are always the visual center of an active match.
-- Participant groups are compact sideline lists with text labels and an explicit count. Color supplements, never replaces, participant status.
-- Sheets retain the club context with chalk ground, court-ink copy, and wide one-handed actions.
-- Primary actions are clay-orange. Destructive actions are distinct but never compete with scoring.
+## Typography
 
-### Type and motion
+Self-hosted Manrope is the operational and body family. Barlow Condensed 800 belongs to landing display headings only. Operational names and headings are bold but compact; score numerals are large and tabular. Long names wrap in content and truncate only in the space-constrained club header. Labels stay readable without pervasive uppercase tracking.
 
-- Use a compact, bold sans treatment for club name, match labels, player names, and score inputs; do not introduce display typography that weakens courtside scanability.
-- Set and score changes use a single short reveal. It respects `prefers-reduced-motion`.
-- Focus, selection, form controls, and scrollbars are themed from the same court palette.
+## Layout
 
-### Voice
+Mobile pages use approximately 20px side gutters, a quiet club header, and four persistent bottom navigation destinations: Live, Pemain, Riwayat and Kas. Admin settings remain in the header. Account/share actions stay reachable; Live's logout is inside the native account menu. Reserve bottom space including safe-area inset so final controls can scroll clear of navigation.
 
-- Indonesia-first, direct, and action-led: `Operasikan sesi`, `Check in pemain`, `Siapkan match`.
-- Avoid admin-dashboard terminology during courtside operation. The next safe action should be clear without a tutorial.
+Desktop uses a 224px sidebar and a centered content column. Landing has its own wide editorial composition: headline left, badminton photograph right, compact match preview and overlapping next-player panel. Its lower walkthrough uses a different composition rather than repeating the photograph.
+
+## Elevation & Depth
+
+Use restrained downward shadows for the landing preview, account menu, modal layers and important panels. Ordinary content is separated by fine structural rules. No hard offset shadows, decorative halos or oversized background words.
+
+## Shapes
+
+Controls use the control radius, panels use the panel radius, and initials avatars are circular. Sheets round the top edge while retaining full mobile width. Forms, selectable rows and notices inherit these shapes.
+
+## Components
+
+`AppButton` owns primary, secondary, ghost and danger variants. `Avatar` owns initials and size variants; `BrandMark` supplies the consistent two-stripe mark. `AuthFrame` supplies the shared sign-in/recovery composition. `AppShell` owns account/club context and responsive navigation. `QueryNotice`, `LoadingSkeleton`, `CourtSheet` and `CourtDialog` carry the same surface language.
+
+Live uses one dark match panel. Score fields capture final set scores, not live point tracking. Keep advisory selection, manual override and between-set substitutions in their existing flows. Player profiles lead with identity and persisted rating, then per-session summaries and historical totals. Never substitute invented statistics for missing data.
+
+## Do's and Don'ts
+
+- Do keep role, offline, pending and error states explicit. Preserve visible existing data when a refresh fails.
+- Do use the existing Lucide icon family and at least 44px touch targets.
+- Do label landing/demo records as fictional and keep them independent of backend state.
+- Do respect reduced motion and retain keyboard focus visibility.
+- Don't use the concept's incidental dates, score counters, badges or photo lettering as new feature requirements.
+- Don't expose admin controls to public visitors or change algorithm semantics during visual work.

@@ -835,3 +835,14 @@ for (const width of [360, 390]) {
 		await page.screenshot({ path: testInfo.outputPath(`courtside-${width}.png`), fullPage: true });
 	});
 }
+
+test('public viewer between sets cannot open substitution or start-set controls', async ({
+	page
+}) => {
+	await mockLiveBackend(page, true, false, true, false, 0, false, false, false, false);
+	await page.goto('/clubs/club-e2e/live');
+	await expect(page.getByRole('heading', { name: 'Match 1', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Ganti pemain', exact: true })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Mulai Set 2', exact: true })).toHaveCount(0);
+	await expect(page.getByLabel('Skor Tim A')).toHaveCount(0);
+});

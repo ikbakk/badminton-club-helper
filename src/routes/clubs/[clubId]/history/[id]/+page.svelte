@@ -412,7 +412,7 @@
 	<div class="flex items-center justify-between gap-3">
 		<a
 			href={resolve('/clubs/[clubId]/history', { clubId: selectedClubId() })}
-			class="inline-flex min-h-11 items-center gap-2 text-sm font-black text-[#38675b]"
+			class="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-[#38675b]"
 			><ArrowLeft size={18} />Riwayat</a
 		>
 		{#if canManage}<AppButton class="shrink-0" onclick={openShareDialog}
@@ -427,10 +427,10 @@
 		>
 			<div class="w-2/3"><LoadingSkeleton height="2rem" /></div>
 			<div class="mt-3 w-1/2"><LoadingSkeleton height="0.75rem" /></div>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Hadir</h2>
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Hadir</h2>
 				<div
-					class="mt-3 grid border-y border-[#b9c5bb] bg-[#fffaf0] px-4 sm:grid-cols-2"
+					class="mt-3 grid border-y border-[#d6ddd3] bg-[#fffaf0] px-4 sm:grid-cols-2"
 					aria-hidden="true"
 				>
 					{#each [1, 2, 3, 4] as row (row)}<div
@@ -440,20 +440,20 @@
 						</div>{/each}
 				</div>
 			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Match</h2>
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Match</h2>
 				<div class="mt-4 grid gap-3" aria-hidden="true">
-					{#each [1, 2] as row (row)}<div class="border border-[#b9c5bb] bg-[#fffaf0] p-5">
+					{#each [1, 2] as row (row)}<div class="border border-[#d6ddd3] bg-[#fffaf0] p-5">
 							<div class="w-20"><LoadingSkeleton /></div>
 							<div class="mt-5 grid grid-cols-2 gap-4"><LoadingSkeleton /><LoadingSkeleton /></div>
 							<div class="mt-5 w-20"><LoadingSkeleton height="2rem" /></div>
 						</div>{/each}
 				</div>
 			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Rekap dana sesi</h2>
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Rekap dana sesi</h2>
 				<div
-					class="mt-3 divide-y divide-[#b9c5bb] border-y border-[#b9c5bb] bg-[#fffaf0] px-4"
+					class="mt-3 divide-y divide-[#b9c5bb] border-y border-[#d6ddd3] bg-[#fffaf0] px-4"
 					aria-hidden="true"
 				>
 					{#each [1, 2, 3, 4] as row (row)}<div class="flex min-h-12 items-center justify-between">
@@ -467,7 +467,7 @@
 			<div
 				class="border-y border-[#163630] bg-[#163630] px-5 py-6 text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.16)]"
 			>
-				<h1 class="text-4xl font-black tracking-[-0.055em]">{date(session.started_at)}</h1>
+				<h1 class="text-4xl font-bold tracking-[-0.055em]">{date(session.started_at)}</h1>
 				<p class="mt-3 text-sm font-bold text-[#d4e1db]">
 					{time(session.started_at)} — {session.closed_at ? time(session.closed_at) : ''} · {session.attendance}
 					pemain
@@ -483,20 +483,20 @@
 				</div>
 			</div>
 			<section class="mt-9">
-				<div class="flex items-baseline justify-between gap-4 border-b border-[#b9c5bb] pb-4">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Urutan pertandingan</h2>
-					<span class="text-sm font-black text-[#38675b]">{matches.length} match</span>
+				<div class="flex items-baseline justify-between gap-4 border-b border-[#d6ddd3] pb-4">
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Urutan pertandingan</h2>
+					<span class="text-sm font-bold text-[#38675b]">{matches.length} match</span>
 				</div>
-				{#if matches.length}<ol class="border-b border-[#b9c5bb]">
-						{#each matches as match (match.id)}<li class="border-t border-[#b9c5bb] py-5">
+				{#if matches.length}<ol class="border-b border-[#d6ddd3]">
+						{#each matches as match (match.id)}<li class="border-t border-[#d6ddd3] py-5">
 								<div class="grid grid-cols-[auto_1fr] gap-x-4">
-									<span class="text-3xl font-black text-[#38675b] tabular-nums"
+									<span class="text-3xl font-bold text-[#38675b] tabular-nums"
 										>{String(match.sequence_number).padStart(2, '0')}</span
 									>
 									<div class="min-w-0">
 										<div class="flex items-center justify-between gap-3">
-											<h3 class="text-lg font-black">Match {match.sequence_number}</h3>
-											<span class="text-xs font-black tracking-[0.1em] text-[#527169]"
+											<h3 class="text-lg font-bold">Match {match.sequence_number}</h3>
+											<span class="text-xs font-bold tracking-[0.1em] text-[#527169]"
 												>{match.status === 'COMPLETED' ? 'SELESAI' : match.status}</span
 											>
 										</div>
@@ -506,7 +506,7 @@
 														>{player}</span
 													>{:else}—{/each}
 											</p>
-											<span class="font-black text-[#e2653e]">VS</span>
+											<span class="font-bold text-[#a94225]">VS</span>
 											<p class="font-bold">
 												{#each teamPlayers(match.team_b) as player (player)}<span class="block"
 														>{player}</span
@@ -515,11 +515,11 @@
 										</div>
 										<div class="mt-4 flex flex-wrap gap-2">
 											{#if match.set_one_a !== null}<span
-													class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-sm font-black tabular-nums"
+													class="border border-[#d6ddd3] bg-[#e5ece5] px-3 py-2 text-sm font-bold tabular-nums"
 													>SET 1 · {match.set_one_a}–{match.set_one_b}</span
 												>{/if}
 											{#if match.set_two_a !== null}<span
-													class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-sm font-black tabular-nums"
+													class="border border-[#d6ddd3] bg-[#e5ece5] px-3 py-2 text-sm font-bold tabular-nums"
 													>SET 2 · {match.set_two_a}–{match.set_two_b}</span
 												>{/if}
 											{#if !completedSetCount(match)}<span class="text-sm text-[#527169]"
@@ -529,26 +529,26 @@
 									</div>
 								</div>
 							</li>{/each}
-					</ol>{:else}<p class="border-b border-[#b9c5bb] py-5 text-sm text-[#527169]">
+					</ol>{:else}<p class="border-b border-[#d6ddd3] py-5 text-sm text-[#527169]">
 						Tidak ada match yang selesai pada sesi ini.
 					</p>{/if}
 			</section>
-			<section class="mt-9 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Hadir & pembayaran ({attendees.length})</h2>
+			<section class="mt-9 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Hadir & pembayaran ({attendees.length})</h2>
 				{#if attendees.length}<ul
-						class="mt-3 grid border-y border-[#b9c5bb] bg-[#fffaf0] sm:grid-cols-2"
+						class="mt-3 grid border-y border-[#d6ddd3] bg-[#fffaf0] sm:grid-cols-2"
 					>
 						{#each attendees as attendee (attendee.player_id)}<li
-								class="flex min-h-14 items-center justify-between gap-3 border-b border-[#b9c5bb] px-4 text-sm last:border-b-0"
+								class="flex min-h-14 items-center justify-between gap-3 border-b border-[#d6ddd3] px-4 text-sm last:border-b-0"
 							>
 								<span
 									><b class="block">{attendee.display_name}</b><span
-										class="mt-1 block text-xs font-black tracking-[0.1em] text-[#527169]"
+										class="mt-1 block text-xs font-bold tracking-[0.1em] text-[#527169]"
 										>{attendee.membership_type === 'GUEST' ? 'TAMU' : 'ANGGOTA KLUB'}</span
 									></span
 								>
 								<span
-									class={`text-xs font-black ${attendee.is_paid === true ? 'text-[#38675b]' : attendee.is_paid === false ? 'text-[#9a3d25]' : 'text-[#527169]'}`}
+									class={`text-xs font-bold ${attendee.is_paid === true ? 'text-[#38675b]' : attendee.is_paid === false ? 'text-[#9a3d25]' : 'text-[#527169]'}`}
 									>{attendee.is_paid === null
 										? 'BELUM DITETAPKAN'
 										: attendee.is_paid
@@ -560,14 +560,14 @@
 						Daftar hadir tidak tersedia untuk sesi ini.
 					</p>{/if}
 			</section>
-			<section class="mt-7 border-t border-[#b9c5bb] pt-5">
-				<h2 class="text-xl font-black">Rekap dana sesi</h2>
+			<section class="mt-7 border-t border-[#d6ddd3] pt-5">
+				<h2 class="text-xl font-bold">Rekap dana sesi</h2>
 				{#if financeRecap}<dl
-						class="mt-3 divide-y divide-[#b9c5bb] border-y border-[#b9c5bb] bg-[#fffaf0] px-4"
+						class="mt-3 divide-y divide-[#b9c5bb] border-y border-[#d6ddd3] bg-[#fffaf0] px-4"
 					>
 						<div class="flex min-h-12 items-center justify-between gap-4">
 							<dt>Biaya per orang</dt>
-							<dd class="font-black">
+							<dd class="font-bold">
 								{financeRecap.fee_per_person
 									? money(financeRecap.fee_per_person)
 									: 'Belum ditetapkan'}
@@ -575,21 +575,21 @@
 						</div>
 						<div class="flex min-h-12 items-center justify-between gap-4">
 							<dt>Perkiraan iuran sesi</dt>
-							<dd class="font-black">{money(financeRecap.expected_fees)}</dd>
+							<dd class="font-bold">{money(financeRecap.expected_fees)}</dd>
 						</div>
 						<div class="flex min-h-12 items-center justify-between gap-4">
 							<dt>Biaya lapangan</dt>
-							<dd class="font-black">{money(financeRecap.court_expenses)}</dd>
+							<dd class="font-bold">{money(financeRecap.court_expenses)}</dd>
 						</div>
 						<div class="flex min-h-12 items-center justify-between gap-4">
 							<dt>Biaya kok</dt>
-							<dd class="font-black">{money(financeRecap.shuttlecock_expenses)}</dd>
+							<dd class="font-bold">{money(financeRecap.shuttlecock_expenses)}</dd>
 						</div>
 						{#if financeRecap.other_expenses}<div
 								class="flex min-h-12 items-center justify-between gap-4"
 							>
 								<dt>Pengeluaran lain</dt>
-								<dd class="font-black">{money(financeRecap.other_expenses)}</dd>
+								<dd class="font-bold">{money(financeRecap.other_expenses)}</dd>
 							</div>{/if}
 					</dl>
 					<p class="mt-2 text-xs leading-5 text-[#527169]">
@@ -597,10 +597,10 @@
 						yang sudah dikonfirmasi.
 					</p>{/if}
 			</section>
-			{#if canManage}<section class="mt-8 border-t border-[#b9c5bb] pt-5">
+			{#if canManage}<section class="mt-8 border-t border-[#d6ddd3] pt-5">
 					<div class="flex items-center justify-between gap-3">
 						<div>
-							<h2 class="text-xl font-black">Evaluasi sesi</h2>
+							<h2 class="text-xl font-bold">Evaluasi sesi</h2>
 							<p class="mt-1 text-xs text-[#527169]">
 								Catatan observasi admin, bukan bukti kualitas algoritma.
 							</p>
@@ -617,8 +617,8 @@
 							<p class="text-sm text-[#a93e29]">{evaluationError}</p>
 							<AppButton variant="secondary" onclick={loadEvaluation}>Coba lagi</AppButton>
 						</div>{:else if evaluation}<div class="mt-4 grid gap-4 sm:grid-cols-2">
-							<section class="border border-[#b9c5bb] bg-[#fffaf0] p-4">
-								<h3 class="font-black">Rotasi</h3>
+							<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] p-4">
+								<h3 class="font-bold">Rotasi</h3>
 								<div class="mt-3 grid grid-cols-2 gap-3 text-sm">
 									<p>
 										<b class="block text-xl">{evaluation.algorithm1.recommendations}</b>Rekomendasi
@@ -652,8 +652,8 @@
 										Waktu READY tidak lengkap di riwayat status; metrik tunggu tidak digunakan.
 									</p>{/if}
 							</section>
-							<section class="border border-[#b9c5bb] bg-[#fffaf0] p-4">
-								<h3 class="font-black">Pairing</h3>
+							<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] p-4">
+								<h3 class="font-bold">Pairing</h3>
 								<div class="mt-3 grid grid-cols-2 gap-3 text-sm">
 									<p>
 										<b class="block text-xl">{evaluation.algorithm2.recommendations}</b>Rekomendasi
@@ -693,12 +693,12 @@
 						</div>{/if}
 					{#if evaluation}<div class="mt-4 flex flex-wrap gap-2">
 							{#each evaluation.flags as flag (flag)}<span
-									class="border border-[#e2653e] bg-[#fff1e9] px-2 py-1 text-xs font-black text-[#9c4329]"
+									class="border border-[#e2653e] bg-[#fff1e9] px-2 py-1 text-xs font-bold text-[#9c4329]"
 									>{flag}</span
 								>{/each}
 						</div>
-						<h3 class="mt-5 font-black">Ringkasan pemain</h3>
-						<div class="mt-2 divide-y divide-[#e5ece5] border-y border-[#b9c5bb] bg-[#fffaf0]">
+						<h3 class="mt-5 font-bold">Ringkasan pemain</h3>
+						<div class="mt-2 divide-y divide-[#e5ece5] border-y border-[#d6ddd3] bg-[#fffaf0]">
 							{#each [...evaluation.algorithm1.players].sort((a, b) => Number(b.flags.length > 0) - Number(a.flags.length > 0) || a.name.localeCompare(b.name)) as player (player.playerId)}<div
 									class="grid grid-cols-[1fr_auto] gap-2 px-3 py-3 text-sm sm:grid-cols-[1fr_repeat(4,auto)]"
 								>
@@ -717,8 +717,10 @@
 						</div>{/if}
 				</section>{/if}
 		</section>
-	{:else if !detailQuery.isError}<section class="mt-7 border border-[#b9c5bb] bg-[#fffaf0] p-6">
-			<h1 class="text-2xl font-black">Sesi tidak ditemukan.</h1>
+	{:else if !detailQuery.isError}<section
+			class="court-panel mt-7 border border-[#d6ddd3] bg-[#fffaf0] p-6"
+		>
+			<h1 class="text-2xl font-bold">Sesi tidak ditemukan.</h1>
 			<p class="mt-2 text-sm text-[#527169]">
 				Detail hanya tersedia untuk sesi yang sudah selesai.
 			</p>
@@ -731,12 +733,12 @@
 			panelClass="max-h-[90dvh] overflow-y-auto"
 		>
 			<div class="p-5 sm:p-6">
-				<h2 class="text-2xl font-black tracking-[-0.04em]">Bagikan hasil sesi</h2>
+				<h2 class="text-2xl font-bold tracking-[-0.04em]">Bagikan hasil sesi</h2>
 				<p class="mt-1 text-sm text-[#527169]">{date(session.started_at)} · {clubName}</p>
 				<label class="mt-4 flex min-h-11 items-center gap-3 text-sm font-bold">
 					<input
 						type="checkbox"
-						class="size-5 accent-[#163630]"
+						class="size-5 rounded-md accent-[#163630]"
 						checked={includeFinance}
 						onchange={(event) => {
 							includeFinance = event.currentTarget.checked;
@@ -746,7 +748,7 @@
 				</label>
 				{#if cardUrl}
 					<img
-						class="mt-4 max-h-[48dvh] w-full border border-[#b9c5bb] object-contain object-top"
+						class="mt-4 max-h-[48dvh] w-full border border-[#d6ddd3] object-contain object-top"
 						src={cardUrl}
 						alt={`Kartu recap sesi ${date(session.started_at)}: ${session.attendance} pemain dan ${matches.length} match${includeFinance ? ' dengan rekap iuran' : ' tanpa informasi pembayaran'}`}
 					/>

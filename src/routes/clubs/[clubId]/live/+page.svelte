@@ -394,7 +394,7 @@
 		>
 			{#if authAccessState === 'signing-in'}
 				<div class="p-6 text-[#163630]" role="status" aria-live="polite" aria-busy="true">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Memeriksa akun</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Memeriksa akun</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Tunggu sebentar, kami sedang mengonfirmasi proses masuk.
 					</p>
@@ -405,7 +405,7 @@
 				</div>
 			{:else if authAccessState === 'checking'}
 				<div class="p-6 text-[#163630]" role="status" aria-live="polite" aria-busy="true">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Memeriksa akses klub</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Memeriksa akses klub</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Kamu sudah masuk. Kami sedang memeriksa akses admin ke {displayName}.
 					</p>
@@ -416,7 +416,7 @@
 				</div>
 			{:else if authAccessState === 'denied'}
 				<div class="p-6 text-[#163630]">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Kamu sudah masuk.</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Kamu sudah masuk.</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]" role="status">
 						Akun ini belum memiliki akses admin ke {displayName}. Buka daftar klub pada akunmu untuk
 						melihat akses yang tersedia.
@@ -433,7 +433,7 @@
 				</div>
 			{:else if authAccessState === 'error'}
 				<div class="p-6 text-[#163630]" role="alert">
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Akses klub belum bisa dimuat.</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Akses klub belum bisa dimuat.</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Akunmu sudah masuk, tetapi pemeriksaan akses ke {displayName} belum berhasil.
 					</p>
@@ -452,13 +452,13 @@
 						void passwordLogin();
 					}}
 				>
-					<h2 class="text-2xl font-black tracking-[-0.04em]">Masuk sebagai admin</h2>
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Masuk sebagai admin</h2>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Gunakan akun admin klub untuk mengelola sesi.
 					</p>
 					<label class="mt-5 block text-sm font-bold"
 						>Email<input
-							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+							class="mt-2 min-h-11 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
 							type="email"
 							bind:value={email}
 							autocomplete="email"
@@ -466,7 +466,7 @@
 						/></label
 					><label class="mt-4 block text-sm font-bold"
 						>Kata sandi<input
-							class="mt-2 min-h-11 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
+							class="mt-2 min-h-11 w-full rounded-md border border-[#d6ddd3] bg-[#fffaf0] px-3 outline-none focus:border-[#38675b] focus:ring-4 focus:ring-[#dceadf]"
 							type="password"
 							bind:value={password}
 							autocomplete="current-password"
@@ -488,7 +488,7 @@
 				class="overflow-hidden border border-[#163630] bg-[#163630] text-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.17)] sm:p-1"
 			>
 				<div
-					class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-black tracking-[0.14em]"
+					class="flex items-center justify-between border-b border-[#85a097]/55 px-5 py-3 text-[11px] font-bold tracking-[0.14em]"
 				>
 					<span class="text-[#d4e1db]">MALAM INI · MULAI</span>
 					<span class="inline-flex items-center gap-2 text-[#f5bb61]">
@@ -508,7 +508,7 @@
 						class="pointer-events-none absolute inset-x-[12%] top-4 bottom-0 border-x border-t border-[#85a097]/25"
 					></div>
 					<div class="relative">
-						<p class="text-xs font-black tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
+						<p class="text-xs font-bold tracking-[0.16em] text-[#a7c5b9]">LAPANGAN</p>
 						<div class={`mt-2 ${activeMatch ? 'max-w-sm' : 'max-w-lg'}`}>
 							<LoadingSkeleton height="2.25rem" />
 						</div>
@@ -525,19 +525,19 @@
 			</section>
 		{:else}
 			<section
-				class="border border-[#b9c5bb] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
+				class="court-panel border border-[#d6ddd3] bg-[#fffaf0] px-6 py-8 shadow-[0_12px_28px_rgba(22,54,48,0.09)]"
 				role="status"
 				aria-busy="true"
 				aria-label="Memeriksa sesi aktif"
 			>
-				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">KLUB / LIVE</p>
+				<p class="text-xs font-bold tracking-[0.14em] text-[#38675b]">KLUB / LIVE</p>
 				<div class="mt-3 max-w-lg"><LoadingSkeleton height="2.25rem" /></div>
 				<div class="mt-3 max-w-sm"><LoadingSkeleton height="1.5rem" /></div>
 			</section>
 		{/if}
 	{:else if liveQuery.isError && !liveQuery.data}
-		<section class="border border-[#b9c5bb] bg-[#fffaf0] px-5 py-5" role="alert">
-			<h1 class="text-xl font-black">Kondisi lapangan belum bisa dimuat.</h1>
+		<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] px-5 py-5" role="alert">
+			<h1 class="text-xl font-bold">Kondisi lapangan belum bisa dimuat.</h1>
 			<p class="mt-2 text-sm leading-6 text-[#527169]">
 				Koneksi belum berhasil membaca sesi. Muat ulang untuk mencoba lagi.
 			</p>
@@ -546,7 +546,7 @@
 	{:else if tab === 'live'}
 		{#if liveQuery.isError && liveQuery.data}
 			<section
-				class="mb-4 flex items-center justify-between gap-3 border-y border-[#b9c5bb] py-3 text-sm"
+				class="mb-4 flex items-center justify-between gap-3 border-y border-[#d6ddd3] py-3 text-sm"
 				role="status"
 			>
 				<p class="text-[#527169]">Menampilkan kondisi terakhir. Pembaruan belum berhasil.</p>
@@ -585,12 +585,12 @@
 			onsubstitute={substitute}
 		/>
 		{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
-			<section class="mt-5 border-y border-[#b9c5bb] py-5">
-				<h2 class="text-xl font-black">Rekap sesi belum dikonfirmasi</h2>
+			<section class="mt-5 border-y border-[#d6ddd3] py-5">
+				<h2 class="text-xl font-bold">Rekap sesi belum dikonfirmasi</h2>
 				<p class="mt-1 text-sm leading-5 text-[#527169]">
 					Sesi yang belum ditetapkan iurannya bisa dilanjutkan di sini.
 				</p>
-				<ul class="mt-3 divide-y divide-[#d6ddd5] border-y border-[#b9c5bb]">
+				<ul class="mt-3 divide-y divide-[#d6ddd5] border-y border-[#d6ddd3]">
 					{#each publicHistory.filter((item) => item.closed_at && item.fee_per_person === null) as item (item.id)}
 						<li class="flex items-center justify-between gap-3 py-3">
 							<span class="min-w-0">
@@ -606,7 +606,7 @@
 								>
 							</span>
 							<a
-								class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+								class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
 								href={resolve('/clubs/[clubId]/session-close/[id]', {
 									clubId: selectedClubId(),
 									id: item.id
@@ -619,8 +619,8 @@
 		{/if}
 	{:else if tab === 'players'}
 		<section class=" bg-slate-950 p-6 text-white">
-			<p class="text-xs font-black tracking-[0.16em] text-lime-300">ROSTER</p>
-			<h1 class="mt-2 text-3xl font-black tracking-tight">
+			<p class="text-xs font-bold tracking-[0.16em] text-lime-300">ROSTER</p>
+			<h1 class="mt-2 text-3xl font-bold tracking-tight">
 				{publicRoster.length ? `${publicRoster.length} pemain terdaftar` : 'Belum ada pemain.'}
 			</h1>
 			<p class="mt-3 text-sm leading-6 text-slate-300">
@@ -632,7 +632,7 @@
 			>
 				<label class="block text-sm font-bold"
 					>Tambah pemain<input
-						class="mt-2 min-h-11 w-full border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
+						class="mt-2 min-h-11 w-full rounded-md border border-slate-200 px-3 outline-none focus:border-lime-500 focus:ring-4 focus:ring-lime-100"
 						bind:value={playerName}
 						placeholder="Nama pemain"
 					/></label
@@ -646,8 +646,7 @@
 				{#each userEmail ? roster : publicRoster as player (player.id)}<li
 						class="flex min-h-14 items-center gap-3 px-4 py-3"
 					>
-						<span
-							class="grid size-9 place-items-center bg-lime-200 text-sm font-black text-lime-950"
+						<span class="grid size-9 place-items-center bg-lime-200 text-sm font-bold text-lime-950"
 							>{player.display_name.slice(0, 1)}</span
 						><span class="font-bold">{player.display_name}</span>
 					</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
@@ -657,7 +656,7 @@
 		</section>
 	{:else if tab === 'history'}
 		<section class=" bg-slate-950 p-6 text-white">
-			<h1 class="text-3xl font-black tracking-tight">Riwayat sesi</h1>
+			<h1 class="text-3xl font-bold tracking-tight">Riwayat sesi</h1>
 			<p class="mt-3 text-sm leading-6 text-slate-300">
 				Sesi yang sudah selesai bisa dilihat semua orang. Rincian pembayaran tiap pemain hanya untuk
 				admin.
@@ -669,7 +668,7 @@
 						class="flex items-center justify-between gap-4 px-4 py-4"
 					>
 						<div>
-							<p class="font-black">
+							<p class="font-bold">
 								{new Intl.DateTimeFormat(undefined, {
 									month: 'short',
 									day: 'numeric',
@@ -682,7 +681,7 @@
 									: 'belum ditetapkan'}
 							</p>
 						</div>
-						<span class="rounded-full bg-lime-100 px-3 py-1 text-xs font-black text-lime-800"
+						<span class="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-lime-800"
 							>Selesai</span
 						>
 					</li>{:else}<li class="px-4 py-8 text-center text-sm text-slate-500">
@@ -692,7 +691,7 @@
 		</section>
 	{:else}
 		<section class=" bg-slate-950 p-6 text-white">
-			<h1 class="text-3xl font-black tracking-tight">Dana klub</h1>
+			<h1 class="text-3xl font-bold tracking-tight">Dana klub</h1>
 			<p class="mt-3 text-sm leading-6 text-slate-300">
 				Ringkasan iuran yang tercatat dan pengeluaran yang disetujui. Saldo per pemain hanya
 				terlihat oleh admin.
@@ -700,15 +699,15 @@
 			<div class="mt-6 grid grid-cols-3 gap-2 text-center">
 				<div>
 					<p class="text-xs font-bold text-slate-400">MASUK</p>
-					<p class="mt-1 font-black">Rp{(fundSummary?.received ?? 0).toLocaleString('id-ID')}</p>
+					<p class="mt-1 font-bold">Rp{(fundSummary?.received ?? 0).toLocaleString('id-ID')}</p>
 				</div>
 				<div>
 					<p class="text-xs font-bold text-slate-400">KELUAR</p>
-					<p class="mt-1 font-black">Rp{(fundSummary?.expenses ?? 0).toLocaleString('id-ID')}</p>
+					<p class="mt-1 font-bold">Rp{(fundSummary?.expenses ?? 0).toLocaleString('id-ID')}</p>
 				</div>
 				<div>
 					<p class="text-xs font-bold text-lime-300">SALDO</p>
-					<p class="mt-1 font-black text-lime-300">
+					<p class="mt-1 font-bold text-lime-300">
 						Rp{(fundSummary?.balance ?? 0).toLocaleString('id-ID')}
 					</p>
 				</div>
@@ -737,15 +736,15 @@
 		<div class="p-6 text-[#163630]">
 			<div class="flex items-start justify-between gap-3">
 				<div>
-					<p class="text-xs font-black tracking-[0.15em] text-slate-500">PLAYER STATUS</p>
-					<h2 id="player-title" class="mt-1 text-2xl font-black">{selectedParticipant.name}</h2>
+					<p class="text-xs font-bold tracking-[0.15em] text-slate-500">PLAYER STATUS</p>
+					<h2 id="player-title" class="mt-1 text-2xl font-bold">{selectedParticipant.name}</h2>
 					<p class="mt-1 text-sm text-slate-600">
 						Status sekarang: {participantStatusLabel[selectedParticipant.status]}. Pilih status
 						berikutnya.
 					</p>
 				</div>
 				<button
-					class="grid size-11 shrink-0 place-items-center text-xl text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
+					class="grid size-11 shrink-0 place-items-center rounded-md text-xl text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#163630]"
 					onclick={() => (selectedParticipant = null)}
 					aria-label="Close">×</button
 				>
@@ -760,7 +759,7 @@
 			</div>
 			{#if selectedParticipant.status === 'READY' || selectedParticipant.status === 'PLAYING'}
 				<label
-					class="mt-5 flex min-h-12 items-center gap-3 border-t border-[#b9c5bb] pt-4 text-sm font-bold text-[#163630]"
+					class="mt-5 flex min-h-12 items-center gap-3 border-t border-[#d6ddd3] pt-4 text-sm font-bold text-[#163630]"
 				>
 					<input
 						type="checkbox"
@@ -786,8 +785,8 @@
 		onOpenChange={(open) => (showEndSession = open)}
 	>
 		<div class="p-6 text-[#163630]">
-			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">AKHIRI SESI?</p>
-			<h2 id="end-session-title" class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">
+			<p class="text-xs font-bold tracking-[0.14em] text-[#38675b]">AKHIRI SESI?</p>
+			<h2 id="end-session-title" class="mt-2 text-2xl font-bold tracking-[-0.04em] text-[#163630]">
 				Malam ini selesai?
 			</h2>
 			<p class="mt-3 text-sm leading-6 text-[#527169]">

@@ -85,12 +85,12 @@ async function backend(
 test('landing is neutral and makes no club or account requests', async ({ page }) => {
 	const reads = await backend(page);
 	await page.goto('/');
-	await expect(page.getByRole('heading', { name: /Lebih banyak main/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Main bareng/ })).toBeVisible();
 	await expect(page.getByText('PB NEWBIE')).toHaveCount(0);
 	await expect(page).toHaveURL(/\/$/);
 	await page.screenshot({ path: 'output/playwright/landing-desktop.png', fullPage: true });
 	expect(reads).toEqual([]);
-	await page.getByRole('link', { name: 'Buat klubmu' }).first().click();
+	await page.getByRole('link', { name: 'Buat klub', exact: true }).first().click();
 	await expect(page.getByRole('heading', { name: 'Buat akun admin.' })).toBeVisible();
 });
 
@@ -151,12 +151,14 @@ for (const width of [390, 360]) {
 		await backend(page);
 		await page.setViewportSize({ width, height: 844 });
 		await page.goto('/');
-		await expect(page.getByRole('link', { name: 'Buat klubmu' }).first()).toBeInViewport();
+		await expect(
+			page.getByRole('link', { name: 'Buat klub', exact: true }).first()
+		).toBeInViewport();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
 			true
 		);
 		await page.screenshot({ path: `output/playwright/landing-${width}.png`, fullPage: true });
-		await page.getByRole('link', { name: 'Buat klubmu' }).first().click();
+		await page.getByRole('link', { name: 'Buat klub', exact: true }).first().click();
 		await expect(page.getByRole('heading', { name: 'Buat akun admin.' })).toBeVisible();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
 			true
@@ -178,6 +180,7 @@ test('signing out returns to neutral account entry', async ({ page }) => {
 	await backend(page, true, [{ id: clubB, name: 'Klub Beta', is_club_admin: true }]);
 	await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204 }));
 	await page.goto(`/clubs/${clubB}/live`);
+	await page.getByLabel('Akun dan klub saya', { exact: true }).click();
 	await page.getByRole('button', { name: 'Keluar', exact: true }).click();
 	await expect(page).toHaveURL(/\/start$/);
 	await expect(page.getByRole('heading', { name: 'Selamat datang lagi.' })).toBeVisible();
@@ -189,6 +192,7 @@ test('failed sign-out keeps the account visible and reports the failure', async 
 		route.fulfill({ status: 500, json: { message: 'Logout unavailable' } })
 	);
 	await page.goto(`/clubs/${clubB}/live`);
+	await page.getByLabel('Akun dan klub saya', { exact: true }).click();
 	await page.getByRole('button', { name: 'Keluar', exact: true }).click();
 	await expect(page.getByText('Logout unavailable', { exact: true })).toBeVisible();
 	await expect(page).toHaveURL(new RegExp(`/clubs/${clubB}/live$`));
@@ -297,4 +301,15 @@ test('saved password with failed sign-out retries without another password write
 	await page.getByRole('button', { name: 'Lanjutkan ke masuk' }).click();
 	await expect(page).toHaveURL(/\/start\?password=updated$/);
 	expect(writes).toBe(1);
+});
+
+test('landing demo opens a read-only fictional session without backend calls', async ({ page }) => {
+	const reads = await backend(page);
+	await page.goto('/');
+	await page.getByRole('link', { name: 'Coba demo', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Coba Courtside', exact: true })).toBeVisible();
+	await expect(page.getByText('Set 1 · 21–18', { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Skor Tim A')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Ganti pemain', exact: true })).toHaveCount(0);
+	expect(reads).toEqual([]);
 });

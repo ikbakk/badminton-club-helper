@@ -174,19 +174,14 @@
 
 {#if activeMatch && playingSet}
 	{#key playingSet.setNumber}
-		<section
-			class="court-score-enter overflow-hidden border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.08)]"
-		>
-			<div class="border-b border-[#b9c5bb] bg-[#163630] px-5 py-4 text-[#fffaf0]">
+		<section class="match-court court-score-enter">
+			<div class="match-heading">
 				<div class="flex items-center justify-between gap-4">
 					<h2 class="text-xl font-black tracking-[-0.04em]">Match {activeMatch.sequence_number}</h2>
 					<span class="text-xs font-black tracking-[0.12em] text-[#f5bb61]"
 						>SET {playingSet.setNumber}</span
 					>
 				</div>
-				<p class="mt-2 text-sm text-[#d4e1db]">
-					Hasil set dan pergantian pemain dikendalikan dari sini.
-				</p>
 			</div>
 			{#if correctionSet}
 				<div class="border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-4">
@@ -200,7 +195,7 @@
 								inputmode="numeric"
 								bind:value={correctionA}
 							/></label
-						><span class="pb-3 font-black text-[#e2653e]">—</span><label
+						><span class="pb-3 font-black text-[#a94225]">—</span><label
 							class="text-xs font-bold text-[#527169]"
 							>Skor Tim B<input
 								class="mt-1 min-h-11 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-xl font-black"
@@ -218,52 +213,28 @@
 					</div>
 				</div>
 			{/if}
-			<div
-				class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 border-b border-[#b9c5bb] px-5 py-6 text-center"
-			>
+			<div class="match-teams">
 				<div>
-					<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM A</p>
-					<p class="mt-2 text-sm font-extrabold text-[#163630]">
+					<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM A</p>
+					<p class="mt-2 text-sm font-extrabold text-[#fffaf0]">
 						{teamA.map((player) => player.name).join(' + ')}
 					</p>
 				</div>
-				<span class="text-lg font-black text-[#e2653e]">VS</span>
+				<span class="text-lg font-bold text-[#f6a381]">VS</span>
 				<div>
-					<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM B</p>
-					<p class="mt-2 text-sm font-extrabold text-[#163630]">
+					<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM B</p>
+					<p class="mt-2 text-sm font-extrabold text-[#fffaf0]">
 						{teamB.map((player) => player.name).join(' + ')}
 					</p>
 				</div>
 			</div>
-			{#if completedSets.length || canManage}
-				<div
-					class="flex flex-wrap items-center gap-2 border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3"
-				>
-					{#each completedSets as set (set.setNumber)}
-						{#if canManage}<AppButton
-								variant="secondary"
-								disabled={Boolean(pending) || !online}
-								onclick={() => openCorrection(set.setNumber as 1 | 2)}
-								>Koreksi Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</AppButton
-							>{:else}<span
-								class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-xs font-bold text-[#163630]"
-								>Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
-							>{/if}
-					{/each}
-					{#if canManage}<AppButton
-							variant="danger"
-							disabled={Boolean(pending) || !online}
-							onclick={onabandon}>Batalkan match</AppButton
-						>{/if}
-				</div>
-			{/if}
-			{#if betweenSets && substituteStep === 0}
-				<div class="px-5 py-6">
+			{#if canManage && betweenSets && substituteStep === 0}
+				<div class="match-step px-5 py-6">
 					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">Lanjut ke Set 2</h3>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Pilih lanjut dengan susunan yang sama, atau ganti satu pemain sebelum mulai.
 					</p>
-					<div class="mt-5 grid grid-cols-[minmax(0,7fr)_minmax(0,3fr)] gap-3">
+					<div class="mt-5 grid grid-cols-2 gap-3">
 						<AppButton class="w-full" disabled={!online} onclick={() => (setTwoStarted = true)}
 							>Mulai Set 2</AppButton
 						>
@@ -276,7 +247,7 @@
 					</div>
 				</div>
 			{:else if substituteStep > 0}
-				<div class="px-5 py-6">
+				<div class="match-step px-5 py-6">
 					{#if substituteStep === 1}
 						<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
 							PENGGANTIAN · 1 DARI 3
@@ -347,22 +318,21 @@
 					{/if}
 				</div>
 			{:else if canManage}
-				<div class="px-5 py-6">
-					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">
+				<div class="score-entry">
+					<h3 class="score-entry-title">
 						Catat hasil Set {playingSet.setNumber}
 					</h3>
-					<p class="mt-2 text-sm text-[#527169]">Masukkan skor akhir setelah reli terakhir.</p>
+					<p class="score-entry-note">Masukkan skor akhir setelah reli terakhir.</p>
 					<div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-						<label class="text-xs font-bold text-[#527169]"
+						<label class="score-label"
 							>Skor Tim A<input
-								class="mt-1 min-h-16 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-3xl font-black text-[#163630]"
+								class="score-input"
 								inputmode="numeric"
 								bind:value={scoreA}
 							/></label
-						><span class="pb-5 font-black text-[#e2653e]">—</span><label
-							class="text-xs font-bold text-[#527169]"
+						><span class="pb-5 font-bold text-[#f6a381]">—</span><label class="score-label"
 							>Skor Tim B<input
-								class="mt-1 min-h-16 w-full border border-[#163630] bg-[#fffaf0] px-3 text-center text-3xl font-black text-[#163630]"
+								class="score-input"
 								inputmode="numeric"
 								bind:value={scoreB}
 							/></label
@@ -378,10 +348,32 @@
 					</div>
 				</div>
 			{/if}
+			{#if completedSets.length || canManage}
+				<div
+					class="flex flex-wrap items-center gap-2 border-b border-[#b9c5bb] bg-[#f7f2e8] px-5 py-3"
+				>
+					{#each completedSets as set (set.setNumber)}
+						{#if canManage}<AppButton
+								variant="secondary"
+								disabled={Boolean(pending) || !online}
+								onclick={() => openCorrection(set.setNumber as 1 | 2)}
+								>Koreksi Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</AppButton
+							>{:else}<span
+								class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-xs font-bold text-[#163630]"
+								>Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
+							>{/if}
+					{/each}
+					{#if canManage}<AppButton
+							variant="danger"
+							disabled={Boolean(pending) || !online}
+							onclick={onabandon}>Batalkan match</AppButton
+						>{/if}
+				</div>
+			{/if}
 		</section>
 	{/key}
 {:else if canManage && ready.length >= 4}
-	<section class="border border-[#b9c5bb] bg-[#fffaf0] shadow-[0_12px_28px_rgba(22,54,48,0.08)]">
+	<section class="court-panel">
 		<div class="bg-[#e5ece5] p-5">
 			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
 				{ready.length} pemain siap.
@@ -505,7 +497,7 @@
 								{/each}
 							</ul>
 							<button
-								class="mt-3 min-h-10 text-sm font-black text-[#38675b] underline underline-offset-2"
+								class="mt-3 min-h-11 text-sm font-black text-[#38675b] underline underline-offset-2"
 								onclick={() => (selected = [])}>Pilih empat pemain secara manual</button
 							>
 						</section>
@@ -563,7 +555,7 @@
 								.join('\n')}
 						</p>
 					</div>
-					<span class="font-black text-[#e2653e]">VS</span>
+					<span class="font-black text-[#a94225]">VS</span>
 					<div>
 						<p class="text-xs font-black tracking-[0.12em] text-[#527169]">TIM B</p>
 						<p class="mt-3 text-sm font-extrabold whitespace-pre-line text-[#163630]">
@@ -580,6 +572,108 @@
 {/if}
 
 <style>
+	.match-court {
+		position: relative;
+		isolation: isolate;
+		overflow: hidden;
+		border: 1px solid #244f44;
+		border-radius: 10px;
+		background: var(--court-ink);
+		color: var(--court-chalk);
+		box-shadow: 0 8px 20px rgb(22 54 48 / 8%);
+	}
+	.match-court:before {
+		content: '';
+		position: absolute;
+		inset: 20px;
+		border: 1px solid rgb(185 197 187 / 10%);
+		z-index: -1;
+		pointer-events: none;
+	}
+	.match-heading {
+		padding: 18px 20px 0;
+	}
+	.match-heading h2 {
+		font-size: 15px;
+		font-weight: 700;
+	}
+	.match-teams {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+		gap: 12px;
+		align-items: center;
+		text-align: center;
+		padding: 28px 20px 20px;
+	}
+	.match-teams p {
+		overflow-wrap: anywhere;
+	}
+	.match-teams p:last-child {
+		font-size: 16px;
+		font-weight: 700;
+		line-height: 1.6;
+	}
+	.score-entry {
+		padding: 8px 20px 20px;
+	}
+	.score-entry-title {
+		font-size: 13px;
+		font-weight: 650;
+		color: #fffaf0;
+	}
+	.score-entry-note {
+		font-size: 11px;
+		line-height: 1.6;
+		color: #c5d6cc;
+		margin-top: 6px;
+	}
+	.score-label {
+		font-size: 11px;
+		font-weight: 600;
+		color: #c5d6cc;
+		min-width: 0;
+	}
+	.score-input {
+		display: block;
+		width: 100%;
+		min-width: 0;
+		height: 76px;
+		margin-top: 8px;
+		border: 1px solid #66877a;
+		border-radius: 6px !important;
+		background: rgb(255 250 240 / 7%);
+		color: #fffaf0;
+		font-size: 42px;
+		font-weight: 800;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
+	.match-court :global(.court-button--primary) {
+		width: 100%;
+	}
+	.match-court :global(.court-button--danger) {
+		background: #fff1ec;
+		color: #9a3d25;
+		border-color: #e7b8aa;
+		font-size: 11px;
+		min-height: 44px;
+		padding: 8px 12px;
+	}
+
+	.match-step {
+		background: var(--court-chalk);
+		color: var(--court-ink);
+	}
+
+	.match-step :global(.court-button) {
+		white-space: nowrap;
+		flex-shrink: 0;
+	}
+	.match-step :global(.court-button--primary) {
+		width: auto;
+		flex: 1;
+	}
+
 	.court-score-enter {
 		animation: court-score-enter 360ms cubic-bezier(0.16, 1, 0.3, 1);
 	}

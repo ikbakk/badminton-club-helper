@@ -158,3 +158,37 @@ test('player session summary shows actual sets, partners and recorded rating cha
 	await expect(summary.getByText('Partner: Budi', { exact: true })).toBeVisible();
 	await expect(summary.getByText('Rating dari set: +10', { exact: true })).toBeVisible();
 });
+
+test('mobile navigation stays reachable after scrolling a long club page', async ({ page }) => {
+	await page.setViewportSize({ width: 360, height: 740 });
+	await page.route('**/rest/v1/**', (route) => {
+		const path = new URL(route.request().url()).pathname;
+		if (path.endsWith('/public_club_profile'))
+			return route.fulfill({
+				json: [{ id: 'club-e2e', name: 'Klub Badminton Sabtu Malam Bersama Teman Lama' }]
+			});
+		if (path.endsWith('/public_session_history'))
+			return route.fulfill({
+				json: Array.from({ length: 20 }, (_, i) => ({
+					id: `session-${i}`,
+					started_at: '2026-10-10T10:00:00Z',
+					closed_at: '2026-10-10T13:00:00Z',
+					attendance: 10,
+					fee_per_person: 15000
+				}))
+			});
+		return route.fulfill({ json: [] });
+	});
+	await page.goto('/clubs/club-e2e/history');
+	await expect(page.getByText('10 pemain', { exact: false }).first()).toBeVisible();
+	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	const nav = page.getByRole('navigation', { name: 'Navigasi utama' });
+	await expect(nav.getByRole('link', { name: 'Pemain', exact: true })).toBeInViewport();
+	await expect(nav.getByRole('link', { name: 'Kas', exact: true })).toBeInViewport();
+	expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+	await nav.getByRole('link', { name: 'Pemain', exact: true }).focus();
+	await expect(nav.getByRole('link', { name: 'Pemain', exact: true })).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(page).toHaveURL(/\/players$/);
+	await expect(page.getByRole('link', { name: 'Pengaturan', exact: true })).toHaveCount(0);
+});

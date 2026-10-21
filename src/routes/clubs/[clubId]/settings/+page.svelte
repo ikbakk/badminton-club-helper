@@ -174,8 +174,8 @@
 
 <svelte:head><title>Pengaturan — {clubName}</title></svelte:head>
 <AppShell current="/settings" {clubName}>
-	<section class="border-b border-[#b9c5bb] pb-5">
-		<h1 class="text-3xl font-black tracking-[-0.05em]">Pengaturan</h1>
+	<section class="border-b border-[#d6ddd3] pb-5">
+		<h1 class="text-3xl font-bold tracking-[-0.035em]">Pengaturan</h1>
 		<p class="mt-2 text-sm leading-6 text-[#527169]">
 			Atur profil klub dan petunjuk pembayaran manual.
 		</p>
@@ -184,7 +184,7 @@
 	{#if accountQuery.isPending && !accountQuery.data}
 		<div class="mt-5 grid gap-4" aria-busy="true" aria-label="Memeriksa akses pengaturan…">
 			{#each [1, 2, 3] as row (row)}<section
-					class="flex min-h-18 items-center justify-between border border-[#b9c5bb] bg-[#fffaf0] px-5 py-4"
+					class="court-panel flex min-h-18 items-center justify-between border border-[#d6ddd3] bg-[#fffaf0] px-5 py-4"
 					aria-hidden="true"
 				>
 					<div class="space-y-2">
@@ -195,8 +195,8 @@
 				</section>{/each}
 		</div>
 	{:else if accountQuery.isError && !accountQuery.data}
-		<section class="mt-5 border-y border-[#b9c5bb] bg-[#fffaf0] p-5" role="alert">
-			<h2 class="text-lg font-black">Pengaturan belum bisa dimuat.</h2>
+		<section class="court-panel mt-5 border-y border-[#d6ddd3] bg-[#fffaf0] p-5" role="alert">
+			<h2 class="text-lg font-bold">Pengaturan belum bisa dimuat.</h2>
 			<p class="mt-2 text-sm text-[#527169]">Periksa koneksi lalu coba lagi.</p>
 			<AppButton class="mt-4" variant="secondary" onclick={() => void accountQuery.refetch()}
 				>Coba lagi</AppButton
@@ -205,7 +205,7 @@
 	{:else if isAdmin}
 		{#if clubSettingsQuery.isPending && !clubSettingsQuery.data}
 			<section
-				class="mt-5 space-y-3 border border-[#b9c5bb] bg-[#fffaf0] p-5"
+				class="court-panel mt-5 space-y-3 border border-[#d6ddd3] bg-[#fffaf0] p-5"
 				aria-busy="true"
 				aria-label="Memuat pengaturan klub"
 			>
@@ -214,8 +214,8 @@
 				<LoadingSkeleton height="2.75rem" />
 			</section>
 		{:else if clubSettingsQuery.isError && !clubSettingsQuery.data}
-			<section class="mt-5 border-y border-[#b9c5bb] bg-[#fffaf0] p-5" role="alert">
-				<h2 class="text-lg font-black">Data klub belum bisa dimuat.</h2>
+			<section class="court-panel mt-5 border-y border-[#d6ddd3] bg-[#fffaf0] p-5" role="alert">
+				<h2 class="text-lg font-bold">Data klub belum bisa dimuat.</h2>
 				<p class="mt-2 text-sm text-[#527169]">Pengaturan belum berubah.</p>
 				<AppButton class="mt-4" variant="secondary" onclick={() => void clubSettingsQuery.refetch()}
 					>Coba lagi</AppButton
@@ -229,15 +229,15 @@
 					Menampilkan data terakhir yang berhasil dimuat. Periksa koneksi untuk memperbarui.
 				</p>{/if}
 			<form class="mt-5 grid gap-5" onsubmit={saveSettings}>
-				<section class="border border-[#b9c5bb] bg-[#fffaf0] p-5">
-					<h2 class="text-xl font-black">Profil klub</h2>
+				<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] p-5">
+					<h2 class="text-xl font-bold">Profil klub</h2>
 					<p class="mt-1 text-sm leading-6 text-[#527169]">
 						Nama ini tampil di navigasi dan halaman publik klub.
 					</p>
 					<label class="mt-4 block text-sm font-bold" for="club-name">Nama klub</label>
 					<input
 						id="club-name"
-						class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-white px-3 text-base"
+						class="mt-2 min-h-12 w-full rounded-md border border-[#d6ddd3] bg-white px-3 text-base"
 						bind:value={form.name}
 						maxlength="60"
 						required
@@ -245,20 +245,20 @@
 					/>
 				</section>
 
-				<section class="border border-[#b9c5bb] bg-[#fffaf0] p-5">
-					<h2 class="text-xl font-black">Tujuan pembayaran</h2>
+				<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] p-5">
+					<h2 class="text-xl font-bold">Tujuan pembayaran</h2>
 					<p class="mt-1 text-sm leading-6 text-[#527169]">
 						Isi metode yang dipakai klub. Petunjuk ini tidak mencatat atau mengonfirmasi pembayaran;
 						admin tetap menandai pembayaran di Kas.
 					</p>
 
 					<fieldset class="mt-5 grid gap-4">
-						<legend class="text-sm font-black">Transfer bank</legend>
+						<legend class="text-sm font-bold">Transfer bank</legend>
 						<label class="grid gap-2 text-sm font-bold" for="bank-name"
 							>Nama bank
 							<input
 								id="bank-name"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.bankName}
 								maxlength="60"
 								placeholder="BCA"
@@ -268,7 +268,7 @@
 							>Nama pemilik rekening
 							<input
 								id="bank-account-name"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.bankAccountName}
 								maxlength="100"
 							/>
@@ -277,7 +277,7 @@
 							>Nomor rekening
 							<input
 								id="bank-account-number"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.bankAccountNumber}
 								maxlength="40"
 								inputmode="numeric"
@@ -285,13 +285,13 @@
 						</label>
 					</fieldset>
 
-					<fieldset class="mt-6 grid gap-4 border-t border-[#b9c5bb] pt-5">
-						<legend class="text-sm font-black">ShopeePay</legend>
+					<fieldset class="mt-6 grid gap-4 border-t border-[#d6ddd3] pt-5">
+						<legend class="text-sm font-bold">ShopeePay</legend>
 						<label class="grid gap-2 text-sm font-bold" for="shopeepay-name"
 							>Nama akun
 							<input
 								id="shopeepay-name"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.shopeepayName}
 								maxlength="100"
 							/>
@@ -300,7 +300,7 @@
 							>Nomor HP
 							<input
 								id="shopeepay-number"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.shopeepayNumber}
 								maxlength="40"
 								inputmode="tel"
@@ -308,13 +308,13 @@
 						</label>
 					</fieldset>
 
-					<fieldset class="mt-6 grid gap-4 border-t border-[#b9c5bb] pt-5">
-						<legend class="text-sm font-black">QRIS</legend>
+					<fieldset class="mt-6 grid gap-4 border-t border-[#d6ddd3] pt-5">
+						<legend class="text-sm font-bold">QRIS</legend>
 						<label class="grid gap-2 text-sm font-bold" for="qris-url"
 							>Tautan gambar QRIS
 							<input
 								id="qris-url"
-								class="min-h-12 border border-[#b9c5bb] bg-white px-3 font-normal"
+								class="min-h-12 rounded-md border border-[#d6ddd3] bg-white px-3 font-normal"
 								bind:value={form.qrisImageUrl}
 								type="url"
 								placeholder="https://…"
@@ -327,10 +327,10 @@
 					</fieldset>
 
 					<label
-						class="mt-6 flex min-h-14 items-start gap-3 border-t border-[#b9c5bb] pt-5 text-sm font-bold"
+						class="mt-6 flex min-h-14 items-start gap-3 border-t border-[#d6ddd3] pt-5 text-sm font-bold"
 					>
 						<input
-							class="mt-1 size-5 accent-[#163630]"
+							class="mt-1 size-5 rounded-md accent-[#163630]"
 							type="checkbox"
 							bind:checked={form.publishPublicly}
 						/>
@@ -349,8 +349,8 @@
 					{/if}
 				</section>
 
-				<section class="border border-[#b9c5bb] bg-[#fffaf0] p-5">
-					<h2 class="text-xl font-black">Akses admin</h2>
+				<section class="court-panel border border-[#d6ddd3] bg-[#fffaf0] p-5">
+					<h2 class="text-xl font-bold">Akses admin</h2>
 					<p class="mt-1 text-sm leading-6 text-[#527169]">
 						Akun yang sedang masuk dan memiliki wewenang Club Admin dapat mengubah pengaturan dan
 						data klub. Pengaturan ini tidak menambah peran atau akun admin baru.
@@ -359,7 +359,7 @@
 				</section>
 
 				<section
-					class="flex flex-wrap items-center justify-between gap-3 border-t border-[#b9c5bb] pt-4"
+					class="flex flex-wrap items-center justify-between gap-3 border-t border-[#d6ddd3] pt-4"
 				>
 					<AppButton type="submit" disabled={!canSave}>
 						{saveMutation.isPending ? 'Menyimpan…' : 'Simpan pengaturan'}
@@ -371,13 +371,13 @@
 			</form>
 		{/if}
 	{:else}
-		<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-7">
-			<h2 class="text-2xl font-black">Khusus admin klub.</h2>
+		<section class="court-panel mt-5 border border-[#d6ddd3] bg-[#fffaf0] p-7">
+			<h2 class="text-2xl font-bold">Khusus admin klub.</h2>
 			<p class="mt-3 max-w-sm text-sm leading-6 text-[#527169]">
 				Pengaturan klub hanya tersedia setelah masuk dengan akun Club Admin.
 			</p>
 			<a
-				class="mt-5 inline-flex min-h-11 items-center gap-2 bg-[#163630] px-4 text-sm font-black text-[#fffaf0]"
+				class="mt-5 inline-flex min-h-11 items-center gap-2 bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
 				href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 				><ArrowLeft size={18} />Kembali ke Live</a
 			>
