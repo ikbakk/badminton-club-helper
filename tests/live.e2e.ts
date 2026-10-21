@@ -340,9 +340,7 @@ test('shows admin access progress instead of a login action while permissions lo
 	await mockLiveBackend(page, false, false, false, false, 0, false, false, true);
 	await page.goto('/clubs/club-e2e/live');
 
-	await expect(
-		page.getByRole('button', { name: 'Memeriksa akses admin', exact: true })
-	).toBeVisible();
+	await expect(page.getByRole('status', { name: 'Memeriksa akses admin' })).toBeVisible();
 	await expect(
 		page.getByRole('button', { name: 'Masuk sebagai admin', exact: true })
 	).toHaveCount(0);

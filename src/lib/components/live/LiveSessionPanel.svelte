@@ -2,6 +2,7 @@
 	import { selectedClubId } from '$lib/club-context';
 	import { resolve } from '$app/paths';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import type { PublicSessionHistory } from '$lib/data/dashboard';
 	import type { LiveSession } from '$lib/data/live';
 	import type { ActiveMatch } from '$lib/data/live';
@@ -14,6 +15,7 @@
 		participants,
 		activeMatch,
 		canManage = false,
+		authChecking = false,
 		online = true,
 		pending = '',
 		suggestedPlayers = [],
@@ -34,6 +36,7 @@
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
 		canManage?: boolean;
+		authChecking?: boolean;
 		online?: boolean;
 		pending?: string;
 		suggestedPlayers?: string[];
@@ -135,7 +138,7 @@
 						disabled={!online || Boolean(pending)}
 						onclick={onstartsession}>{pending || 'Mulai sesi malam ini'}</AppButton
 					>
-				{:else}<AppButton class="mt-7" onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
+				{:else if authChecking}<div class="mt-7 max-w-[12rem]" role="status" aria-busy="true" aria-label="Memeriksa akses admin"><LoadingSkeleton height="2.75rem" /></div>{:else}<AppButton class="mt-7" onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
 			</div>
 			<div
 				class="grid content-start gap-6 border-t border-[#b9c5bb] bg-[#e5ece5] p-6 sm:p-9 lg:border-t-0 lg:border-l"
@@ -246,7 +249,7 @@
 				>
 					{#if canManage}<AppButton disabled={!online} onclick={oncheckin} class="w-full"
 							>Check in pemain</AppButton
-						>{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
+						>{:else if authChecking}<div class="w-full max-w-[12rem]" role="status" aria-busy="true" aria-label="Memeriksa akses admin"><LoadingSkeleton height="2.75rem" /></div>{:else}<AppButton onclick={onadminlogin}>Masuk sebagai admin</AppButton>{/if}
 					{#if canManage}<AppButton
 							variant="danger"
 							class="w-full px-2"

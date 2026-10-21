@@ -9,6 +9,7 @@
 	import { bootstrapClub, invalidatePublicData, type Club } from '$lib/data/dashboard';
 	import { setCachedClub } from '$lib/auth-state.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
+import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	let signup = $state(page.url.searchParams.get('mode') === 'signup');
 	let recovery = $state(false);
 	let email = $state('');
@@ -17,6 +18,7 @@
 	let userEmail = $state<string | null>(null);
 	let clubs = $state<Club[]>([]);
 	let loading = $state(true);
+	let accountLoadFailed = $state(false);
 	let pending = $state(false);
 	let notice = $state(
 		page.url.searchParams.get('password') === 'updated'
@@ -31,6 +33,9 @@
 			: 'Belum berhasil. Coba lagi.';
 	}
 	async function loadAccount() {
+		loading = true;
+		accountLoadFailed = false;
+		error = '';
 		try {
 			const user = await currentUser();
 			userEmail = user?.email ?? null;
@@ -40,6 +45,7 @@
 				clubs = result.data ?? [];
 			} else clubs = [];
 		} catch (e) {
+			accountLoadFailed = true;
 			error = message(e);
 		} finally {
 			loading = false;
@@ -58,6 +64,7 @@
 		return () => subscription?.data.subscription.unsubscribe();
 	});
 	async function authenticate() {
+		let justSignedIn = false;
 		pending = true;
 		error = '';
 		notice = '';
@@ -86,9 +93,14 @@
 					password = '';
 					return;
 				}
-			} else await signInWithPassword(email, password);
+			} else {
+				await signInWithPassword(email, password);
+				justSignedIn = true;
+			}
 			password = '';
 			await loadAccount();
+			if (justSignedIn && !accountLoadFailed)
+				notice = 'Kamu sudah masuk. Pilih klub untuk melanjutkan.';
 		} catch (e) {
 			error = message(e);
 		} finally {
@@ -135,7 +147,28 @@
 <main class="mx-auto min-h-dvh max-w-lg px-5 py-8 text-[#163630]">
 	<a href={resolve('/')} class="inline-flex min-h-11 items-center font-black">← Courtside</a>
 	<section class="mt-10 border-y border-[#b9c5bb] py-8">
-		{#if loading}<p role="status">Memeriksa akun…</p>
+		{#if loading}
+			<div
+				class="grid gap-4 py-2"
+				role="status"
+				aria-busy="true"
+				aria-label="Memeriksa akun dan klub"
+			>
+				<div class="max-w-xs"><LoadingSkeleton height="1.5rem" /></div>
+				<div class="max-w-md"><LoadingSkeleton height="2.5rem" /></div>
+				<div class="max-w-sm"><LoadingSkeleton height="1rem" /></div>
+				<div class="mt-2"><LoadingSkeleton height="4.5rem" /></div>
+			</div>
+		{:else if accountLoadFailed}
+			<div role="alert">
+				<h1 class="text-2xl font-black tracking-tight">Klub belum bisa dimuat.</h1>
+				<p class="mt-3 text-sm leading-6 text-[#527169]">
+					{error || 'Daftar klub belum berhasil dibaca. Coba periksa lagi.'}
+				</p>
+				<AppButton class="mt-5" onclick={() => void loadAccount()} disabled={pending}
+					>Coba lagi</AppButton
+				>
+			</div>
 		{:else if userEmail}
 			<p class="text-xs font-black tracking-widest text-[#527169]">AKUN ADMIN</p>
 			<h1 class="mt-3 text-4xl font-black tracking-tight">
@@ -261,7 +294,7 @@
 				Hanya ingin melihat sesi? Buka tautan klub yang dibagikan admin.
 			</p>
 		{/if}
-		{#if error}<p role="alert" class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm">
+		{#if error && !accountLoadFailed}<p role="alert" class="mt-5 border-l-4 border-[#9a3d25] bg-[#fff1ec] p-4 text-sm">
 				{error}
 			</p>{/if}
 		{#if notice}<p role="status" class="mt-5 border-l-4 border-[#38675b] bg-[#e5ece5] p-4 text-sm">

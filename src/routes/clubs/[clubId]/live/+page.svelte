@@ -90,6 +90,8 @@
 	let online = $state(true);
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
+	let authAccessState = $state<'idle' | 'signing-in' | 'checking' | 'denied' | 'error'>('idle');
+	let manualAuthInProgress = false;
 	let showCheckIn = $state(false);
 	let showEndSession = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
@@ -152,16 +154,21 @@
 		);
 	});
 
-	async function refreshAccount() {
+	async function refreshAccount(showAccessCheck = true) {
+		if (showAccessCheck) authAccessState = 'checking';
 		try {
 			const access = await getClub(clubId);
-			if (disposed) return;
+			if (disposed) return undefined;
 			club = access;
 			setCachedClub(club);
 			roster = club ? await getRoster(club.id) : [];
 			live.setAdminAuthorized(Boolean(club?.is_club_admin));
+			if (showAccessCheck) authAccessState = club?.is_club_admin ? 'ready' : 'denied';
+			return club;
 		} catch (error) {
+			if (showAccessCheck) authAccessState = 'error';
 			notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.');
+			return undefined;
 		}
 	}
 
@@ -178,15 +185,33 @@
 	}
 
 	async function passwordLogin() {
+		manualAuthInProgress = true;
+		authAccessState = 'signing-in';
 		pending = 'Sedang masuk…';
 		try {
 			await signInWithPassword(email, password);
-			adminLoginOpen = false;
-			notify('Berhasil masuk.');
+			userEmail = email.trim();
+			password = '';
+			pending = 'Memeriksa akses admin…';
+			const access = await refreshAccount();
+			if (access?.is_club_admin) {
+				adminLoginOpen = false;
+				notify('Berhasil masuk sebagai admin.');
+			}
 		} catch (error) {
+			authAccessState = 'idle';
 			notifyError(error, 'Tidak bisa masuk. Periksa email dan kata sandi, lalu coba lagi.');
 		} finally {
+			manualAuthInProgress = false;
 			pending = '';
+		}
+	}
+
+	async function retryAdminAccess() {
+		const access = await refreshAccount();
+		if (access?.is_club_admin) {
+			adminLoginOpen = false;
+			notify('Berhasil masuk sebagai admin.');
 		}
 	}
 
@@ -195,7 +220,7 @@
 		try {
 			await addPlayer(club.id, playerName);
 			playerName = '';
-			await refreshAccount();
+			await refreshAccount(false);
 		} catch (error) {
 			notifyError(error, 'Pemain belum bisa ditambahkan. Coba lagi.');
 		}
@@ -331,8 +356,9 @@
 				if (nextEmail === userEmail) return;
 				userEmail = nextEmail;
 				if (userEmail) {
-					void refreshAccount();
+					if (!manualAuthInProgress) void refreshAccount();
 				} else {
+					authAccessState = 'idle';
 					setCachedClub(null);
 					club = null;
 					roster = [];
@@ -367,6 +393,59 @@
 			onOpenChange={(open) => (adminLoginOpen = open)}
 			onOpenAutoFocus={(event) => event.preventDefault()}
 		>
+			{#if authAccessState === 'signing-in'}
+				<div class="p-6 text-[#163630]" role="status" aria-live="polite" aria-busy="true">
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Memeriksa akun</h2>
+					<p class="mt-2 text-sm leading-6 text-[#527169]">
+						Tunggu sebentar, kami sedang mengonfirmasi proses masuk.
+					</p>
+					<div class="mt-5 grid gap-3" aria-hidden="true">
+						<LoadingSkeleton height="1.5rem" />
+						<LoadingSkeleton height="2.75rem" />
+					</div>
+				</div>
+			{:else if authAccessState === 'checking'}
+				<div class="p-6 text-[#163630]" role="status" aria-live="polite" aria-busy="true">
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Memeriksa akses klub</h2>
+					<p class="mt-2 text-sm leading-6 text-[#527169]">
+						Kamu sudah masuk. Kami sedang memeriksa akses admin ke {displayName}.
+					</p>
+					<div class="mt-5 grid gap-3" aria-hidden="true">
+						<LoadingSkeleton height="1.5rem" />
+						<LoadingSkeleton height="2.75rem" />
+					</div>
+				</div>
+			{:else if authAccessState === 'denied'}
+				<div class="p-6 text-[#163630]">
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Kamu sudah masuk.</h2>
+					<p class="mt-2 text-sm leading-6 text-[#527169]" role="status">
+						Akun ini belum memiliki akses admin ke {displayName}. Buka daftar klub pada akunmu untuk
+						melihat akses yang tersedia.
+					</p>
+					<div class="mt-5 flex flex-wrap gap-3">
+						<a
+							class="inline-flex min-h-11 items-center font-bold underline"
+							href={resolve('/start')}>Lihat klub saya</a
+						>
+						<AppButton variant="secondary" onclick={() => (adminLoginOpen = false)}
+							>Kembali ke Live</AppButton
+						>
+					</div>
+				</div>
+			{:else if authAccessState === 'error'}
+				<div class="p-6 text-[#163630]" role="alert">
+					<h2 class="text-2xl font-black tracking-[-0.04em]">Akses klub belum bisa dimuat.</h2>
+					<p class="mt-2 text-sm leading-6 text-[#527169]">
+						Akunmu sudah masuk, tetapi pemeriksaan akses ke {displayName} belum berhasil.
+					</p>
+					<div class="mt-5 flex flex-wrap gap-3">
+						<AppButton onclick={retryAdminAccess}>Coba lagi</AppButton>
+						<AppButton variant="secondary" onclick={() => (adminLoginOpen = false)}
+							>Kembali ke Live</AppButton
+						>
+					</div>
+				</div>
+			{:else}
 			<form
 				class="p-6 text-[#163630]"
 				onsubmit={(event) => {
@@ -400,6 +479,7 @@
 					>
 				</div>
 			</form>
+			{/if}
 		</CourtDialog>
 	{/if}
 
@@ -486,6 +566,7 @@
 		<LiveSessionPanel
 			{session}
 			{participants}
+			authChecking={authAccessState === 'checking'}
 			{suggestedPlayers}
 			{activeMatch}
 			canManage={canManageLive}
