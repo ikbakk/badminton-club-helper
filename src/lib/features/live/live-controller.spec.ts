@@ -11,6 +11,8 @@ const api = vi.hoisted(() => ({
 	startMatch: vi.fn(),
 	saveRotationRecommendation: vi.fn(),
 	completeSet: vi.fn(),
+	startDeciderSet: vi.fn(),
+	finishTiedMatch: vi.fn(),
 	correctCompletedSet: vi.fn(),
 	substitutePlayer: vi.fn(),
 	abandonMatch: vi.fn(),
@@ -117,9 +119,15 @@ describe('LiveController', () => {
 	it('keeps the Set 1 → Set 2 substitution contract atomic', async () => {
 		api.substitutePlayer.mockResolvedValue(undefined);
 
-		await controller.substitute('iqbal', 'rafi', 'RESTING');
+		await controller.substitute('match-1', 'iqbal', 'rafi', 'RESTING');
 
-		expect(api.substitutePlayer).toHaveBeenCalledWith('session-1', 'iqbal', 'rafi', 'RESTING');
+		expect(api.substitutePlayer).toHaveBeenCalledWith(
+			'session-1',
+			'match-1',
+			'iqbal',
+			'rafi',
+			'RESTING'
+		);
 		expect(queryClient.invalidateQueries).toHaveBeenCalledOnce();
 	});
 
@@ -234,8 +242,50 @@ describe('LiveController', () => {
 			['p1', 'p2'],
 			['p3', 'p5'],
 			'recommendation-1',
-			undefined
+			undefined,
+			1
 		);
+	});
+
+	it('sends the chosen court with the selected four to the start command', async () => {
+		api.startMatch.mockResolvedValue('match-2');
+
+		await controller.startMatch(['p1', 'p2'], ['p3', 'p4'], null, undefined, 2);
+
+		expect(api.startMatch).toHaveBeenCalledWith(
+			'session-1',
+			['p1', 'p2'],
+			['p3', 'p4'],
+			null,
+			undefined,
+			2
+		);
+	});
+
+	it('keeps recommendations available for a free court while another court is active', () => {
+		controller.session = Object.assign({}, session, { court_count: 2 });
+		controller.participants = Array.from({ length: 4 }, (_, index) => ({
+			id: `ready-${index}`,
+			name: `Pemain ${index}`,
+			membership: 'MEMBER' as const,
+			rating: 1200,
+			uncertainty: 0.7,
+			status: 'READY' as const,
+			consecutiveMatches: 0,
+			opportunities: 0,
+			missedOpportunities: 0,
+			currentOpportunityDebt: 0,
+			rotationsPlayed: 0,
+			setsPlayed: 0
+		}));
+		controller.activeMatch = {
+			id: 'match-court-1',
+			session_id: session.id,
+			sequence_number: 1,
+			sets: []
+		};
+
+		expect(controller.nextRecommendation).not.toBeNull();
 	});
 
 	it('releases the live-screen refresh wait after the server confirms a score', async () => {
@@ -255,7 +305,7 @@ describe('LiveController', () => {
 			]
 		};
 
-		await expect(controller.completeSet(21, 17)).resolves.toBe(true);
+		await expect(controller.completeSet('match-1', 21, 17)).resolves.toBe(true);
 		expect(refreshModes).toEqual([false]);
 	});
 
@@ -277,10 +327,105 @@ describe('LiveController', () => {
 			]
 		};
 
-		const result = await controller.completeSet(21, 17);
+		const result = await controller.completeSet('match-1', 21, 17);
 
 		expect(result).toBe(false);
 		expect(notice).toHaveBeenCalledWith('Score save failed — Try again.');
+	});
+
+	it('saves a score against the selected court match, not the first active match', async () => {
+		controller.activeMatches = [
+			{
+				id: 'match-court-1',
+				session_id: session.id,
+				sequence_number: 1,
+				court_number: 1,
+				sets: [
+					{
+						id: 'set-court-1',
+						setNumber: 1,
+						status: 'IN_PROGRESS',
+						teamAScore: null,
+						teamBScore: null,
+						players: []
+					}
+				]
+			},
+			{
+				id: 'match-court-2',
+				session_id: session.id,
+				sequence_number: 2,
+				court_number: 2,
+				sets: [
+					{
+						id: 'set-court-2',
+						setNumber: 1,
+						status: 'IN_PROGRESS',
+						teamAScore: null,
+						teamBScore: null,
+						players: []
+					}
+				]
+			}
+		];
+
+		await controller.completeSet('match-court-2', 18, 21);
+
+		expect(api.completeSet).toHaveBeenCalledWith('session-1', 'club-1', 'set-court-2', 18, 21);
+	});
+
+	it('keeps writes on separate courts independent while each score is pending', async () => {
+		controller.activeMatches = [1, 2].map((courtNumber) => ({
+			id: `match-court-${courtNumber}`,
+			session_id: session.id,
+			sequence_number: courtNumber,
+			court_number: courtNumber,
+			sets: [
+				{
+					id: `set-court-${courtNumber}`,
+					setNumber: 1,
+					status: 'IN_PROGRESS' as const,
+					teamAScore: null,
+					teamBScore: null,
+					players: []
+				}
+			]
+		}));
+		const resolveWrites: Array<() => void> = [];
+		api.completeSet.mockImplementation(
+			() => new Promise<void>((resolve) => resolveWrites.push(resolve))
+		);
+
+		const first = controller.completeSet('match-court-1', 21, 18);
+		const second = controller.completeSet('match-court-2', 21, 19);
+
+		expect(api.completeSet).toHaveBeenCalledTimes(2);
+		expect(controller.pendingForMatch('match-court-1')).toBe('Menyimpan skor…');
+		expect(controller.pendingForMatch('match-court-2')).toBe('Menyimpan skor…');
+		resolveWrites.forEach((resolve) => resolve());
+		await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+		expect(controller.pendingForMatch('match-court-1')).toBe('');
+		expect(controller.pendingForMatch('match-court-2')).toBe('');
+	});
+
+	it('offers match-scoped commands for starting or skipping a deciding set', () => {
+		expect((controller as unknown as { startSetThree?: unknown }).startSetThree).toBeTypeOf(
+			'function'
+		);
+		expect((controller as unknown as { finishTiedMatch?: unknown }).finishTiedMatch).toBeTypeOf(
+			'function'
+		);
+	});
+
+	it('starts or ends the deciding match only after the server command succeeds', async () => {
+		api.startDeciderSet.mockResolvedValue(undefined);
+		api.finishTiedMatch.mockResolvedValue(undefined);
+
+		await expect(controller.startSetThree('match-court-2')).resolves.toBe(true);
+		await expect(controller.finishTiedMatch('match-court-1')).resolves.toBe(true);
+
+		expect(api.startDeciderSet).toHaveBeenCalledWith('session-1', 'match-court-2');
+		expect(api.finishTiedMatch).toHaveBeenCalledWith('session-1', 'match-court-1');
 	});
 
 	it('surfaces the backend reason when session close fails', async () => {

@@ -4,7 +4,8 @@ const sessionId = 'session-live-e2e';
 const session = {
 	id: sessionId,
 	club_id: 'club-e2e',
-	started_at: '2026-10-04T18:00:00.000Z'
+	started_at: '2026-10-04T18:00:00.000Z',
+	court_count: 1
 };
 
 async function mockLiveBackend(
@@ -17,13 +18,20 @@ async function mockLiveBackend(
 	failRecommendation = false,
 	failPairingAudit = false,
 	delayAdminAccess = false,
-	authenticated = true
+	authenticated = true,
+	courtCount = 1,
+	hasSession = true,
+	tiedMatch = false
 ) {
 	let closed = false;
+	let sessionStarted = hasSession;
+	let activeCourtCount = courtCount;
 	let feeConfirmed = false;
 	let feeConfirmCount = 0;
 	let paidWriteCount = 0;
 	let startMatchBody: Record<string, unknown> | null = null;
+	let startSessionBody: Record<string, unknown> | null = null;
+	let deciderCommand: { path: string; body: Record<string, unknown> } | null = null;
 	let saveRecommendationBody: Record<string, unknown> | null = null;
 	let savePairingBody: Record<string, unknown> | null = null;
 	let publicRatingValue = 1248.4;
@@ -33,8 +41,8 @@ async function mockLiveBackend(
 		const path = url.pathname;
 		if (path.endsWith('/live_session'))
 			return route.fulfill({
-				json: closed ? [] : [session],
-				headers: { 'content-range': closed ? '*/*' : '0-0/1' }
+				json: closed || !sessionStarted ? [] : [{ ...session, court_count: activeCourtCount }],
+				headers: { 'content-range': closed || !sessionStarted ? '*/*' : '0-0/1' }
 			});
 		if (path.endsWith('/live_participants'))
 			return route.fulfill({
@@ -60,7 +68,7 @@ async function mockLiveBackend(
 								membership_type: 'MEMBER',
 								rating: 1200,
 								uncertainty: 280,
-								status: 'READY',
+								status: withActiveMatch && index < 4 ? 'PLAYING' : 'READY',
 								ready_since: '2026-10-05T17:00:00.000Z',
 								leave_after_match: false
 							}))
@@ -74,6 +82,7 @@ async function mockLiveBackend(
 								id: 'match-e2e',
 								session_id: sessionId,
 								sequence_number: 1,
+								court_number: 1,
 								sets: failSubstitution
 									? [
 											{
@@ -101,20 +110,47 @@ async function mockLiveBackend(
 												]
 											}
 										]
-									: [
-											{
-												setNumber: 1,
-												status: 'IN_PROGRESS',
-												teamAScore: null,
-												teamBScore: null,
-												players: [
-													{ id: 'p1', name: 'A', team: 'A' },
-													{ id: 'p2', name: 'B', team: 'A' },
-													{ id: 'p3', name: 'C', team: 'B' },
-													{ id: 'p4', name: 'D', team: 'B' }
-												]
-											}
-										]
+									: tiedMatch
+										? [
+												{
+													setNumber: 1,
+													status: 'COMPLETED',
+													teamAScore: 21,
+													teamBScore: 18,
+													players: [
+														{ id: 'p1', name: 'A', team: 'A' },
+														{ id: 'p2', name: 'B', team: 'A' },
+														{ id: 'p3', name: 'C', team: 'B' },
+														{ id: 'p4', name: 'D', team: 'B' }
+													]
+												},
+												{
+													setNumber: 2,
+													status: 'COMPLETED',
+													teamAScore: 18,
+													teamBScore: 21,
+													players: [
+														{ id: 'p1', name: 'A', team: 'A' },
+														{ id: 'p2', name: 'B', team: 'A' },
+														{ id: 'p3', name: 'C', team: 'B' },
+														{ id: 'p4', name: 'D', team: 'B' }
+													]
+												}
+											]
+										: [
+												{
+													setNumber: 1,
+													status: 'IN_PROGRESS',
+													teamAScore: null,
+													teamBScore: null,
+													players: [
+														{ id: 'p1', name: 'A', team: 'A' },
+														{ id: 'p2', name: 'B', team: 'A' },
+														{ id: 'p3', name: 'C', team: 'B' },
+														{ id: 'p4', name: 'D', team: 'B' }
+													]
+												}
+											]
 							}
 						]
 					: []
@@ -237,6 +273,13 @@ async function mockLiveBackend(
 			closed = true;
 			return route.fulfill({ json: { attendance: 2, sets: 0, startedAt: session.started_at } });
 		}
+		if (path.endsWith('/rpc/start_session')) {
+			const body = route.request().postDataJSON() as Record<string, unknown>;
+			startSessionBody = body;
+			sessionStarted = true;
+			activeCourtCount = Number(body.p_court_count);
+			return route.fulfill({ json: sessionId });
+		}
 		if (path.endsWith('/rpc/suggest_session_fee')) return route.fulfill({ json: 15000 });
 		if (path.endsWith('/rpc/confirm_session_fee')) {
 			feeConfirmCount += 1;
@@ -276,6 +319,10 @@ async function mockLiveBackend(
 		if (path.endsWith('/rpc/start_match')) {
 			startMatchBody = route.request().postDataJSON();
 			return route.fulfill({ json: 'match-e2e-started' });
+		}
+		if (path.endsWith('/rpc/start_decider_set') || path.endsWith('/rpc/finish_tied_match')) {
+			deciderCommand = { path, body: route.request().postDataJSON() };
+			return route.fulfill({ json: path.endsWith('/rpc/start_decider_set') ? 'set-3' : null });
 		}
 		if (path.endsWith('/rpc/save_pairing_recommendation')) {
 			savePairingBody = route.request().postDataJSON();
@@ -353,6 +400,8 @@ async function mockLiveBackend(
 	return {
 		getPaidWriteCount: () => paidWriteCount,
 		getFeeConfirmCount: () => feeConfirmCount,
+		getStartSessionBody: () => startSessionBody,
+		getDeciderCommand: () => deciderCommand,
 		getStartMatchBody: () => startMatchBody,
 		getSaveRecommendationBody: () => saveRecommendationBody,
 		getSavePairingBody: () => savePairingBody,
@@ -458,6 +507,29 @@ test('admin checks in a selected group with one database request', async ({ page
 		p_session_id: sessionId,
 		p_player_ids: ['player-a', 'player-b']
 	});
+});
+
+test('admin chooses the session court count before starting the session', async ({ page }) => {
+	const backend = await mockLiveBackend(
+		page,
+		false,
+		false,
+		false,
+		false,
+		0,
+		false,
+		false,
+		false,
+		true,
+		1,
+		false
+	);
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByLabel('Jumlah court').fill('2');
+	await page.getByRole('button', { name: 'Mulai sesi malam ini' }).click();
+
+	await expect.poll(() => backend.getStartSessionBody()).not.toBeNull();
+	expect(backend.getStartSessionBody()).toEqual({ p_club_id: 'club-e2e', p_court_count: 2 });
 });
 
 test('admin can end a session and continue on its dedicated close page', async ({ page }) => {
@@ -612,6 +684,68 @@ test('admin accepts the current four-player recommendation and continues to manu
 	await expect.poll(() => backend.getSavePairingBody()).not.toBeNull();
 	expect(backend.getSavePairingBody()!.p_recommended_team_a).toEqual(started.p_team_a);
 	expect(backend.getSavePairingBody()!.p_recommended_team_b).toEqual(started.p_team_b);
+});
+
+test('a free court can use READY players while another court is already playing', async ({
+	page
+}) => {
+	const backend = await mockLiveBackend(
+		page,
+		true,
+		false,
+		false,
+		false,
+		8,
+		false,
+		false,
+		false,
+		true,
+		2
+	);
+	await page.goto('/clubs/club-e2e/live');
+	const freeCourt = page.getByRole('region', { name: 'Court 2' });
+	await expect(freeCourt).toContainText('Siapkan match');
+	await freeCourt.getByRole('button', { name: 'Siapkan match' }).click();
+	const sheet = page.locator('.sve-sheet.court-sheet').last();
+	await sheet.getByRole('button', { name: 'Lanjutkan dengan rekomendasi' }).click();
+	await sheet.getByRole('button', { name: 'Mulai match' }).click();
+
+	await expect.poll(() => backend.getStartMatchBody()).not.toBeNull();
+	expect(backend.getStartMatchBody()!.p_court_number).toBe(2);
+	expect(backend.getStartMatchBody()!.p_team_a).toHaveLength(2);
+	expect(backend.getStartMatchBody()!.p_team_b).toHaveLength(2);
+});
+
+test('a 1–1 match asks whether to play Set 3 before the next pairing', async ({ page }) => {
+	const backend = await mockLiveBackend(
+		page,
+		true,
+		false,
+		false,
+		false,
+		4,
+		false,
+		false,
+		false,
+		true,
+		1,
+		true,
+		true
+	);
+	await page.goto('/clubs/club-e2e/live');
+	const decision = page.getByRole('region', { name: 'Keputusan Set 3 untuk court 1' });
+	await expect(decision.getByRole('heading', { name: 'Skor 1–1' })).toBeVisible();
+	await expect(decision.getByRole('button', { name: 'Lanjut Set 3' })).toBeVisible();
+	await expect(
+		decision.getByRole('button', { name: 'Akhiri 1–1 dan lanjut ke pairing berikutnya' })
+	).toBeVisible();
+	await decision.getByRole('button', { name: 'Lanjut Set 3' }).click();
+	await expect.poll(() => backend.getDeciderCommand()).not.toBeNull();
+	expect(backend.getDeciderCommand()!.path).toContain('/rpc/start_decider_set');
+	expect(backend.getDeciderCommand()!.body).toMatchObject({
+		p_session_id: sessionId,
+		p_match_id: 'match-e2e'
+	});
 });
 
 test('Algorithm 2 offers exactly three legal pairings and deterministic recommendation', async ({

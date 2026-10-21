@@ -2,7 +2,7 @@
 
 ## Project and phase
 
-Courtside is a public product for one-court badminton clubs. PB NEWBIE is one existing club. The public entry flow is described in docs/public-product-entry.md. Preserve algorithm semantics during real-session validation.
+Courtside is a public product for badminton clubs. Sessions can use one or more courts from a shared READY player pool. PB NEWBIE is one existing club. The public entry flow is described in docs/public-product-entry.md. Preserve algorithm semantics during real-session validation.
 
 ## Architecture and authority
 
@@ -12,7 +12,7 @@ Courtside is a public product for one-court badminton clubs. PB NEWBIE is one ex
 
 ## Invariants
 
-- One court, doubles, normally two sets; substitutions only between sets.
+- Session court count is fixed when a session starts; any READY player can be assigned to any free court. A match uses doubles and normally two sets; an admin may choose a deciding third set after a 1–1 result or end the match tied. Substitutions happen between sets.
 - Algorithm 1 selects four READY players; Algorithm 2 pairs only those four.
 - Recommendations are advisory. Actual persisted match/set lineups—especially `set_players`—are authoritative.
 - Fees are set at session close. No Session Operator PIN/lease or separate Finance Admin authority.

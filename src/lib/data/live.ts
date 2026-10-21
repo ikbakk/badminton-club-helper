@@ -26,7 +26,12 @@ type RotationFairnessRow = {
 	consecutive_rotations: number;
 };
 
-export type LiveSession = { id: string; club_id: string; started_at: string };
+export type LiveSession = {
+	id: string;
+	club_id: string;
+	started_at: string;
+	court_count?: number;
+};
 export type MatchSet = {
 	id: string;
 	setNumber: number;
@@ -39,19 +44,22 @@ export type ActiveMatch = {
 	id: string;
 	session_id: string;
 	sequence_number: number;
+	court_number?: number;
 	sets: MatchSet[];
 };
 export type LiveSessionSnapshot = {
 	session: LiveSession | null;
 	participants: Participant[];
 	activeMatch: ActiveMatch | null;
+	activeMatches: ActiveMatch[];
 };
 
 export const liveSessionQueryKey = ['live', 'active-session'] as const;
 export const emptyLiveSessionSnapshot: LiveSessionSnapshot = {
 	session: null,
 	participants: [],
-	activeMatch: null
+	activeMatch: null,
+	activeMatches: []
 };
 
 const liveTopic = (sessionId: string) => `live:${sessionId}`;
@@ -96,7 +104,11 @@ export async function loadLiveSession(clubId = selectedClubId()): Promise<LiveSe
 	if (!session) return emptyLiveSessionSnapshot;
 	const [participantsResult, matchesResult, authResult] = await Promise.all([
 		supabase.from('live_participants').select('*').eq('session_id', session.id),
-		supabase.from('live_active_match').select('*').eq('session_id', session.id).limit(1),
+		supabase
+			.from('live_active_match')
+			.select('*')
+			.eq('session_id', session.id)
+			.order('court_number', { ascending: true }),
 		supabase.auth.getSession()
 	]);
 	if (participantsResult.error) throw participantsResult.error;
@@ -142,7 +154,8 @@ export async function loadLiveSession(clubId = selectedClubId()): Promise<LiveSe
 				leaveAfterMatch: participant.leave_after_match
 			};
 		}),
-		activeMatch: (matchesResult.data?.[0] ?? null) as ActiveMatch | null
+		activeMatch: (matchesResult.data?.[0] ?? null) as ActiveMatch | null,
+		activeMatches: (matchesResult.data ?? []) as ActiveMatch[]
 	};
 }
 
@@ -198,7 +211,8 @@ export function startMatch(
 	teamA: string[],
 	teamB: string[],
 	recommendationId: string | null = null,
-	pairingAudit?: { recommendedA: string[]; recommendedB: string[]; diagnostics: unknown }
+	pairingAudit?: { recommendedA: string[]; recommendedB: string[]; diagnostics: unknown },
+	courtNumber = 1
 ) {
 	return (async () => {
 		const matchId = await command('start_match', {
@@ -206,7 +220,8 @@ export function startMatch(
 			p_lease_id: null,
 			p_team_a: teamA,
 			p_team_b: teamB,
-			p_rotation_recommendation_id: recommendationId
+			p_rotation_recommendation_id: recommendationId,
+			p_court_number: courtNumber
 		});
 		if (!pairingAudit) return { matchId, pairingAuditSaved: false };
 		try {
@@ -223,6 +238,22 @@ export function startMatch(
 			return { matchId, pairingAuditSaved: false };
 		}
 	})();
+}
+
+export function startDeciderSet(sessionId: string, matchId: string) {
+	return command('start_decider_set', {
+		p_session_id: sessionId,
+		p_match_id: matchId,
+		p_lease_id: null
+	});
+}
+
+export function finishTiedMatch(sessionId: string, matchId: string) {
+	return command('finish_tied_match', {
+		p_session_id: sessionId,
+		p_match_id: matchId,
+		p_lease_id: null
+	});
 }
 
 export async function saveRotationRecommendation(
@@ -282,8 +313,12 @@ export async function completeSet(
 	return result.result;
 }
 
-export function abandonMatch(sessionId: string) {
-	return command('abandon_match', { p_session_id: sessionId, p_lease_id: null });
+export function abandonMatch(sessionId: string, matchId: string) {
+	return command('abandon_match', {
+		p_session_id: sessionId,
+		p_lease_id: null,
+		p_match_id: matchId
+	});
 }
 
 export function addGuestAndCheckIn(sessionId: string, name: string) {
@@ -296,6 +331,7 @@ export function addGuestAndCheckIn(sessionId: string, name: string) {
 
 export function substitutePlayer(
 	sessionId: string,
+	matchId: string,
 	outgoingPlayerId: string,
 	replacementPlayerId: string,
 	outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
@@ -303,6 +339,7 @@ export function substitutePlayer(
 	return command('substitute_player', {
 		p_session_id: sessionId,
 		p_lease_id: null,
+		p_match_id: matchId,
 		p_outgoing_player_id: outgoingPlayerId,
 		p_replacement_player_id: replacementPlayerId,
 		p_outgoing_status: outgoingStatus

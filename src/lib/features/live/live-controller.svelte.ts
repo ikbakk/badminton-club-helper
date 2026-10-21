@@ -7,8 +7,10 @@ import {
 	completeSet,
 	closeSession,
 	correctCompletedSet,
+	finishTiedMatch as finishTiedMatchCommand,
 	saveRotationRecommendation,
 	startMatch,
+	startDeciderSet,
 	setLeaveAfterMatch,
 	substitutePlayer,
 	type ActiveMatch,
@@ -46,6 +48,7 @@ function errorMessage(error: unknown, fallback: string) {
 export class LiveController {
 	adminAuthorized = $state(false);
 	pending = $state('');
+	private matchPending = $state<Record<string, string>>({});
 	online = $state(true);
 
 	constructor(
@@ -84,14 +87,37 @@ export class LiveController {
 	}
 
 	get activeMatch(): ActiveMatch | null {
-		return this.snapshot.activeMatch;
+		return this.activeMatches[0] ?? this.snapshot.activeMatch;
 	}
 
 	set activeMatch(activeMatch: ActiveMatch | null) {
 		this.queryClient.setQueryData<LiveSessionSnapshot>(this.queryKey, (current) => ({
 			...(current ?? emptyLiveSessionSnapshot),
-			activeMatch
+			activeMatch,
+			activeMatches: activeMatch ? [activeMatch] : []
 		}));
+	}
+
+	get activeMatches(): ActiveMatch[] {
+		return (
+			this.snapshot.activeMatches ?? (this.snapshot.activeMatch ? [this.snapshot.activeMatch] : [])
+		);
+	}
+
+	set activeMatches(activeMatches: ActiveMatch[]) {
+		this.queryClient.setQueryData<LiveSessionSnapshot>(this.queryKey, (current) => ({
+			...(current ?? emptyLiveSessionSnapshot),
+			activeMatches,
+			activeMatch: activeMatches[0] ?? null
+		}));
+	}
+
+	get availableCourtNumbers(): number[] {
+		const courtCount = Math.max(1, this.session?.court_count ?? 1);
+		const occupied = this.activeMatches.map((match) => match.court_number ?? 1);
+		return Array.from({ length: courtCount }, (_, index) => index + 1).filter(
+			(courtNumber) => !occupied.includes(courtNumber)
+		);
 	}
 
 	get canManage() {
@@ -104,6 +130,10 @@ export class LiveController {
 
 	setOnline(online: boolean) {
 		this.online = online;
+	}
+
+	pendingForMatch(matchId: string | null | undefined) {
+		return matchId ? (this.matchPending[matchId] ?? '') : '';
 	}
 
 	async refresh() {
@@ -125,6 +155,31 @@ export class LiveController {
 			return false;
 		} finally {
 			this.pending = '';
+		}
+	}
+
+	private async runMatchCommand(
+		matchId: string,
+		label: string,
+		action: () => Promise<unknown>,
+		waitForRefresh = true
+	) {
+		if (this.matchPending[matchId]) return false;
+		if (!this.online) {
+			this.notify('Koneksi terputus. Menampilkan kondisi sesi terakhir yang tersimpan.');
+			return false;
+		}
+		this.matchPending = { ...this.matchPending, [matchId]: label };
+		try {
+			await this.runMutation(action, true, waitForRefresh);
+			return true;
+		} catch (error) {
+			this.notify(errorMessage(error, 'Perubahan belum tersimpan. Coba lagi.'));
+			return false;
+		} finally {
+			const remaining = { ...this.matchPending };
+			delete remaining[matchId];
+			this.matchPending = remaining;
 		}
 	}
 
@@ -157,7 +212,7 @@ export class LiveController {
 	}
 
 	get nextRecommendation(): RotationRecommendation | null {
-		if (!this.session || !this.adminAuthorized || this.activeMatch) return null;
+		if (!this.session || !this.adminAuthorized || !this.availableCourtNumbers.length) return null;
 		const ready = this.participants.filter((participant) => participant.status === 'READY');
 		if (ready.length < 4) return null;
 		return recommendNextPlayers(
@@ -203,7 +258,8 @@ export class LiveController {
 		teamA: string[],
 		teamB: string[],
 		recommendationId: string | null = null,
-		pairingAudit?: { recommended: PairingOption; options: PairingOption[] }
+		pairingAudit?: { recommended: PairingOption; options: PairingOption[] },
+		courtNumber = 1
 	) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
 		return this.runCommand('Memulai match…', async () => {
@@ -228,7 +284,8 @@ export class LiveController {
 								}))
 							}
 						}
-					: undefined
+					: undefined,
+				courtNumber
 			);
 			if (pairingAudit && !result.pairingAuditSaved)
 				this.notify('Rekomendasi tidak tersimpan. Tim tetap dipilih dan match tetap berjalan.');
@@ -236,40 +293,68 @@ export class LiveController {
 		});
 	}
 
-	completeSet(teamA: number, teamB: number) {
+	startSetThree(matchId: string) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		const set = this.activeMatch?.sets.find((candidate) => candidate.status === 'IN_PROGRESS');
+		return this.runMatchCommand(matchId, 'Menyiapkan Set 3…', () =>
+			startDeciderSet(this.session!.id, matchId)
+		);
+	}
+
+	finishTiedMatch(matchId: string) {
+		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
+		return this.runMatchCommand(matchId, 'Mengakhiri match 1–1…', () =>
+			finishTiedMatchCommand(this.session!.id, matchId)
+		);
+	}
+
+	completeSet(matchId: string, teamA: number, teamB: number) {
+		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
+		const set = this.activeMatches
+			.find((match) => match.id === matchId)
+			?.sets.find((candidate) => candidate.status === 'IN_PROGRESS');
 		if (!set) return Promise.resolve(false);
-		return this.runCommand(
+		return this.runMatchCommand(
+			matchId,
 			'Menyimpan skor…',
 			() => completeSet(this.session!.id, this.session!.club_id, set.id, teamA, teamB),
 			false
 		);
 	}
 
-	correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
+	correctSet(matchId: string, setNumber: 1 | 2 | 3, teamA: number, teamB: number) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		const set = this.activeMatch?.sets.find((candidate) => candidate.setNumber === setNumber);
+		const set = this.activeMatches
+			.find((match) => match.id === matchId)
+			?.sets.find((candidate) => candidate.setNumber === setNumber);
 		if (!set) return Promise.resolve(false);
-		return this.runCommand('Memperbaiki skor…', () =>
+		return this.runMatchCommand(matchId, 'Memperbaiki skor…', () =>
 			correctCompletedSet(this.session!.club_id, set.id, teamA, teamB)
 		);
 	}
 
 	substitute(
+		matchId: string,
 		outgoingPlayerId: string,
 		replacementPlayerId: string,
 		outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 	) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Memperbarui susunan Set 2…', () =>
-			substitutePlayer(this.session!.id, outgoingPlayerId, replacementPlayerId, outgoingStatus)
+		return this.runMatchCommand(matchId, 'Memperbarui susunan set…', () =>
+			substitutePlayer(
+				this.session!.id,
+				matchId,
+				outgoingPlayerId,
+				replacementPlayerId,
+				outgoingStatus
+			)
 		);
 	}
 
-	abandon() {
+	abandon(matchId: string) {
 		if (!this.session || !this.adminAuthorized) return Promise.resolve(false);
-		return this.runCommand('Membatalkan match…', () => abandonMatch(this.session!.id));
+		return this.runMatchCommand(matchId, 'Membatalkan match…', () =>
+			abandonMatch(this.session!.id, matchId)
+		);
 	}
 
 	setLeaveAfterMatch(participantId: string, leaveAfterMatch: boolean) {

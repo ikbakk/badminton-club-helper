@@ -8,18 +8,20 @@
 	import type { LiveSession } from '$lib/data/live';
 	import type { ActiveMatch } from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
+	import type { PairingOption } from '$lib/domain/rating';
 	import MatchCourt from './MatchCourt.svelte';
 	import ParticipantGroup from './ParticipantGroup.svelte';
 
 	let {
 		session,
 		participants,
-		activeMatch,
+		activeMatches,
 		canManage = false,
 		headingLevel = 1,
 		authChecking = false,
 		online = true,
 		pending = '',
+		pendingForMatch = () => '',
 		suggestedPlayers = [],
 		recentSessions = [],
 		onadminlogin,
@@ -32,41 +34,56 @@
 		oncompleteset,
 		oncorrectset,
 		onabandonmatch,
-		onsubstitute
+		onsubstitute,
+		onstartdecider,
+		onskiptiedmatch
 	}: {
 		session: LiveSession | null;
 		participants: Participant[];
-		activeMatch: ActiveMatch | null;
+		activeMatches: ActiveMatch[];
 		canManage?: boolean;
 		headingLevel?: 1 | 2;
 		authChecking?: boolean;
 		online?: boolean;
 		pending?: string;
+		pendingForMatch?: (matchId: string) => string;
 		suggestedPlayers?: string[];
 		recentSessions?: PublicSessionHistory[];
 		onadminlogin: () => void;
-		onstartsession: () => void;
+		onstartsession: (courtCount: number) => void;
 		oncheckin: () => void;
 		onendsession: () => void;
 		onselect: (participant: Participant) => void;
 		onstartmatch: (
 			teamA: string[],
 			teamB: string[],
-			recommendationId: string | null
+			recommendationId: string | null,
+			pairingAudit?: { recommended: PairingOption; options: PairingOption[] },
+			courtNumber?: number
 		) => Promise<boolean>;
 		onpreparenext: () => Promise<{
 			id: string;
 			recommendation: import('$lib/domain/rotation/types').RotationRecommendation;
 		} | null>;
-		oncompleteset: (teamA: number, teamB: number) => Promise<boolean>;
-		oncorrectset: (setNumber: 1 | 2, teamA: number, teamB: number) => Promise<boolean>;
-		onabandonmatch: () => void;
+		oncompleteset: (matchId: string, teamA: number, teamB: number) => Promise<boolean>;
+		oncorrectset: (
+			matchId: string,
+			setNumber: 1 | 2 | 3,
+			teamA: number,
+			teamB: number
+		) => Promise<boolean>;
+		onabandonmatch: (matchId: string) => void;
 		onsubstitute: (
+			matchId: string,
 			outgoingPlayerId: string,
 			replacementPlayerId: string,
 			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 		) => Promise<boolean>;
+		onstartdecider: (matchId: string) => Promise<boolean>;
+		onskiptiedmatch: (matchId: string) => Promise<boolean>;
 	} = $props();
+	let courtCount = $state(1);
+	let validCourtCount = $derived(Number.isSafeInteger(courtCount) && courtCount > 0);
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
 		{ title: 'SIAP / MENUNGGU', status: 'READY' },
@@ -76,6 +93,13 @@
 		{ title: 'SUDAH PULANG', status: 'LEFT' }
 	];
 	let ready = $derived(participants.filter((participant) => participant.status === 'READY'));
+	let sessionCourtCount = $derived(Math.max(1, session?.court_count ?? 1));
+	let courtNumbers = $derived(Array.from({ length: sessionCourtCount }, (_, index) => index + 1));
+	let availableCourtNumbers = $derived(
+		courtNumbers.filter(
+			(courtNumber) => !activeMatches.some((match) => match.court_number === courtNumber)
+		)
+	);
 	let startedAt = $derived(
 		session
 			? new Intl.DateTimeFormat('id-ID', { hour: 'numeric', minute: '2-digit' }).format(
@@ -84,14 +108,17 @@
 			: ''
 	);
 	let nextAction = $derived(
-		activeMatch
-			? 'Catat skor ketika reli terakhir selesai.'
+		availableCourtNumbers.length === 0
+			? 'Semua court sedang digunakan. Catat skor ketika reli terakhir selesai.'
 			: ready.length === 0
 				? 'Belum ada pemain yang datang.'
 				: ready.length < 4
 					? `${ready.length} siap — butuh ${4 - ready.length} pemain lagi untuk main ganda.`
-					: 'Empat pemain siap untuk match berikutnya.'
+					: `${availableCourtNumbers.length} court kosong · pemain READY bisa dipilih untuk court mana saja.`
 	);
+	function matchAtCourt(courtNumber: number) {
+		return activeMatches.find((match) => match.court_number === courtNumber) ?? null;
+	}
 	let recentClosedSessions = $derived(recentSessions.filter((item) => item.closed_at).slice(0, 2));
 	const sessionDate = (value: string) =>
 		new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(new Date(value));
@@ -125,11 +152,32 @@
 					</section>
 				{/if}
 
-				{#if canManage}<AppButton
-						class="mt-7"
-						disabled={!online || Boolean(pending)}
-						onclick={onstartsession}>{pending || 'Mulai sesi malam ini'}</AppButton
-					>
+				{#if canManage}<div class="mt-7 max-w-sm">
+						<label class="block text-sm font-bold text-[#163630]" for="session-court-count"
+							>Jumlah court</label
+						>
+						<input
+							id="session-court-count"
+							class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3 text-lg font-black text-[#163630]"
+							type="number"
+							min="1"
+							step="1"
+							bind:value={courtCount}
+						/>
+						<p class="mt-2 text-xs leading-5 text-[#527169]">
+							{#if validCourtCount}
+								Sesi dimulai dengan {courtCount} court.
+							{:else}
+								Masukkan jumlah court berupa bilangan bulat positif.
+							{/if}
+						</p>
+						<AppButton
+							class="mt-4"
+							disabled={!online || Boolean(pending) || !validCourtCount}
+							onclick={() => onstartsession(courtCount)}
+							>{pending || 'Mulai sesi malam ini'}</AppButton
+						>
+					</div>
 				{:else if authChecking}<div
 						class="mt-7 max-w-[12rem]"
 						role="status"
@@ -178,20 +226,32 @@
 			Koneksi terputus. Yang terlihat adalah kondisi terakhir; perubahan belum bisa dilakukan.
 		</p>
 	{/if}
-	<div class="mt-5">
-		<MatchCourt
-			{participants}
-			{activeMatch}
-			{canManage}
-			{online}
-			{pending}
-			onstart={onstartmatch}
-			{onpreparenext}
-			oncomplete={oncompleteset}
-			oncorrect={oncorrectset}
-			onabandon={onabandonmatch}
-			{onsubstitute}
-		/>
+	<div class="mt-5 grid gap-4">
+		{#each courtNumbers as courtNumber (courtNumber)}
+			{@const match = matchAtCourt(courtNumber)}
+			<MatchCourt
+				{participants}
+				activeMatch={match}
+				{courtNumber}
+				{canManage}
+				{online}
+				pending={match ? pendingForMatch(match.id) : pending}
+				onstart={(teamA, teamB, recommendationId, pairingAudit) =>
+					onstartmatch(teamA, teamB, recommendationId, pairingAudit, courtNumber)}
+				{onpreparenext}
+				oncomplete={(teamA, teamB) =>
+					match ? oncompleteset(match.id, teamA, teamB) : Promise.resolve(false)}
+				oncorrect={(setNumber, teamA, teamB) =>
+					match ? oncorrectset(match.id, setNumber, teamA, teamB) : Promise.resolve(false)}
+				onabandon={() => match && onabandonmatch(match.id)}
+				onsubstitute={(_matchId, outgoingPlayerId, replacementPlayerId, outgoingStatus) =>
+					match
+						? onsubstitute(match.id, outgoingPlayerId, replacementPlayerId, outgoingStatus)
+						: Promise.resolve(false)}
+				{onstartdecider}
+				{onskiptiedmatch}
+			/>
+		{/each}
 	</div>
 
 	<div class="session-tools">
@@ -210,7 +270,7 @@
 		</div>
 	</div>
 
-	{#if canManage && !activeMatch && suggestedPlayers.length === 4}
+	{#if canManage && availableCourtNumbers.length > 0 && suggestedPlayers.length === 4}
 		<section class="court-panel mt-5 p-5" aria-label="Saran empat pemain">
 			<h3 class="text-sm font-bold">Giliran berikutnya</h3>
 			<ul class="next-players">

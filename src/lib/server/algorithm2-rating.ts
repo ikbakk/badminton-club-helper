@@ -118,22 +118,22 @@ export async function commitCompletedSet(input: {
 		.eq('status', 'LIVE')
 		.maybeSingle();
 	if (sessionError || !session) throw new Error('Live session not found for this club.');
-	const { data: match, error: matchError } = await db
-		.from('matches')
-		.select('id')
-		.eq('session_id', input.sessionId)
-		.eq('status', 'IN_PROGRESS')
-		.maybeSingle();
-	if (matchError || !match) throw new Error('No match is in progress.');
 	const { data: set, error: setError } = await db
 		.from('sets')
-		.select('id')
-		.eq('match_id', match.id)
+		.select('id,match_id')
+		.eq('id', input.setId)
 		.eq('status', 'IN_PROGRESS')
 		.maybeSingle();
 	if (setError || !set) throw new Error('No set is in progress.');
-	if (set.id !== input.setId)
-		throw new Error('The selected set is no longer in progress. Reload and retry.');
+	const { data: match, error: matchError } = await db
+		.from('matches')
+		.select('id')
+		.eq('id', set.match_id)
+		.eq('session_id', input.sessionId)
+		.eq('status', 'IN_PROGRESS')
+		.maybeSingle();
+	if (matchError || !match)
+		throw new Error('The selected match is no longer in progress. Reload and retry.');
 	const { data: lineup, error: lineupError } = await db
 		.from('set_players')
 		.select('player_id,team')
@@ -161,13 +161,14 @@ export async function commitCompletedSet(input: {
 	}));
 	const { data, error } = await db.rpc('commit_algorithm_2_completed_set', {
 		p_session_id: input.sessionId,
+		p_set_id: set.id,
 		p_team_a_score: input.scoreA,
 		p_team_b_score: input.scoreB,
 		p_expected: expected,
 		p_transitions: transitions
 	});
 	if (error) throw error;
-	return data as 'SET_2' | 'MATCH_COMPLETED';
+	return data as 'SET_2' | 'DECIDER_REQUIRED' | 'MATCH_COMPLETED';
 }
 
 type RatedSet = {
