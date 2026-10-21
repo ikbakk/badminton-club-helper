@@ -606,7 +606,7 @@
 								>
 							</span>
 							<a
-								class="inline-flex min-h-11 shrink-0 items-center bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
+								class="inline-flex min-h-11 shrink-0 items-center rounded-[var(--court-control-radius)] bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
 								href={resolve('/clubs/[clubId]/session-close/[id]', {
 									clubId: selectedClubId(),
 									id: item.id

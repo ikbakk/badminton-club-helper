@@ -107,7 +107,7 @@
 
 				<div class="mt-7 grid gap-3">
 					<a
-						class="flex min-h-12 items-center justify-center gap-2 border border-[#163630] bg-[#fffaf0] px-4 text-sm font-bold hover:bg-[#e5ece5]"
+						class="flex min-h-12 items-center justify-center gap-2 rounded-[var(--court-control-radius)] border border-[#163630] bg-[#fffaf0] px-4 text-sm font-bold hover:bg-[#e5ece5]"
 						href={resolve('/clubs/[clubId]/session-close/[id]', {
 							clubId: selectedClubId(),
 							id: params.id
@@ -116,7 +116,7 @@
 						<ArrowLeft size={18} /> Kembali edit iuran & pembayaran
 					</a>
 					<a
-						class="flex min-h-12 items-center justify-center gap-2 bg-[#163630] px-4 text-sm font-bold text-[#fffaf0] hover:bg-[#38675b]"
+						class="flex min-h-12 items-center justify-center gap-2 rounded-[var(--court-control-radius)] bg-[#163630] px-4 text-sm font-bold text-[#fffaf0] hover:bg-[#38675b]"
 						href={resolve('/clubs/[clubId]/history/[id]', {
 							clubId: selectedClubId(),
 							id: params.id

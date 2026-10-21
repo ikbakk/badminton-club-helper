@@ -255,7 +255,7 @@
 						<h3 class="mt-2 text-xl font-black text-[#163630]">Siapa yang berhenti?</h3>
 						<div class="mt-4 grid gap-2">
 							{#each playingSet.players as player (player.id)}<button
-									class={`min-h-12 border px-4 text-left font-bold ${outgoingPlayerId === player.id ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+									class={`min-h-12 rounded-[var(--court-control-radius)] border px-4 text-left font-bold ${outgoingPlayerId === player.id ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
 									onclick={() => (outgoingPlayerId = player.id)}>{player.name}</button
 								>{/each}
 						</div>
@@ -272,7 +272,7 @@
 						<h3 class="mt-2 text-xl font-black text-[#163630]">Ganti dengan siapa?</h3>
 						<div class="mt-4 grid gap-2">
 							{#each ready as player (player.id)}<button
-									class={`flex min-h-12 items-center justify-between border px-4 text-left font-bold ${replacementPlayerId === player.id ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+									class={`flex min-h-12 items-center justify-between rounded-[var(--court-control-radius)] border px-4 text-left font-bold ${replacementPlayerId === player.id ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
 									onclick={() => (replacementPlayerId = player.id)}
 									><span>{player.name}</span><span class="text-xs"
 										>{player.readySince ? 'menunggu' : ''}</span
@@ -294,7 +294,7 @@
 						</h3>
 						<div class="mt-4 flex flex-wrap gap-2">
 							{#each ['RESTING', 'OUT', 'LEFT'] as status (status)}<button
-									class={`min-h-11 px-3 py-2 text-sm font-bold ${outgoingStatus === status ? 'bg-[#163630] text-[#fffaf0]' : 'bg-[#fffaf0] text-[#163630] ring-1 ring-[#b9c5bb]'}`}
+									class={`min-h-11 rounded-[var(--court-control-radius)] px-3 py-2 text-sm font-bold ${outgoingStatus === status ? 'bg-[#163630] text-[#fffaf0]' : 'bg-[#fffaf0] text-[#163630] ring-1 ring-[#b9c5bb]'}`}
 									onclick={() => (outgoingStatus = status as 'RESTING' | 'OUT' | 'LEFT')}
 									>{status === 'RESTING'
 										? 'Istirahat'
@@ -528,7 +528,7 @@
 				<div class="grid gap-2 p-5">
 					{#each pairingOptions as option, index (option.teams.flat().join('-'))}
 						<button
-							class={`min-h-14 border px-4 py-3 text-left ${selectedPairing === option ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+							class={`min-h-14 rounded-[var(--court-control-radius)] border px-4 py-3 text-left ${selectedPairing === option ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
 							onclick={() => (selectedPairing = option)}
 						>
 							<b

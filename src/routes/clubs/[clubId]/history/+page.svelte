@@ -108,7 +108,7 @@
 					<legend class="text-xs font-bold tracking-[0.12em] text-[#38675b]">KEHADIRAN</legend>
 					<div class="flex flex-wrap gap-2">
 						{#each [['all', 'Semua'], ['small', '< 8'], ['regular', '8–11'], ['busy', '12+']] as filter (filter[0])}<button
-								class={`min-h-11 border px-3 text-sm font-bold ${attendanceFilter === filter[0] ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#d6ddd3] bg-[#fffaf0] text-[#38675b]'}`}
+								class={`min-h-11 rounded-[var(--court-control-radius)] border px-3 text-sm font-bold ${attendanceFilter === filter[0] ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#d6ddd3] bg-[#fffaf0] text-[#38675b]'}`}
 								onclick={() => (attendanceFilter = filter[0] as typeof attendanceFilter)}
 								>{filter[1]}</button
 							>{/each}
@@ -161,7 +161,7 @@
 				Setelah sesi ditutup, daftar match dan hasil set akan tersimpan di sini.
 			</p>
 			<a
-				class="mt-5 inline-flex min-h-11 items-center bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
+				class="mt-5 inline-flex min-h-11 items-center rounded-[var(--court-control-radius)] bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
 				href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}>Lihat Live</a
 			>
 		</section>{/if}

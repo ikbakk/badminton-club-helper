@@ -176,7 +176,7 @@
 		<p class="mt-3 text-sm break-all text-[#527169]">{userEmail}</p>
 		{#if clubs.length}
 			{#each clubs as club (club.id)}<a
-					class="mt-6 flex min-h-16 items-center justify-between border border-[#d6ddd3] bg-[#fffaf0] p-4 font-bold"
+					class="mt-6 flex min-h-16 items-center justify-between rounded-[var(--court-control-radius)] border border-[#d6ddd3] bg-[#fffaf0] p-4 font-bold"
 					href={resolve('/clubs/[clubId]/live', { clubId: club.id })}
 					>{club.name}<span aria-hidden="true">→</span></a
 				>{/each}
