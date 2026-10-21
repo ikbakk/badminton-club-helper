@@ -1,408 +1,552 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import {
-		ArrowRight,
-		ChevronDown,
-		CircleCheck,
-		UsersRound,
-		Wallet,
-		ListOrdered
-	} from '@lucide/svelte';
+	import { ArrowRight, ArrowDown, UsersRound, Shuffle, Wallet } from '@lucide/svelte';
+	import SessionPreview from '$lib/components/landing/SessionPreview.svelte';
+	const features = [
+		{
+			icon: UsersRound,
+			title: 'Siapa yang belum main?',
+			text: 'Lihat pemain yang siap dan berapa set mereka sudah bermain. Rekomendasi giliran membantu admin memilih empat pemain berikutnya.'
+		},
+		{
+			icon: Shuffle,
+			title: 'Pasangannya siapa?',
+			text: 'Dapatkan saran pasangan dari rating keempat pemain. Mau ganti susunan? Admin tetap bisa memilih sendiri.'
+		},
+		{
+			icon: Wallet,
+			title: 'Iurannya sudah beres?',
+			text: 'Tentukan iuran setelah sesi selesai. Catat siapa yang sudah bayar, biaya lapangan, dan pemakaian kok.'
+		}
+	];
 </script>
 
 <svelte:head>
-	<title>Courtside — Sesi badminton, lebih tertata.</title>
+	<title>Courtside | Atur giliran main badminton klubmu</title>
 	<meta
 		name="description"
-		content="Kelola pemain, rotasi doubles, skor, dan kas klub badminton dalam satu tempat. Buat klubmu sendiri dan bagikan tautan Live kepada anggota."
+		content="Bantu admin klub badminton memilih giliran pemain, menyusun pasangan, mencatat skor dan iuran. Anggota bisa melihat sesi lewat tautan klub."
 	/>
 	<meta name="theme-color" content="#163630" />
+	<link
+		rel="preload"
+		href="/fonts/barlow-condensed-800.ttf"
+		as="font"
+		type="font/ttf"
+		crossorigin="anonymous"
+	/>
 </svelte:head>
-
 <div class="landing">
 	<a class="skip" href="#main">Lewati ke konten</a>
 	<header>
 		<a class="brand" href={resolve('/')} aria-label="Courtside beranda"
 			><span class="mark" aria-hidden="true">C/</span>Courtside</a
 		>
-		<a class="login" href={resolve('/start')}>Masuk <ArrowRight size={16} /></a>
+		<nav aria-label="Navigasi utama">
+			<a class="section-link" href="#fitur">Fitur</a><a class="section-link" href="#cara-kerja"
+				>Cara kerja</a
+			><a class="login" href={resolve('/start')}>Masuk <ArrowRight size={16} /></a>
+		</nav>
 	</header>
 	<main id="main">
-		<section class="hero">
+		<section class="hero" aria-labelledby="hero-title">
 			<div class="intro">
-				<p class="eyebrow">UNTUK KLUB BADMINTON KAMU</p>
-				<h1>Lebih banyak main.<br /><span>Lebih sedikit repot.</span></h1>
+				<h1 id="hero-title">
+					Lebih banyak main.<br /><span>Giliran biar<br />Courtside bantu.</span>
+				</h1>
 				<p class="lead">
-					Pemain datang silih berganti. Sesi tetap tertata. Kelola giliran doubles, catat skor, dan
-					bereskan kas klub dari tepi lapangan.
+					Yang datang belakangan jangan sampai lupa diajak main. Courtside bantu admin mengatur
+					giliran, menyusun pasangan, dan mencatat hasil pertandingan klub.
 				</p>
-				<a class="primary" href={resolve('/signup')}>Buat klubmu <ArrowRight size={20} /></a>
-				<p class="note">Anggota cukup membuka tautan klub. Admin yang mengelola sesi.</p>
-				<a class="tour" href="#contoh">Lihat cara kerjanya <ChevronDown size={16} /></a>
+				<div class="actions">
+					<a class="primary" href={resolve('/signup')}>Buat klubmu <ArrowRight size={19} /></a><a
+						class="secondary"
+						href="#contoh">Lihat tampilan <ArrowDown size={17} /></a
+					>
+				</div>
+				<p class="note">Anggota cukup buka tautan klub. Tidak perlu akun.</p>
+				<div class="hero-foot">
+					<span>Untuk main bareng.<br />Satu klub, satu lapangan.</span><span
+						class="rule"
+						aria-hidden="true"
+					></span>
+				</div>
 			</div>
-			<div class="court" aria-label="Contoh tampilan pertandingan dengan pemain fiktif">
-				<div class="court-top">
-					<span>CONTOH · KLUB SABTU</span><span class="live-dot">LIVE</span>
-				</div>
-				<p class="set">MATCH 03 · SET 2</p>
-				<div class="teams">
-					<div><span>TIM A</span><strong>Dara<br />Raka</strong></div>
-					<div class="versus">VS</div>
-					<div><span>TIM B</span><strong>Nina<br />Bima</strong></div>
-				</div>
-				<div class="scores"><strong>21</strong><span>SKOR SET 1</span><strong>18</strong></div>
-				<div class="sideline">
-					<CircleCheck size={18} /><span>6 pemain siap · 2 istirahat</span>
-				</div>
-				<p class="example">Ilustrasi, bukan sesi klub sungguhan.</p>
+			<div id="contoh" class="visual">
+				<img
+					class="court-photo"
+					src="/images/landing-court.webp"
+					alt="Kok di atas lapangan badminton hijau"
+					fetchpriority="high"
+				/>
+				<div class="app"><SessionPreview /></div>
 			</div>
 		</section>
-		<section id="contoh" class="workflow">
-			<p class="eyebrow">DARI CHECK IN SAMPAI SELESAI</p>
-			<h2>Satu tempat untuk satu malam main.</h2>
-			<div class="steps">
+		<section id="fitur" class="features" aria-label="Bantuan untuk admin klub">
+			{#each features as feature (feature.title)}{@const Icon = feature.icon}
 				<article>
-					<UsersRound size={24} /><span class="number">01</span>
-					<h3>Siapkan pemain</h3>
-					<p>
-						Tambahkan anggota klub. Check in saat datang, atur istirahat, dan tangani pemain yang
-						pulang duluan.
-					</p>
-				</article>
-				<article>
-					<ListOrdered size={24} /><span class="number">02</span>
-					<h3>Jalankan lapangan</h3>
-					<p>
-						Rekomendasi membantu memilih empat pemain dan pasangan. Admin tetap memutuskan, lalu
-						mencatat hasil setiap set.
-					</p>
-				</article>
-				<article>
-					<Wallet size={24} /><span class="number">03</span>
-					<h3>Bereskan sesi</h3>
-					<p>
-						Simpan riwayat pertandingan, tentukan iuran sesi, dan catat pembayaran serta pengeluaran
-						klub.
-					</p>
-				</article>
+					<Icon size={25} strokeWidth={1.8} />
+					<h2>{feature.title}</h2>
+					<p>{feature.text}</p>
+				</article>{/each}
+		</section>
+		<section id="cara-kerja" class="workflow">
+			<div class="workflow-visual">
+				<img
+					src="/images/landing-court.webp"
+					alt="Garis lapangan dan kok badminton"
+					loading="lazy"
+				/>
+				<p>Jadwal mainnya rutin.<br />Catatannya ikut rapi.</p>
+			</div>
+			<div class="workflow-copy">
+				<h2>Dari pemain datang<br />sampai <span>pulang.</span></h2>
+				<ol>
+					<li>
+						<h3>Buat klub dan daftar pemain</h3>
+						<p>Daftar sebagai admin, beri nama klubmu, lalu tambahkan anggota.</p>
+					</li>
+					<li>
+						<h3>Catat yang hadir, mulai main</h3>
+						<p>
+							Check in pemain saat datang. Pilih empat pemain dan pasangan, lalu simpan skor tiap
+							set. Pemain bisa istirahat atau pulang lebih dulu.
+						</p>
+					</li>
+					<li>
+						<h3>Tutup sesi dan catat iuran</h3>
+						<p>
+							Riwayat pertandingan tersimpan. Tentukan iuran per orang dan tandai pembayaran yang
+							sudah diterima.
+						</p>
+					</li>
+				</ol>
 			</div>
 		</section>
 		<section class="closing">
 			<div>
-				<p class="eyebrow">KLUBMU, RUANGMU SENDIRI</p>
-				<h2>Mulai dari nama klub.</h2>
-				<p>Akun admin, daftar pemain, dan tautan Live untuk klub kamu.</p>
+				<h2>Main berikutnya, coba pakai Courtside.</h2>
+				<p>Buat klubmu, lalu bagikan tautannya ke grup.</p>
 			</div>
 			<a class="primary" href={resolve('/signup')}>Buat klubmu <ArrowRight size={20} /></a>
 		</section>
 	</main>
 	<footer>
-		<span>Courtside · Untuk klub yang suka main.</span><a href={resolve('/start')}
-			>Sudah punya akun? Masuk</a
+		<a class="brand" href={resolve('/')}>Courtside</a><span>Untuk klub badminton.</span><a
+			href={resolve('/start')}>Sudah punya akun? Masuk</a
 		>
 	</footer>
 </div>
 
 <style>
-	.landing {
-		max-width: 1200px;
-		margin: auto;
-		padding: 0 24px;
+	@font-face {
+		font-family: 'Barlow Condensed';
+		src: url('/fonts/barlow-condensed-800.ttf') format('truetype');
+		font-weight: 800;
+		font-display: swap;
 	}
-	header,
-	footer {
+	:global(html) {
+		scroll-behavior: smooth;
+	}
+	.landing {
+		--ink: #163630;
+		--ground: #f4f1e8;
+		--chalk: #fffaf0;
+		--clay: #e2653e;
+		--line: #b9c5bb;
+		max-width: 1440px;
+		margin: auto;
+		color: var(--ink);
+	}
+	header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 20px;
-		padding: 24px 0;
-		border-bottom: 1px solid #b9c5bb;
+		padding: 24px 48px;
 	}
 	.brand {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
-		gap: 12px;
-		font-size: 22px;
+		gap: 10px;
+		font-size: 28px;
 		font-weight: 900;
 		letter-spacing: -0.04em;
 	}
 	.mark {
-		background: #163630;
-		color: #f5bb61;
-		padding: 10px;
-		font-size: 20px;
+		color: var(--clay);
+		font-style: italic;
+		font-weight: 900;
 	}
-	.login,
-	.tour {
+	nav {
+		display: flex;
+		gap: 30px;
+		align-items: center;
+		font-size: 14px;
+	}
+	nav a {
 		display: inline-flex;
 		align-items: center;
-		gap: 10px;
 		min-height: 44px;
+	}
+	.login {
+		gap: 16px;
+		background: var(--ink);
+		color: var(--chalk);
+		padding: 0 20px;
+		border-radius: 3px;
 		font-weight: 700;
 	}
 	.hero {
 		display: grid;
-		grid-template-columns: 1.2fr 1fr;
-		gap: 64px;
-		align-items: center;
-		padding: 80px 0;
+		grid-template-columns: 1fr 1fr;
+		align-items: stretch;
 	}
-	.eyebrow {
-		font-size: 11px;
-		font-weight: 900;
-		letter-spacing: 0.14em;
-		color: #38675b;
+	.intro {
+		padding: 54px 42px 54px 48px;
+	}
+	h1,
+	.workflow h2 {
+		font-family: 'Barlow Condensed', sans-serif;
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		line-height: 0.96;
 	}
 	h1 {
-		font-size: clamp(40px, 5.2vw, 68px);
-		line-height: 1.04;
-		letter-spacing: -0.055em;
-		font-weight: 900;
-		margin: 20px 0;
+		font-size: clamp(64px, 7.2vw, 104px);
+		margin: 0 0 30px;
 	}
 	h1 span {
 		color: #38675b;
 	}
 	.lead {
-		font-size: 18px;
-		line-height: 1.65;
-		max-width: 500px;
-		margin: 24px 0;
+		max-width: 440px;
+		font-size: 17px;
+		line-height: 1.7;
+		margin: 0 0 28px;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+	}
+	.primary,
+	.secondary {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 22px;
+		min-height: 52px;
+		padding: 14px 22px;
+		border-radius: 3px;
+		font-size: 15px;
+		font-weight: 800;
 	}
 	.primary {
-		display: inline-flex;
-		justify-content: center;
-		align-items: center;
-		gap: 24px;
-		min-height: 52px;
-		background: #e2653e;
-		color: #163630;
-		font-weight: 900;
-		padding: 14px 22px;
+		background: var(--clay);
+		color: #0c241f;
 	}
 	.primary:hover {
-		background: #f5bb61;
+		background: #ee8765;
+	}
+	.secondary {
+		border: 1px solid var(--ink);
+	}
+	.secondary:hover {
+		background: #e5ece5;
 	}
 	.note {
-		font-size: 13px;
-		line-height: 1.6;
-		color: #527169;
-		margin: 14px 0;
-		max-width: 360px;
-	}
-	.tour {
-		margin-top: 8px;
-		font-size: 13px;
-	}
-	.court {
-		position: relative;
-		background: #163630;
-		color: #fffaf0;
-		padding: 28px;
-		box-shadow: 12px 12px 0 #e5ece5;
-		isolation: isolate;
-	}
-	.court:before {
-		content: '';
-		position: absolute;
-		inset: 16px;
-		border: 1px solid #b9c5bb55;
-		z-index: -1;
-	}
-	.court:after {
-		content: '';
-		position: absolute;
-		inset: 50% 16px auto;
-		border-top: 1px solid #b9c5bb55;
-		z-index: -1;
-	}
-	.court-top {
-		display: flex;
-		justify-content: space-between;
-		gap: 12px;
-		font-size: 10px;
-		font-weight: 900;
-		letter-spacing: 0.08em;
-	}
-	.live-dot {
-		color: #f5bb61;
-	}
-	.set {
-		margin: 44px 0 20px;
-		color: #b9c5bb;
+		color: #38675b;
 		font-size: 12px;
-		font-weight: 900;
+		line-height: 1.6;
+		margin-top: 15px;
 	}
-	.teams {
-		display: grid;
-		grid-template-columns: 1fr 32px 1fr;
-		gap: 12px;
-	}
-	.teams > div:last-child {
-		text-align: right;
-	}
-	.teams span {
-		font-size: 10px;
-		color: #b9c5bb;
-		font-weight: 900;
-	}
-	.teams strong {
-		display: block;
-		font-size: 28px;
-		line-height: 1.25;
-		margin-top: 12px;
-	}
-	.versus {
-		align-self: center;
-		color: #b9c5bb;
+	.hero-foot {
+		display: flex;
+		align-items: center;
+		gap: 25px;
+		margin-top: 48px;
 		font-size: 11px;
+		line-height: 1.7;
 	}
-	.scores {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		border-block: 1px solid #b9c5bb66;
-		margin: 30px 0 20px;
-		padding: 12px 0;
+	.rule {
+		display: block;
+		height: 1px;
+		width: 120px;
+		background: var(--line);
 	}
-	.scores strong {
-		font-size: 46px;
-		font-weight: 900;
+	.visual {
+		position: relative;
+		background: var(--ink);
+		padding: 52px 34px 74px;
+		min-width: 0;
+		scroll-margin-top: 24px;
 	}
-	.scores span {
-		font-size: 10px;
-		color: #b9c5bb;
+	.court-photo {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 	}
-	.sideline {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		font-size: 13px;
+	.app {
+		position: relative;
+		max-width: 425px;
+		margin: auto;
+		transform: translateX(-18px);
 	}
-	.example {
-		font-size: 10px;
-		color: #b9c5bb;
-		margin-top: 20px;
-	}
-	.workflow {
-		border-top: 1px solid #b9c5bb;
-		padding: 48px 0;
-		scroll-margin-top: 20px;
-	}
-	h2 {
-		font-size: clamp(28px, 3vw, 38px);
-		font-weight: 900;
-		line-height: 1.15;
-		letter-spacing: -0.04em;
-		margin: 12px 0 28px;
-	}
-	.steps {
+	.features {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
-		border-block: 1px solid #b9c5bb;
+		padding: 36px 48px 40px;
+		border-block: 1px solid var(--line);
+		scroll-margin-top: 24px;
 	}
-	.steps article {
+	.features article {
+		padding: 0 28px;
+	}
+	.features article:first-child {
+		padding-left: 0;
+	}
+	.features article:last-child {
+		padding-right: 0;
+	}
+	.features article + article {
+		border-left: 1px solid var(--line);
+	}
+	.features :global(svg) {
+		color: #b44c30;
+		margin-bottom: 16px;
+	}
+	.features h2 {
+		font-size: 21px;
+		font-weight: 800;
+		letter-spacing: -0.025em;
+		margin: 0 0 12px;
+	}
+	.features p,
+	.workflow p {
+		font-size: 14px;
+		line-height: 1.7;
+		color: #38675b;
+	}
+	.workflow {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		scroll-margin-top: 24px;
+	}
+	.workflow-visual {
 		position: relative;
-		padding: 28px 24px 28px 0;
+		min-height: 540px;
+		overflow: hidden;
+		background: var(--ink);
 	}
-	.steps article + article {
-		border-left: 1px solid #b9c5bb;
-		padding-left: 24px;
-	}
-	.number {
+	.workflow-visual img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
 		position: absolute;
-		top: 28px;
-		right: 24px;
-		color: #527169;
-		font-size: 12px;
-		font-weight: 900;
+	}
+	.workflow-visual p {
+		position: relative;
+		color: var(--chalk);
+		font-size: 20px;
+		font-weight: 700;
+		padding: 36px 48px;
+		text-shadow: 0 2px 8px #163630;
+	}
+	.workflow-copy {
+		padding: 46px 48px;
+	}
+	.workflow h2 {
+		font-size: clamp(46px, 5.2vw, 70px);
+		margin-bottom: 32px;
+	}
+	.workflow h2 span {
+		text-decoration: underline;
+		text-decoration-color: var(--clay);
+		text-underline-offset: 6px;
+		text-decoration-thickness: 4px;
+	}
+	ol {
+		list-style: decimal;
+		padding-left: 25px;
+	}
+	li {
+		padding-left: 10px;
+		margin-bottom: 22px;
+	}
+	li::marker {
+		color: #b44c30;
+		font-weight: 800;
 	}
 	h3 {
-		font-size: 20px;
-		font-weight: 900;
-		margin: 20px 0 10px;
-	}
-	article p,
-	.closing p {
-		font-size: 15px;
-		line-height: 1.7;
-		color: #527169;
+		font-size: 16px;
+		font-weight: 800;
+		margin-bottom: 7px;
 	}
 	.closing {
+		padding: 50px 48px;
+		border-top: 1px solid var(--line);
 		display: flex;
 		justify-content: space-between;
-		gap: 32px;
 		align-items: center;
-		padding: 32px 0 56px;
+		gap: 28px;
 	}
 	.closing h2 {
-		margin-bottom: 12px;
+		font-size: 28px;
+		font-weight: 800;
+		letter-spacing: -0.03em;
+	}
+	.closing p {
+		color: #38675b;
+		font-size: 14px;
+		margin-top: 10px;
 	}
 	footer {
-		border-top: 1px solid #b9c5bb;
-		border-bottom: 0;
+		display: flex;
+		align-items: center;
+		gap: 24px;
+		padding: 24px 48px;
+		border-top: 1px solid var(--line);
 		font-size: 12px;
-		color: #527169;
+		color: #38675b;
 	}
-	footer a {
-		text-decoration: underline;
+	footer .brand {
+		font-size: 20px;
+		color: var(--ink);
+	}
+	footer > a:last-child {
+		margin-left: auto;
 		min-height: 44px;
 		display: flex;
 		align-items: center;
+		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	.skip {
 		position: absolute;
-		left: 16px;
 		top: -100px;
-		background: #fffaf0;
+		left: 16px;
 		padding: 12px;
-		z-index: 5;
+		background: var(--chalk);
+		z-index: 10;
 	}
 	.skip:focus {
 		top: 8px;
 	}
 	a:focus-visible {
-		outline: 3px solid #e2653e;
+		outline: 3px solid var(--clay);
 		outline-offset: 5px;
 	}
-	@media (max-width: 700px) {
-		.landing {
-			padding: 0 20px;
-		}
+	@media (max-width: 1000px) {
 		header {
-			padding: 16px 0;
+			padding: 20px 28px;
 		}
-		.hero {
+		.intro {
+			padding: 36px 28px;
+		}
+		h1 {
+			font-size: 76px;
+		}
+		.visual {
+			padding: 40px 20px;
+		}
+		.app {
+			transform: none;
+		}
+		.features {
+			padding: 32px 28px;
+		}
+		.workflow-copy {
+			padding: 36px 28px;
+		}
+		.workflow-visual p {
+			padding: 32px 28px;
+		}
+	}
+	@media (max-width: 700px) {
+		header {
+			padding: 16px 20px;
+		}
+		.brand {
+			font-size: 24px;
+		}
+		nav {
+			gap: 12px;
+		}
+		.section-link {
+			display: none;
+		}
+		.hero,
+		.workflow {
 			grid-template-columns: 1fr;
-			gap: 36px;
-			padding: 42px 0 48px;
+		}
+		.intro {
+			padding: 32px 20px 36px;
+		}
+		h1 {
+			font-size: clamp(66px, 16vw, 96px);
 		}
 		.lead {
 			font-size: 16px;
 		}
-		.court {
-			padding: 28px;
+		.hero-foot {
+			margin-top: 28px;
 		}
-		.steps {
+		.visual {
+			padding: 30px 20px 54px;
+		}
+		.features {
+			padding: 12px 20px;
 			grid-template-columns: 1fr;
 		}
-		.steps article + article {
+		.features article,
+		.features article:first-child,
+		.features article:last-child {
+			padding: 25px 0;
+		}
+		.features article + article {
 			border-left: 0;
-			border-top: 1px solid #b9c5bb;
-			padding-left: 0;
+			border-top: 1px solid var(--line);
+		}
+		.features :global(svg) {
+			float: left;
+			margin: 0 16px 12px 0;
+		}
+		.features p {
+			clear: both;
+		}
+		.workflow-visual {
+			min-height: 260px;
+		}
+		.workflow-copy {
+			padding: 34px 20px 16px;
+		}
+		.workflow h2 {
+			font-size: 56px;
 		}
 		.closing {
-			align-items: stretch;
 			flex-direction: column;
-			gap: 20px;
+			align-items: stretch;
+			padding: 32px 20px;
+		}
+		.closing h2 {
+			font-size: 26px;
 		}
 		footer {
-			align-items: flex-start;
-			flex-direction: column;
-			gap: 4px;
+			flex-wrap: wrap;
+			gap: 12px 20px;
+			padding: 20px;
 		}
-		.primary {
+		footer > a:last-child {
+			margin-left: 0;
 			width: 100%;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		:global(html) {
+			scroll-behavior: auto;
 		}
 	}
 </style>
