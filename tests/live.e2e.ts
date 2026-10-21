@@ -334,12 +334,18 @@ async function mockLiveBackend(
 	};
 }
 
-test('shows admin access progress instead of a login action while permissions load', async ({ page }) => {
+test('shows admin access progress instead of a login action while permissions load', async ({
+	page
+}) => {
 	await mockLiveBackend(page, false, false, false, false, 0, false, false, true);
 	await page.goto('/clubs/club-e2e/live');
 
-	await expect(page.getByRole('button', { name: 'Memeriksa akses admin', exact: true })).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Masuk sebagai admin', exact: true })).toHaveCount(0);
+	await expect(
+		page.getByRole('button', { name: 'Memeriksa akses admin', exact: true })
+	).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: 'Masuk sebagai admin', exact: true })
+	).toHaveCount(0);
 });
 
 test('public visitor can open the read-only live view', async ({ page }) => {
