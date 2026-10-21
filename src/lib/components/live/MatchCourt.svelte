@@ -11,6 +11,7 @@
 	let {
 		participants,
 		activeMatch,
+		courtNumber,
 		canManage = false,
 		online = true,
 		pending = '',
@@ -19,10 +20,13 @@
 		oncomplete,
 		oncorrect,
 		onabandon,
-		onsubstitute
+		onsubstitute,
+		onstartdecider,
+		onskiptiedmatch
 	}: {
 		participants: Participant[];
 		activeMatch: ActiveMatch | null;
+		courtNumber: number;
 		canManage?: boolean;
 		online?: boolean;
 		pending?: string;
@@ -31,16 +35,20 @@
 			teamA: string[],
 			teamB: string[],
 			recommendationId: string | null,
-			pairingAudit?: { recommended: PairingOption; options: PairingOption[] }
+			pairingAudit?: { recommended: PairingOption; options: PairingOption[] },
+			courtNumber?: number
 		) => Promise<boolean>;
 		oncomplete: (a: number, b: number) => Promise<boolean>;
-		oncorrect: (setNumber: 1 | 2, a: number, b: number) => Promise<boolean>;
+		oncorrect: (setNumber: 1 | 2 | 3, a: number, b: number) => Promise<boolean>;
 		onabandon: () => void;
 		onsubstitute: (
+			matchId: string,
 			outgoingPlayerId: string,
 			replacementPlayerId: string,
 			outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 		) => Promise<boolean>;
+		onstartdecider: (matchId: string) => Promise<boolean>;
+		onskiptiedmatch: (matchId: string) => Promise<boolean>;
 	} = $props();
 
 	let stage = $state<'idle' | 'select' | 'teams'>('idle');
@@ -50,11 +58,12 @@
 	let scoreA = $state('');
 	let scoreB = $state('');
 	let setTwoStarted = $state(false);
+	let setThreeStarted = $state(false);
 	let substituteStep = $state<0 | 1 | 2 | 3>(0);
 	let outgoingPlayerId = $state('');
 	let replacementPlayerId = $state('');
 	let outgoingStatus = $state<'RESTING' | 'OUT' | 'LEFT'>('RESTING');
-	let correctionSet = $state<1 | 2 | null>(null);
+	let correctionSet = $state<1 | 2 | 3 | null>(null);
 	let correctionA = $state('');
 	let correctionB = $state('');
 	let selectedPairing = $state<PairingOption | null>(null);
@@ -97,10 +106,22 @@
 	let readyPlayerOptions = $derived(
 		ready.map((player) => ({ value: player.id, label: player.name }))
 	);
-	let betweenSets = $derived(
-		playingSet?.setNumber === 2 &&
+	let awaitingDecider = $derived(
+		Boolean(
+			activeMatch &&
+			!playingSet &&
 			completedSets.some((set) => set.setNumber === 1) &&
-			!setTwoStarted
+			completedSets.some((set) => set.setNumber === 2) &&
+			!activeMatch.sets.some((set) => set.setNumber === 3)
+		)
+	);
+	let betweenSets = $derived(
+		(playingSet?.setNumber === 2 &&
+			completedSets.some((set) => set.setNumber === 1) &&
+			!setTwoStarted) ||
+			(playingSet?.setNumber === 3 &&
+				completedSets.some((set) => set.setNumber === 2) &&
+				!setThreeStarted)
 	);
 
 	function continueToTeams() {
@@ -169,7 +190,7 @@
 		outgoingStatus = 'RESTING';
 	}
 
-	function openCorrection(setNumber: 1 | 2) {
+	function openCorrection(setNumber: 1 | 2 | 3) {
 		const set = completedSets.find((item) => item.setNumber === setNumber);
 		if (!set) return;
 		correctionSet = setNumber;
@@ -191,7 +212,14 @@
 		<section class="match-court court-score-enter">
 			<div class="match-heading">
 				<div class="flex items-center justify-between gap-4">
-					<h2 class="text-xl font-black tracking-[-0.04em]">Match {activeMatch.sequence_number}</h2>
+					<div>
+						<p class="text-[10px] font-black tracking-[0.14em] text-[#b9c5bb]">
+							COURT {courtNumber}
+						</p>
+						<h2 class="text-xl font-black tracking-[-0.04em]">
+							Match {activeMatch.sequence_number}
+						</h2>
+					</div>
 					<span class="text-xs font-black tracking-[0.12em] text-[#f5bb61]"
 						>SET {playingSet.setNumber}</span
 					>
@@ -244,13 +272,19 @@
 			</div>
 			{#if canManage && betweenSets && substituteStep === 0}
 				<div class="match-step px-5 py-6">
-					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">Lanjut ke Set 2</h3>
+					<h3 class="text-2xl font-black tracking-[-0.04em] text-[#163630]">
+						Lanjut ke Set {playingSet.setNumber}
+					</h3>
 					<p class="mt-2 text-sm leading-6 text-[#527169]">
 						Pilih lanjut dengan susunan yang sama, atau ganti satu pemain sebelum mulai.
 					</p>
 					<div class="mt-5 grid grid-cols-2 gap-3">
-						<AppButton class="w-full" disabled={!online} onclick={() => (setTwoStarted = true)}
-							>Mulai Set 2</AppButton
+						<AppButton
+							class="w-full"
+							disabled={!online}
+							onclick={() =>
+								playingSet.setNumber === 2 ? (setTwoStarted = true) : (setThreeStarted = true)}
+							>Mulai Set {playingSet.setNumber}</AppButton
 						>
 						<AppButton
 							class="w-full px-2"
@@ -322,9 +356,18 @@
 							><AppButton
 								disabled={Boolean(pending) || !online}
 								onclick={async () => {
-									if (await onsubstitute(outgoingPlayerId, replacementPlayerId, outgoingStatus)) {
+									if (
+										activeMatch &&
+										(await onsubstitute(
+											activeMatch.id,
+											outgoingPlayerId,
+											replacementPlayerId,
+											outgoingStatus
+										))
+									) {
 										resetSubstitution();
-										setTwoStarted = true;
+										if (playingSet.setNumber === 2) setTwoStarted = true;
+										else setThreeStarted = true;
 									}
 								}}>{pending || 'Konfirmasi'}</AppButton
 							>
@@ -399,7 +442,7 @@
 						{#if canManage}<AppButton
 								variant="secondary"
 								disabled={Boolean(pending) || !online}
-								onclick={() => openCorrection(set.setNumber as 1 | 2)}
+								onclick={() => openCorrection(set.setNumber as 1 | 2 | 3)}
 								>Koreksi Set {set.setNumber} · {set.teamAScore}–{set.teamBScore}</AppButton
 							>{:else}<span
 								class="border border-[#b9c5bb] bg-[#e5ece5] px-3 py-2 text-xs font-bold text-[#163630]"
@@ -415,9 +458,35 @@
 			{/if}
 		</section>
 	{/key}
+{:else if activeMatch && awaitingDecider}
+	<section class="court-panel" aria-label={`Keputusan Set 3 untuk court ${courtNumber}`}>
+		<div class="bg-[#f7f2e8] p-5">
+			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
+				COURT {courtNumber} · MATCH {activeMatch.sequence_number}
+			</p>
+			<h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">Skor 1–1</h3>
+			<p class="mt-2 text-sm leading-6 text-[#527169]">
+				Pilih apakah kedua tim lanjut ke set penentu atau akhiri match dengan hasil 1–1. Pemain
+				tetap di court sampai pilihan berhasil disimpan.
+			</p>
+			{#if canManage}<div class="mt-5 grid gap-3 sm:grid-cols-2">
+					<AppButton
+						disabled={Boolean(pending) || !online}
+						onclick={() => onstartdecider(activeMatch.id)}>{pending || 'Lanjut Set 3'}</AppButton
+					>
+					<AppButton
+						variant="secondary"
+						disabled={Boolean(pending) || !online}
+						onclick={() => onskiptiedmatch(activeMatch.id)}
+						>Akhiri 1–1 dan lanjut ke pairing berikutnya</AppButton
+					>
+				</div>{/if}
+		</div>
+	</section>
 {:else if canManage && ready.length >= 4}
-	<section class="court-panel">
+	<section class="court-panel" aria-label={`Court ${courtNumber}`}>
 		<div class="bg-[#e5ece5] p-5">
+			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">COURT {courtNumber}</p>
 			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
 				{ready.length} pemain siap.
 			</h3>
@@ -479,7 +548,8 @@
 									recommendationId,
 									recommendedPairing && pairingOptions.length === 3
 										? { recommended: recommendedPairing, options: pairingOptions }
-										: undefined
+										: undefined,
+									courtNumber
 								))
 							)
 								stage = 'idle';

@@ -109,8 +109,16 @@
 		);
 	const money = (value: number) => `Rp${value.toLocaleString('id-ID')}`;
 	const teamPlayers = (players: string[]) => [...new Set(players)];
-	const completedSetCount = (match: PublicSessionMatch) =>
-		Number(match.set_one_a !== null) + Number(match.set_two_a !== null);
+	const setsForMatch = (match: PublicSessionMatch) =>
+		match.sets?.filter((set) => set.teamAScore !== null && set.teamBScore !== null) ?? [
+			...(match.set_one_a !== null
+				? [{ setNumber: 1, teamAScore: match.set_one_a, teamBScore: match.set_one_b }]
+				: []),
+			...(match.set_two_a !== null
+				? [{ setNumber: 2, teamAScore: match.set_two_a, teamBScore: match.set_two_b }]
+				: [])
+		];
+	const completedSetCount = (match: PublicSessionMatch) => setsForMatch(match).length;
 	let evaluatedSession = $state('');
 	$effect(() => {
 		if (!canManage) {
@@ -130,10 +138,7 @@
 			month: 'short',
 			year: 'numeric'
 		}).format(new Date(session.started_at));
-		const completedSets = matches.reduce(
-			(sum, match) => sum + Number(match.set_one_a !== null) + Number(match.set_two_a !== null),
-			0
-		);
+		const completedSets = matches.reduce((sum, match) => sum + completedSetCount(match), 0);
 		return [
 			`${clubName} — ${dateText}`,
 			`Pemain: ${session.attendance} · Match: ${matches.length} · Set: ${completedSets}`,
@@ -333,11 +338,8 @@
 		ctx.fillText('HASIL PERTANDINGAN', 540, 908);
 		let y = 962;
 		for (const match of matches.slice(0, 3)) {
-			const scores = [
-				match.set_one_a !== null ? `${match.set_one_a}–${match.set_one_b}` : '',
-				match.set_two_a !== null ? `${match.set_two_a}–${match.set_two_b}` : ''
-			]
-				.filter(Boolean)
+			const scores = setsForMatch(match)
+				.map((set) => `S${set.setNumber} ${set.teamAScore}–${set.teamBScore}`)
 				.join('  ·  ');
 			ctx.fillStyle = '#c8d9d0';
 			ctx.font = '700 21px system-ui';
@@ -490,6 +492,9 @@
 									<div class="min-w-0">
 										<div class="flex items-center justify-between gap-3">
 											<h3 class="text-lg font-bold">Match {match.sequence_number}</h3>
+											{#if match.court_number}<span class="text-xs font-bold text-[#527169]"
+													>Court {match.court_number}</span
+												>{/if}
 											<span class="text-xs font-bold tracking-[0.1em] text-[#527169]"
 												>{match.status === 'COMPLETED' ? 'SELESAI' : match.status}</span
 											>
@@ -508,14 +513,10 @@
 											</p>
 										</div>
 										<div class="mt-4 flex flex-wrap gap-2">
-											{#if match.set_one_a !== null}<span
+											{#each setsForMatch(match) as set (set.setNumber)}<span
 													class="rounded-[var(--court-control-radius)] border border-[#d6ddd3] bg-[#e5ece5] px-3 py-2 text-sm font-bold tabular-nums"
-													>SET 1 · {match.set_one_a}–{match.set_one_b}</span
-												>{/if}
-											{#if match.set_two_a !== null}<span
-													class="rounded-[var(--court-control-radius)] border border-[#d6ddd3] bg-[#e5ece5] px-3 py-2 text-sm font-bold tabular-nums"
-													>SET 2 · {match.set_two_a}–{match.set_two_b}</span
-												>{/if}
+													>SET {set.setNumber} · {set.teamAScore}–{set.teamBScore}</span
+												>{/each}
 											{#if !completedSetCount(match)}<span class="text-sm text-[#527169]"
 													>Hasil set belum tercatat.</span
 												>{/if}

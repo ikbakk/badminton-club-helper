@@ -4,7 +4,7 @@
 
 - A club has at most one `LIVE` session. Session states are `LIVE`, `CLOSED`, and `CANCELLED`.
 - Matches move through `PREPARED`, `IN_PROGRESS`, `COMPLETED`, or `ABANDONED`; sets are `IN_PROGRESS`, `COMPLETED`, or `ABANDONED`.
-- A normal match has two sets. Only completed sets with a decisive valid score update ratings. Substitution is between sets; actual `set_players` per set are authoritative.
+- A session fixes its court count at start and allocates all courts from one shared READY pool. A match normally has two sets; after a 1–1 result the admin can start a deciding third set or finish the match tied. Only completed sets with a decisive valid score update ratings. Substitution is between sets; actual `set_players` per set are authoritative.
 
 ## Participants
 
@@ -12,7 +12,7 @@ Statuses: `READY`, `PLAYING`, `RESTING`, `AWAY`, `OUT`, `LEFT`. Match commands c
 
 ## Fairness and history
 
-A rotation opportunity is recorded at each actual match start for every participant READY at that point. The four actually selected players—not the recommendation—receive the opportunity; skipped READY participants accrue missed opportunity/current debt. Set 2 fill-ins count as actual set participation, not a full rotation. `ROTATION_STARTED` snapshots and status periods support reconstruction and admin evaluation.
+A rotation opportunity is recorded at each actual match start for every participant READY at that point, regardless of which court is selected. The four actually selected players—not the recommendation—receive the opportunity; skipped READY participants accrue missed opportunity/current debt. Set 2 and Set 3 fill-ins count as actual set participation, not a full rotation. `ROTATION_STARTED` snapshots and status periods support reconstruction and admin evaluation. Court count, court assignment, and the optional decider do not change rotation or pairing weights.
 
 ## Commands and authority
 

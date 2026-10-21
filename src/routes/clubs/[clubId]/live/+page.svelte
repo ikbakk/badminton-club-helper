@@ -99,7 +99,8 @@
 	);
 	let session = $derived(liveSnapshot.session);
 	let participants = $derived(liveSnapshot.participants);
-	let activeMatch = $derived(liveSnapshot.activeMatch);
+	let activeMatches = $derived(liveSnapshot.activeMatches);
+	let activeMatch = $derived(activeMatches[0] ?? null);
 	let online = $state(true);
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
@@ -110,7 +111,7 @@
 	let showCheckIn = $state(false);
 	let showEndSession = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
-	let pending = $derived(live.pending || (liveCommandMutation.isPending ? 'Menyimpan…' : ''));
+	let pending = $derived(live.pending);
 
 	function notify(message: string) {
 		toast(message);
@@ -247,13 +248,13 @@
 			) ?? []
 		);
 	});
-	async function createSession() {
+	async function createSession(courtCount = 1) {
 		if (!club?.is_club_admin || !online || pending) return;
 		const selectedClub = club.id;
 		live.pending = 'Memulai sesi…';
 		try {
 			await liveCommandMutation.mutateAsync({
-				action: () => startSession(selectedClub),
+				action: () => startSession(selectedClub, courtCount),
 				invalidateLive: true
 			});
 			notify('Sesi dimulai.');
@@ -274,11 +275,12 @@
 	}
 
 	async function substitute(
+		matchId: string,
 		outgoingPlayerId: string,
 		replacementPlayerId: string,
 		outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 	) {
-		return live.substitute(outgoingPlayerId, replacementPlayerId, outgoingStatus);
+		return live.substitute(matchId, outgoingPlayerId, replacementPlayerId, outgoingStatus);
 	}
 
 	async function setStatus(status: ParticipantStatus) {
@@ -291,27 +293,36 @@
 		teamA: string[],
 		teamB: string[],
 		recommendationId: string | null,
-		pairingAudit?: Parameters<typeof live.startMatch>[3]
+		pairingAudit?: Parameters<typeof live.startMatch>[3],
+		courtNumber = 1
 	) {
-		return live.startMatch(teamA, teamB, recommendationId, pairingAudit);
+		return live.startMatch(teamA, teamB, recommendationId, pairingAudit, courtNumber);
 	}
 
 	async function prepareNextMatch() {
 		return live.prepareNextMatch();
 	}
 
-	async function saveSet(teamA: number, teamB: number) {
-		return live.completeSet(teamA, teamB);
+	async function saveSet(matchId: string, teamA: number, teamB: number) {
+		return live.completeSet(matchId, teamA, teamB);
 	}
 
-	async function correctSet(setNumber: 1 | 2, teamA: number, teamB: number) {
-		return live.correctSet(setNumber, teamA, teamB);
+	async function correctSet(matchId: string, setNumber: 1 | 2 | 3, teamA: number, teamB: number) {
+		return live.correctSet(matchId, setNumber, teamA, teamB);
 	}
 
-	async function stopMatch() {
+	async function stopMatch(matchId: string) {
 		if (!confirm('Batalkan match ini? Set yang sudah selesai tetap tersimpan di riwayat.'))
 			return false;
-		return live.abandon();
+		return live.abandon(matchId);
+	}
+
+	async function startDecider(matchId: string) {
+		return live.startSetThree(matchId);
+	}
+
+	async function skipDecider(matchId: string) {
+		return live.finishTiedMatch(matchId);
 	}
 
 	async function endSession() {
@@ -580,10 +591,11 @@
 			{participants}
 			authChecking={authAccessState === 'checking'}
 			{suggestedPlayers}
-			{activeMatch}
+			{activeMatches}
 			canManage={canManageLive}
 			{online}
 			{pending}
+			pendingForMatch={(matchId) => live.pendingForMatch(matchId)}
 			recentSessions={publicHistory}
 			onadminlogin={() => (adminLoginOpen = true)}
 			onstartsession={createSession}
@@ -596,6 +608,8 @@
 			oncorrectset={correctSet}
 			onabandonmatch={stopMatch}
 			onsubstitute={substitute}
+			onstartdecider={startDecider}
+			onskiptiedmatch={skipDecider}
 		/>
 		{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
 			<section class="mt-5 border-y border-[#d6ddd3] py-5">

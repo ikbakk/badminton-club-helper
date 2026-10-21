@@ -17,6 +17,7 @@
 
 ## Now — V1 closeout
 
+- Extend sessions to multiple courts with a shared READY pool and an optional deciding set after 1–1.
 - Keep the repository and developer handoff clean, documented, and easy to verify.
 - Validate the shipped workflow over 3–5 real club sessions; capture rotation/pairing feedback and courtside friction.
 - Make operational UX fixes only when supported by observed use. Do not tune Algorithm 1 or Algorithm 2 during validation based on isolated observations.

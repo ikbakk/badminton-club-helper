@@ -58,8 +58,14 @@ export async function promoteGuestToMember(clubId: string, playerId: string) {
 	});
 	if (error) throw error;
 }
-export async function startSession(clubId: string) {
-	const { data, error } = await client().rpc('start_session', { p_club_id: clubId });
+export async function startSession(clubId: string, courtCount = 1) {
+	if (!Number.isSafeInteger(courtCount) || courtCount < 1) {
+		throw new Error('Jumlah court harus berupa bilangan bulat positif.');
+	}
+	const { data, error } = await client().rpc('start_session', {
+		p_club_id: clubId,
+		p_court_count: courtCount
+	});
 	if (error) throw error;
 	return data as string;
 }
@@ -122,12 +128,19 @@ export type PublicSessionMatch = {
 	id: string;
 	sequence_number: number;
 	status: 'PREPARED' | 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+	court_number?: number;
 	team_a: string[];
 	team_b: string[];
 	set_one_a: number | null;
 	set_one_b: number | null;
 	set_two_a: number | null;
 	set_two_b: number | null;
+	sets?: {
+		setNumber: number;
+		teamAScore: number | null;
+		teamBScore: number | null;
+		players: { name: string; team: 'A' | 'B' }[] | null;
+	}[];
 };
 export type PublicSessionAttendee = {
 	player_id: string;

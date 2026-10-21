@@ -27,6 +27,7 @@
 		id: 'demo-match',
 		session_id: 'demo-session',
 		sequence_number: 3,
+		court_number: 1,
 		sets: [
 			{
 				id: 'demo-set-1',
@@ -73,10 +74,11 @@
 			session={{
 				id: 'demo-session',
 				club_id: 'demo-club',
-				started_at: '2026-10-17T11:00:00+08:00'
+				started_at: '2026-10-17T11:00:00+08:00',
+				court_count: 1
 			}}
 			{participants}
-			{activeMatch}
+			activeMatches={[activeMatch]}
 			onadminlogin={() => void goto(resolve('/signup'))}
 			onstartsession={() => {}}
 			oncheckin={() => {}}
@@ -88,6 +90,8 @@
 			oncorrectset={async () => false}
 			onabandonmatch={() => {}}
 			onsubstitute={async () => false}
+			onstartdecider={async () => false}
+			onskiptiedmatch={async () => false}
 		/>
 	</main>
 </div>
