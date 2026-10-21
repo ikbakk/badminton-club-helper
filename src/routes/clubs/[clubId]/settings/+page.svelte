@@ -377,7 +377,7 @@
 				Pengaturan klub hanya tersedia setelah masuk dengan akun Club Admin.
 			</p>
 			<a
-				class="mt-5 inline-flex min-h-11 items-center gap-2 bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
+				class="mt-5 inline-flex min-h-11 items-center gap-2 rounded-[var(--court-control-radius)] bg-[#163630] px-4 text-sm font-bold text-[#fffaf0]"
 				href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 				><ArrowLeft size={18} />Kembali ke Live</a
 			>
