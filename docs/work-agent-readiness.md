@@ -30,6 +30,12 @@ Dev URL: `https://wmudjpordbayncgrkaiu.supabase.co`. Staging URL: `https://prwuj
 - The security advisor initially flagged the two trigger helper functions because PostgreSQL grants function execution to `PUBLIC` by default. The follow-up migration revokes `EXECUTE` from `PUBLIC`, `anon` and `authenticated`; direct privilege checks now return false for both helpers. The remaining advisor findings are existing project-wide RLS/view/RPC findings.
 - Synthetic data counts remained unchanged across both migrations: 3 sessions, 12 players, 11 matches, 22 sets and 78 session events. The existing sets still use only set numbers 1 and 2.
 
+## Parallel-court recommendation guard fix
+
+- Added `supabase/migrations/20261022122247_allow_parallel_court_rotation_recommendations.sql` and applied it to the explicitly authorized `badminton-club-dev` project (`wmudjpordbayncgrkaiu`). The plugin recorded generated remote version `20261022122649`; this does not establish CLI filename-version parity.
+- The Postgres logs confirmed the prior `save_rotation_recommendation` exception while the other court was active. Post-migration SQL verification confirms that guard is absent, anonymous execution remains denied, and authenticated execution remains allowed.
+- No session, player, match, or finance rows were modified by the migration. The SQL smoke regression is checked in but was not run against remote data.
+
 ## Development schema bootstrap
 
 At initial bootstrap, the new, empty dev database failed on the lexically first migration as expected, then accepted all 37 checked-in migration SQL files when the initial schema/security files were applied first and the remaining files were applied in filename order. The failed attempt added no ledger row. The Supabase plugin records generated versions rather than repo timestamps; do not use this as evidence of `supabase db push` parity. Dev now also contains the synthetic session fixtures listed above.
