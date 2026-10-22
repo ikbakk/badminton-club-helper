@@ -1038,3 +1038,42 @@ test('three configured courts can be reached horizontally on a phone without wid
 	await court.getByRole('button', { name: 'Siapkan match' }).click();
 	await expect(page.getByRole('dialog')).toBeVisible();
 });
+
+for (const admin of [true, false]) {
+	for (const ready of [0, 3, 4]) {
+		test(`empty Court 2 stays visible with ${ready} READY players for ${admin ? 'admin' : 'public'}`, async ({
+			page
+		}) => {
+			await page.setViewportSize({ width: 390, height: 844 });
+			await mockLiveBackend(page, false, false, false, false, ready, false, false, false, admin, 2);
+			await page.goto('/clubs/club-e2e/live');
+			await page
+				.getByRole('navigation', { name: 'Pilih court' })
+				.getByRole('button', { name: 'Court 2', exact: true })
+				.click();
+			const court = page.getByRole('region', { name: 'Court 2', exact: true });
+			await expect(court).toBeVisible();
+			await expect(court.getByRole('heading')).toHaveText(
+				ready === 0 ? 'Menunggu pemain.' : ready < 4 ? 'Pemain belum cukup.' : '4 pemain siap.'
+			);
+			const prepare = court.getByRole('button', { name: 'Siapkan match' });
+			if (!admin) await expect(prepare).toHaveCount(0);
+			else if (ready < 4) await expect(prepare).toBeDisabled();
+			else await expect(prepare).toBeEnabled();
+		});
+	}
+}
+
+test('Court 2 explains the shortfall while Court 1 uses four of seven players', async ({
+	page
+}) => {
+	await mockLiveBackend(page, true, false, false, false, 7, false, false, false, true, 2);
+	await page.goto('/clubs/club-e2e/live');
+	await page
+		.getByRole('navigation', { name: 'Pilih court' })
+		.getByRole('button', { name: 'Court 2', exact: true })
+		.click();
+	const court = page.getByRole('region', { name: 'Court 2', exact: true });
+	await expect(court).toContainText('3 pemain READY — butuh 1 pemain lagi');
+	await expect(court.getByRole('button', { name: 'Siapkan match' })).toBeDisabled();
+});

@@ -483,17 +483,35 @@
 				</div>{/if}
 		</div>
 	</section>
-{:else if canManage && ready.length >= 4}
+{:else}
 	<section class="court-panel" aria-label={`Court ${courtNumber}`}>
 		<div class="bg-[#e5ece5] p-5">
 			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">COURT {courtNumber}</p>
 			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
-				{ready.length} pemain siap.
+				{#if ready.length === 0}Menunggu pemain.
+				{:else if ready.length < 4}Pemain belum cukup.
+				{:else}{ready.length} pemain siap.{/if}
 			</h3>
-			<p class="mt-2 text-sm text-[#527169]">Siapkan match berikutnya saat lapangan kosong.</p>
-			<div class="mt-5">
-				<AppButton onclick={beginPreparation}>Siapkan match</AppButton>
-			</div>
+			<p class="mt-2 text-sm leading-6 text-[#527169]">
+				{#if ready.length === 0}
+					Court belum digunakan. {canManage
+						? 'Check in pemain lewat daftar hadir untuk mulai bermain.'
+						: 'Menunggu pemain READY dan persiapan match oleh admin.'}
+				{:else if ready.length < 4}
+					{ready.length} pemain READY — butuh {4 - ready.length} pemain lagi untuk main ganda di court
+					ini.
+				{:else}
+					{canManage
+						? 'Siapkan match berikutnya saat lapangan kosong.'
+						: 'Court belum digunakan. Menunggu admin menyiapkan match berikutnya.'}
+				{/if}
+			</p>
+			{#if canManage}<div class="mt-5">
+					<AppButton
+						disabled={ready.length < 4 || !online || Boolean(pending)}
+						onclick={beginPreparation}>Siapkan match</AppButton
+					>
+				</div>{/if}
 		</div>
 	</section>
 {/if}
