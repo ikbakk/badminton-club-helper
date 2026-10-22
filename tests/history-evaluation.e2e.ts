@@ -1,11 +1,16 @@
 import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { evaluateSession } from '../src/lib/domain/session-evaluation';
 import { pbNewbieSessionFixture } from '../src/lib/domain/session-evaluation.fixture';
 
 const sessionId = 'history-evaluation-e2e';
 const evaluation = evaluateSession({ ...pbNewbieSessionFixture, sessionId });
 
-async function setupHistory(page: import('@playwright/test').Page, admin: boolean) {
+async function setupHistory(
+	page: import('@playwright/test').Page,
+	admin: boolean,
+	attendance = 12
+) {
 	await page.addInitScript(
 		({ admin }) => {
 			if (!admin) return;
@@ -51,7 +56,7 @@ async function setupHistory(page: import('@playwright/test').Page, admin: boolea
 						started_at: pbNewbieSessionFixture.startedAt,
 						closed_at: pbNewbieSessionFixture.closedAt,
 						fee_per_person: null,
-						attendance: 12
+						attendance
 					}
 				]
 			});
@@ -91,51 +96,67 @@ test('Club Admin sees evaluation rendered from the deterministic session fixture
 	expect(download.suggestedFilename()).toBe(`evaluasi-sesi-${sessionId}.json`);
 });
 
-test('recap has a result-only mode and uses native image sharing when supported', async ({
-	page
-}) => {
-	await setupHistory(page, true);
+test('recap shares the full roster as PNG and can omit all finance', async ({ page }) => {
+	await setupHistory(page, true, 24);
 	await page.addInitScript(() => {
 		Object.defineProperty(navigator, 'canShare', { value: () => true });
 		Object.defineProperty(navigator, 'share', {
 			value: async (data: ShareData) => {
-				(window as Window & { shared?: { text?: string; type?: string } }).shared = {
+				(
+					window as Window & {
+						shared?: { text?: string; type?: string; width?: number; height?: number };
+					}
+				).shared = {
 					text: data.text,
+					width: data.files?.[0] ? (await createImageBitmap(data.files[0])).width : 0,
+					height: data.files?.[0] ? (await createImageBitmap(data.files[0])).height : 0,
 					type: data.files?.[0]?.type
 				};
 			}
 		});
 	});
-	await page.addInitScript(() => {
-		const original = CanvasRenderingContext2D.prototype.fillText;
-		CanvasRenderingContext2D.prototype.fillText = function (text, x, y, maxWidth) {
-			const state = window as Window & { drawnTexts?: string[] };
-			(state.drawnTexts ??= []).push(text);
-			if (maxWidth === undefined) original.call(this, text, x, y);
-			else original.call(this, text, x, y, maxWidth);
-		};
-	});
-
+	await page.route('**/rest/v1/rpc/public_session_attendance', (route) =>
+		route.fulfill({
+			json: Array.from({ length: 24 }, (_, i) => ({
+				player_id: `p-${i}`,
+				display_name: i === 0 ? 'Andi & Bella <Klub>' : `Pemain ${i + 1}`,
+				membership_type: 'MEMBER',
+				is_paid: true
+			}))
+		})
+	);
 	await page.goto(`/clubs/club-e2e/history/${sessionId}`);
 	await page.getByRole('button', { name: 'Bagikan', exact: true }).click();
 	const image = page.getByRole('dialog').getByRole('img');
+	await expect(image).toBeVisible();
 	const financialImage = await image.getAttribute('src');
-	await page.evaluate(() => {
-		(window as Window & { drawnTexts?: string[] }).drawnTexts = [];
-	});
+	const downloadSvg = async () => {
+		const pending = page.waitForEvent('download');
+		await page.getByRole('button', { name: 'Unduh SVG' }).click();
+		const download = await pending;
+		return readFile((await download.path())!, 'utf8');
+	};
+	expect(await downloadSvg()).toContain('Iuran sesi');
 	await page.getByRole('checkbox', { name: 'Sertakan iuran dan pembayaran' }).uncheck();
 	await expect(image).not.toHaveAttribute('src', financialImage!);
-	const drawn = await page.evaluate(
-		() => (window as Window & { drawnTexts?: string[] }).drawnTexts ?? []
-	);
-	expect(drawn).toContain('MATCH TERCATAT');
-	expect(drawn.join(' ')).not.toMatch(/IURAN|TAGIHAN|LUNAS|Rp/);
+	const vector = await downloadSvg();
+	expect(vector).toContain('Main bareng');
+	expect(vector).toContain('Pemain 24');
+	expect(vector).toContain('Andi &amp; Bella &lt;Klub&gt;');
+	expect(vector).not.toMatch(/Iuran sesi|Total tagihan|lunas|Rp|Hasil pertandingan/);
+
 	await page.getByRole('button', { name: 'Bagikan gambar' }).click();
 	await expect
 		.poll(() =>
 			page.evaluate(() => (window as Window & { shared?: { type?: string } }).shared?.type)
 		)
 		.toBe('image/png');
+	expect(
+		await page.evaluate(() => (window as Window & { shared?: { width?: number } }).shared?.width)
+	).toBe(1080);
+	expect(
+		await page.evaluate(() => (window as Window & { shared?: { height?: number } }).shared?.height)
+	).toBeGreaterThan(1350);
 	const text = await page.evaluate(
 		() => (window as Window & { shared?: { text?: string } }).shared?.text
 	);

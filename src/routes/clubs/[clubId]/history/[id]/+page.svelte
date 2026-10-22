@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { renderShareCard, shareCardFont, shareCardPng } from '$lib/features/history/share-card';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { publicSurfaceKey } from '$lib/data/query-client';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
@@ -57,6 +58,10 @@
 	);
 
 	let cardUrl = $state('');
+	let cardSvg = $state('');
+	let shareFile = $state<File | null>(null);
+	let preparingCard = $state(false);
+	let cardRequest = 0;
 	let shareNotice = $state('');
 	let includeFinance = $state(true);
 	const nativeShareAvailable = browser && typeof navigator.share === 'function';
@@ -139,15 +144,15 @@
 			year: 'numeric'
 		}).format(new Date(session.started_at));
 		const completedSets = matches.reduce((sum, match) => sum + completedSetCount(match), 0);
+		const fee = session.fee_per_person ?? financeRecap?.fee_per_person ?? null;
 		return [
 			`${clubName} — ${dateText}`,
 			`Pemain: ${session.attendance} · Match: ${matches.length} · Set: ${completedSets}`,
+			`${window.location.origin}${resolve('/clubs/[clubId]/history/[id]', { clubId, id: session.id })}`,
 			...(includeFinance
 				? [
-						session.fee_per_person
-							? `Iuran: ${money(session.fee_per_person)} / orang`
-							: 'Biaya sesi belum dikonfirmasi',
-						financeRecap?.expected_fees
+						fee !== null ? `Iuran: ${money(fee)} / orang` : 'Biaya sesi belum dikonfirmasi',
+						financeRecap?.expected_fees !== undefined
 							? `Total tagihan: ${money(financeRecap.expected_fees)}`
 							: '',
 						`Pembayaran tercatat: ${attendees.filter((attendee) => attendee.is_paid === true).length}/${attendees.length} pemain`
@@ -231,133 +236,47 @@
 		URL.revokeObjectURL(link.href);
 	}
 
-	function createShareCard() {
+	async function createShareCard() {
 		if (!session || !canManage) return;
-		const canvas = document.createElement('canvas');
-		canvas.width = 1080;
-		canvas.height = 1350;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-		ctx.fillStyle = '#163630';
-		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		ctx.strokeStyle = 'rgba(255,250,240,.12)';
-		ctx.lineWidth = 2;
-		for (const x of [76, 540, 1004]) {
-			ctx.beginPath();
-			ctx.moveTo(x, 0);
-			ctx.lineTo(x, 1350);
-			ctx.stroke();
+		const request = ++cardRequest;
+		preparingCard = true;
+		cardUrl = '';
+		cardSvg = '';
+		shareFile = null;
+		shareNotice = '';
+		try {
+			const fee = session.fee_per_person ?? financeRecap?.fee_per_person ?? null;
+			const svg = renderShareCard(
+				{
+					clubName,
+					date: date(session.started_at),
+					attendance: session.attendance,
+					courtsUsed: new Set(matches.map((match) => match.court_number ?? 1)).size,
+					matches: matches.length,
+					sets: matches.reduce((total, match) => total + completedSetCount(match), 0),
+					names: attendees.map((player) => player.display_name),
+					finance: includeFinance
+						? {
+								fee,
+								totalDue: financeRecap?.expected_fees ?? (fee ?? 0) * session.attendance,
+								paid: attendees.filter((player) => player.is_paid === true).length,
+								attendees: attendees.length || session.attendance
+							}
+						: undefined
+				},
+				await shareCardFont()
+			);
+			const png = await shareCardPng(svg);
+			if (request !== cardRequest) return;
+			cardSvg = svg;
+			cardUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+			shareFile = new File([png], `recap-${session.id}.png`, { type: 'image/png' });
+		} catch {
+			if (request === cardRequest)
+				shareNotice = 'Gambar belum dapat disiapkan. Tutup lalu buka Bagikan untuk mencoba lagi.';
+		} finally {
+			if (request === cardRequest) preparingCard = false;
 		}
-		ctx.beginPath();
-		ctx.moveTo(76, 76);
-		ctx.lineTo(1004, 76);
-		ctx.lineTo(1004, 1274);
-		ctx.lineTo(76, 1274);
-		ctx.closePath();
-		ctx.stroke();
-
-		const fee = session.fee_per_person ?? financeRecap?.fee_per_person;
-		const totalDue = financeRecap?.expected_fees ?? (fee ? fee * session.attendance : 0);
-		const paidCount = attendees.filter((attendee) => attendee.is_paid === true).length;
-		const sessionDate = new Intl.DateTimeFormat('id-ID', {
-			day: 'numeric',
-			month: 'long',
-			year: 'numeric'
-		}).format(new Date(session.started_at));
-
-		ctx.textAlign = 'left';
-		ctx.fillStyle = '#f5bb61';
-		ctx.font = '700 28px system-ui';
-		ctx.fillText(clubName.toUpperCase(), 112, 142, 856);
-		ctx.fillStyle = '#fffaf0';
-		ctx.font = '800 58px system-ui';
-		ctx.fillText(sessionDate, 112, 220, 856);
-		ctx.fillStyle = '#c8d9d0';
-		ctx.font = '600 28px system-ui';
-		ctx.fillText(`${session.attendance} pemain hadir · ${matches.length} match`, 114, 270, 856);
-
-		ctx.textAlign = 'center';
-		ctx.fillStyle = '#f5bb61';
-		ctx.font = '800 34px system-ui';
-		ctx.fillText(includeFinance ? 'IURAN SESI' : 'MATCH TERCATAT', 540, 410);
-		ctx.fillStyle = '#fffaf0';
-		ctx.font = '800 126px system-ui';
-		ctx.fillText(
-			includeFinance ? (fee ? money(fee) : 'BELUM ADA') : String(matches.length),
-			540,
-			545,
-			860
-		);
-		ctx.fillStyle = '#c8d9d0';
-		ctx.font = '600 34px system-ui';
-		ctx.fillText(
-			includeFinance ? (fee ? 'per pemain' : 'iuran belum dikonfirmasi') : 'bersama klub malam ini',
-			540,
-			594
-		);
-
-		ctx.strokeStyle = '#78948a';
-		ctx.beginPath();
-		ctx.moveTo(112, 672);
-		ctx.lineTo(968, 672);
-		ctx.stroke();
-		const metrics = includeFinance
-			? [
-					['TOTAL TAGIHAN', totalDue ? money(totalDue) : '—'],
-					['SUDAH LUNAS', `${paidCount}/${attendees.length || session.attendance}`],
-					[
-						'BELUM LUNAS',
-						`${Math.max((attendees.length || session.attendance) - paidCount, 0)} pemain`
-					]
-				]
-			: [
-					['PEMAIN', String(session.attendance)],
-					[
-						'SET SELESAI',
-						String(matches.reduce((total, match) => total + completedSetCount(match), 0))
-					],
-					['MATCH SELESAI', String(matches.filter((match) => match.status === 'COMPLETED').length)]
-				];
-		for (const [index, [label, value]] of metrics.entries()) {
-			const x = 254 + index * 286;
-			ctx.fillStyle = '#a7c5b9';
-			ctx.font = '700 20px system-ui';
-			ctx.fillText(label, x, 738);
-			ctx.fillStyle = '#fffaf0';
-			ctx.font = '800 32px system-ui';
-			ctx.fillText(value, x, 782);
-		}
-
-		ctx.strokeStyle = '#78948a';
-		ctx.beginPath();
-		ctx.moveTo(112, 850);
-		ctx.lineTo(968, 850);
-		ctx.stroke();
-		ctx.fillStyle = '#f5bb61';
-		ctx.font = '800 24px system-ui';
-		ctx.fillText('HASIL PERTANDINGAN', 540, 908);
-		let y = 962;
-		for (const match of matches.slice(0, 3)) {
-			const scores = setsForMatch(match)
-				.map((set) => `S${set.setNumber} ${set.teamAScore}–${set.teamBScore}`)
-				.join('  ·  ');
-			ctx.fillStyle = '#c8d9d0';
-			ctx.font = '700 21px system-ui';
-			ctx.fillText(`MATCH ${match.sequence_number}`, 196, y);
-			ctx.fillStyle = '#fffaf0';
-			ctx.font = '700 23px system-ui';
-			ctx.fillText(scores || 'HASIL BELUM TERCATAT', 650, y);
-			y += 54;
-		}
-		if (matches.length > 3) {
-			ctx.fillStyle = '#a7c5b9';
-			ctx.font = '600 20px system-ui';
-			ctx.fillText(`+ ${matches.length - 3} match lainnya`, 540, y + 8);
-		}
-		ctx.fillStyle = '#a7c5b9';
-		ctx.font = '600 22px system-ui';
-		ctx.fillText(`${clubName} · REKAP MALAM INI`, 540, 1218);
-		cardUrl = canvas.toDataURL('image/png');
 	}
 
 	function openShareDialog() {
@@ -368,11 +287,8 @@
 	}
 
 	async function shareCard() {
-		if (!cardUrl || !nativeShareAvailable) return;
-		const bytes = Uint8Array.from(atob(cardUrl.split(',')[1]), (character) =>
-			character.charCodeAt(0)
-		);
-		const file = new File([bytes], `recap-${session?.id ?? 'sesi'}.png`, { type: 'image/png' });
+		if (!shareFile || !nativeShareAvailable || preparingCard) return;
+		const file = shareFile;
 		if (!navigator.canShare?.({ files: [file] })) {
 			shareNotice =
 				'Browser belum mendukung berbagi gambar. Gunakan Unduh gambar lalu kirim ke WhatsApp.';
@@ -389,12 +305,16 @@
 		}
 	}
 
-	function downloadCard() {
-		if (!cardUrl) return;
+	function downloadCard(vector = false) {
+		if (!shareFile || preparingCard) return;
+		const source = URL.createObjectURL(
+			vector ? new Blob([cardSvg], { type: 'image/svg+xml' }) : shareFile
+		);
 		const link = document.createElement('a');
-		link.href = cardUrl;
-		link.download = `recap-${session?.id ?? 'sesi'}.png`;
+		link.href = source;
+		link.download = `recap-${session?.id ?? 'sesi'}.${vector ? 'svg' : 'png'}`;
 		link.click();
+		setTimeout(() => URL.revokeObjectURL(source), 1000);
 	}
 </script>
 
@@ -737,6 +657,7 @@
 						}}
 					/>Sertakan iuran dan pembayaran
 				</label>
+				{#if preparingCard}<p class="mt-4 text-sm" role="status">Menyiapkan gambar rekap…</p>{/if}
 				{#if cardUrl}
 					<img
 						class="mt-4 max-h-[48dvh] w-full rounded-[var(--court-radius)] border border-[#d6ddd3] object-contain object-top"
@@ -745,12 +666,24 @@
 					/>
 				{/if}
 				<div class="mt-5 grid gap-3">
-					{#if nativeShareAvailable}<AppButton class="w-full justify-center" onclick={shareCard}
-							>Bagikan gambar</AppButton
+					{#if nativeShareAvailable}<AppButton
+							class="w-full justify-center"
+							onclick={shareCard}
+							disabled={preparingCard || !shareFile}>Bagikan gambar</AppButton
 						>{/if}
 					<AppButton class="w-full justify-center" variant="secondary" onclick={copyShareText}
 						>Salin teks</AppButton
-					><AppButton class="w-full justify-center" onclick={downloadCard}>Unduh gambar</AppButton>
+					><AppButton
+						class="w-full justify-center"
+						onclick={() => downloadCard()}
+						disabled={preparingCard || !shareFile}>Unduh gambar</AppButton
+					>
+					<AppButton
+						variant="secondary"
+						class="w-full justify-center"
+						onclick={() => downloadCard(true)}
+						disabled={preparingCard || !shareFile}>Unduh SVG</AppButton
+					>
 				</div>
 				{#if shareNotice}<p class="mt-3 text-sm font-bold text-[#38675b]" role="status">
 						{shareNotice}

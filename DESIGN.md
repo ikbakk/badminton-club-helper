@@ -81,7 +81,7 @@ Controls use the control radius, panels use the panel radius, and initials avata
 
 `AppButton` owns primary, secondary, ghost and danger variants. `Avatar` owns initials and size variants; `BrandMark` supplies the consistent two-stripe mark. `AuthFrame` supplies the shared sign-in/recovery composition. `AppShell` owns account/club context and responsive navigation. `QueryNotice`, `LoadingSkeleton`, `CourtSheet` and `CourtDialog` carry the same surface language.
 
-Live uses one dark match panel. Score fields capture final set scores, not live point tracking. Keep advisory selection, manual override and between-set substitutions in their existing flows. Player profiles lead with identity and persisted rating, then per-session summaries and historical totals. Never substitute invented statistics for missing data.
+Live uses one dark match panel per court. Multicourt sessions place the panels in a horizontal scroll-snap row with an explicit court selector and a visible next-panel edge; a single court stays full-width. All courts share the READY player pool. Score fields capture final set scores, not live point tracking. Keep advisory selection, manual override and between-set substitutions in their existing flows. Player profiles lead with identity and persisted rating, then per-session summaries and historical totals. Never substitute invented statistics for missing data.
 
 ## Do's and Don'ts
 
@@ -91,3 +91,9 @@ Live uses one dark match panel. Score fields capture final set scores, not live 
 - Do respect reduced motion and retain keyboard focus visibility.
 - Don't use the concept's incidental dates, score counters, badges or photo lettering as new feature requirements.
 - Don't expose admin controls to public visitors or change algorithm semantics during visual work.
+
+## Shared session recap
+
+The downloadable recap follows the approved green-and-chalk attendance card: club and date, player/court/match/set counts, the complete attendee roster in two columns, then optional session fees and payment counts. Match-by-match results are omitted. The court metric is labeled “Court dipakai” and counts distinct courts in recorded matches; the public history read model does not expose configured session court count. Empty sessions show zero courts used.
+
+`src/lib/features/history/share-card.ts` owns the self-contained SVG source. `src/lib/assets/recap-court.svg` supplies the reusable court and shuttlecock ornament. Embed the existing Manrope font, escape dynamic text, wrap long names, and increase height for larger rosters. Preview and SVG download use that source; a single final rasterization produces the PNG for WhatsApp. Export and share actions wait until the PNG is ready.

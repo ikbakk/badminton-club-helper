@@ -82,6 +82,32 @@
 		onstartdecider: (matchId: string) => Promise<boolean>;
 		onskiptiedmatch: (matchId: string) => Promise<boolean>;
 	} = $props();
+	let courtRail = $state<HTMLDivElement>();
+	let visibleCourt = $state(1);
+	function selectCourt(court: number) {
+		const slide = courtRail?.children[court - 1] as HTMLElement | undefined;
+		const first = courtRail?.firstElementChild as HTMLElement | null;
+		if (!courtRail || !slide || !first) return;
+		visibleCourt = court;
+		courtRail.scrollTo({
+			left: slide.offsetLeft - first.offsetLeft,
+			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+		});
+	}
+	function updateVisibleCourt() {
+		if (!courtRail) return;
+		const left = courtRail.getBoundingClientRect().left;
+		let closest = 0;
+		let distance = Infinity;
+		Array.from(courtRail.children).forEach((child, index) => {
+			const delta = Math.abs(child.getBoundingClientRect().left - left);
+			if (delta < distance) {
+				distance = delta;
+				closest = index;
+			}
+		});
+		visibleCourt = closest + 1;
+	}
 	let courtCount = $state(1);
 	let validCourtCount = $derived(Number.isSafeInteger(courtCount) && courtCount > 0);
 
@@ -226,31 +252,52 @@
 			Koneksi terputus. Yang terlihat adalah kondisi terakhir; perubahan belum bisa dilakukan.
 		</p>
 	{/if}
-	<div class="mt-5 grid gap-4">
+	{#if sessionCourtCount > 1}
+		<nav class="court-navigation" aria-label="Pilih court">
+			{#each courtNumbers as number (number)}
+				<button
+					type="button"
+					aria-pressed={visibleCourt === number}
+					onclick={() => selectCourt(number)}>Court {number}</button
+				>
+			{/each}
+		</nav>
+		<p class="court-swipe-hint">
+			Geser untuk melihat {sessionCourtCount} court · satu pool pemain bersama.
+		</p>
+	{/if}
+	<div
+		bind:this={courtRail}
+		class="court-rail"
+		class:multicourt={sessionCourtCount > 1}
+		onscroll={updateVisibleCourt}
+	>
 		{#each courtNumbers as courtNumber (courtNumber)}
 			{@const match = matchAtCourt(courtNumber)}
-			<MatchCourt
-				{participants}
-				activeMatch={match}
-				{courtNumber}
-				{canManage}
-				{online}
-				pending={match ? pendingForMatch(match.id) : pending}
-				onstart={(teamA, teamB, recommendationId, pairingAudit) =>
-					onstartmatch(teamA, teamB, recommendationId, pairingAudit, courtNumber)}
-				{onpreparenext}
-				oncomplete={(teamA, teamB) =>
-					match ? oncompleteset(match.id, teamA, teamB) : Promise.resolve(false)}
-				oncorrect={(setNumber, teamA, teamB) =>
-					match ? oncorrectset(match.id, setNumber, teamA, teamB) : Promise.resolve(false)}
-				onabandon={() => match && onabandonmatch(match.id)}
-				onsubstitute={(_matchId, outgoingPlayerId, replacementPlayerId, outgoingStatus) =>
-					match
-						? onsubstitute(match.id, outgoingPlayerId, replacementPlayerId, outgoingStatus)
-						: Promise.resolve(false)}
-				{onstartdecider}
-				{onskiptiedmatch}
-			/>
+			<section class="court-slide" aria-label={`Papan Court ${courtNumber}`}>
+				<MatchCourt
+					{participants}
+					activeMatch={match}
+					{courtNumber}
+					{canManage}
+					{online}
+					pending={match ? pendingForMatch(match.id) : pending}
+					onstart={(teamA, teamB, recommendationId, pairingAudit) =>
+						onstartmatch(teamA, teamB, recommendationId, pairingAudit, courtNumber)}
+					{onpreparenext}
+					oncomplete={(teamA, teamB) =>
+						match ? oncompleteset(match.id, teamA, teamB) : Promise.resolve(false)}
+					oncorrect={(setNumber, teamA, teamB) =>
+						match ? oncorrectset(match.id, setNumber, teamA, teamB) : Promise.resolve(false)}
+					onabandon={() => match && onabandonmatch(match.id)}
+					onsubstitute={(_matchId, outgoingPlayerId, replacementPlayerId, outgoingStatus) =>
+						match
+							? onsubstitute(match.id, outgoingPlayerId, replacementPlayerId, outgoingStatus)
+							: Promise.resolve(false)}
+					{onstartdecider}
+					{onskiptiedmatch}
+				/>
+			</section>
 		{/each}
 	</div>
 
@@ -299,6 +346,74 @@
 {/if}
 
 <style>
+	.court-navigation {
+		display: flex;
+		gap: 8px;
+		overflow-x: auto;
+		margin-top: 20px;
+	}
+	.court-navigation button {
+		min-height: 44px;
+		flex: 0 0 auto;
+		padding: 10px 16px;
+		border: 1px solid var(--court-line, #d6ddd3);
+		border-radius: var(--court-control-radius);
+		font-size: 13px;
+		font-weight: 800;
+		background: #fffaf0;
+		color: #163630;
+	}
+	.court-navigation button[aria-pressed='true'] {
+		background: #163630;
+		color: #fffaf0;
+		border-color: #163630;
+	}
+	.court-navigation button:focus-visible {
+		outline: 2px solid #a94225;
+		outline-offset: 2px;
+	}
+	.court-swipe-hint {
+		margin: 8px 0 12px;
+		color: #38675b;
+		font-size: 12px;
+	}
+	.court-rail {
+		display: grid;
+		gap: 16px;
+		margin-top: 20px;
+		min-width: 0;
+	}
+	.court-rail.multicourt {
+		display: flex;
+		align-items: flex-start;
+		overflow-x: auto;
+		overscroll-behavior-x: contain;
+		scroll-snap-type: x mandatory;
+		scrollbar-color: #38675b #e5ece5;
+		scrollbar-width: thin;
+		padding-bottom: 12px;
+	}
+	.court-slide {
+		min-width: 0;
+	}
+	.multicourt .court-slide {
+		flex: 0 0 calc(100% - 20px);
+		scroll-snap-align: start;
+	}
+	/* A trailing gutter lets the final court align like the others. */
+	.multicourt::after {
+		content: '';
+		flex: 0 0 4px;
+	}
+	@media (min-width: 768px) {
+		.multicourt .court-slide {
+			flex-basis: 85%;
+		}
+		.multicourt::after {
+			flex-basis: calc(15% - 16px);
+		}
+	}
+
 	.session-heading {
 		display: flex;
 		align-items: center;

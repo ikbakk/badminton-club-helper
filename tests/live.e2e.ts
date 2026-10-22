@@ -1018,3 +1018,23 @@ test('public viewer between sets cannot open substitution or start-set controls'
 	await expect(page.getByRole('button', { name: 'Mulai Set 2', exact: true })).toHaveCount(0);
 	await expect(page.getByLabel('Skor Tim A')).toHaveCount(0);
 });
+
+test('three configured courts can be reached horizontally on a phone without widening the page', async ({
+	page
+}) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await mockLiveBackend(page, false, false, false, false, 8, false, false, false, true, 3);
+	await page.goto('/clubs/club-e2e/live');
+	const navigation = page.getByRole('navigation', { name: 'Pilih court' });
+	await expect(navigation.getByRole('button')).toHaveCount(3);
+	await navigation.getByRole('button', { name: 'Court 3', exact: true }).click();
+	await expect(navigation.getByRole('button', { name: 'Court 3', exact: true })).toHaveAttribute(
+		'aria-pressed',
+		'true'
+	);
+	const court = page.getByRole('region', { name: 'Papan Court 3', exact: true });
+	await expect.poll(async () => (await court.boundingBox())?.x).toBeLessThan(50);
+	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+	await court.getByRole('button', { name: 'Siapkan match' }).click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+});
