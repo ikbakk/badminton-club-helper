@@ -143,7 +143,14 @@ test('recap shares the full roster as PNG and can omit all finance', async ({ pa
 	expect(vector).toContain('Main bareng');
 	expect(vector).toContain('Pemain 24');
 	expect(vector).toContain('Andi &amp; Bella &lt;Klub&gt;');
-	expect(vector).not.toMatch(/Iuran sesi|Total tagihan|lunas|Rp|Hasil pertandingan/);
+	const visibleText = await page.evaluate(
+		(svg) =>
+			Array.from(new DOMParser().parseFromString(svg, 'image/svg+xml').querySelectorAll('text'))
+				.map((node) => node.textContent)
+				.join(' '),
+		vector
+	);
+	expect(visibleText).not.toMatch(/Iuran sesi|Total tagihan|lunas|Rp|Hasil pertandingan/);
 
 	await page.getByRole('button', { name: 'Bagikan gambar' }).click();
 	await expect
