@@ -274,7 +274,7 @@
 	>
 		{#each courtNumbers as courtNumber (courtNumber)}
 			{@const match = matchAtCourt(courtNumber)}
-			<section class="court-slide" aria-label={`Papan Court ${courtNumber}`}>
+			<div role="group" class="court-slide" aria-label={`Papan Court ${courtNumber}`}>
 				<MatchCourt
 					{participants}
 					activeMatch={match}
@@ -297,7 +297,7 @@
 					{onstartdecider}
 					{onskiptiedmatch}
 				/>
-			</section>
+			</div>
 		{/each}
 	</div>
 

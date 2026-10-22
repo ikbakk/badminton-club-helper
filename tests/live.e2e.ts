@@ -1032,7 +1032,7 @@ test('three configured courts can be reached horizontally on a phone without wid
 		'aria-pressed',
 		'true'
 	);
-	const court = page.getByRole('region', { name: 'Papan Court 3', exact: true });
+	const court = page.getByRole('group', { name: 'Papan Court 3', exact: true });
 	await expect.poll(async () => (await court.boundingBox())?.x).toBeLessThan(50);
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	await court.getByRole('button', { name: 'Siapkan match' }).click();
