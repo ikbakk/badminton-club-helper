@@ -40,8 +40,8 @@ begin
   insert into public.players(id, club_id, display_name, membership_type)
   select player_id, v_club_id, 'ROTATION-SMOKE-' || ordinal::text, 'MEMBER'
   from unnest(v_players) with ordinality as p(player_id, ordinal);
-  insert into public.sessions(id, club_id, status, started_at, created_by_user_id)
-  values (v_session_id, v_club_id, 'LIVE', now() - interval '60 minutes', v_admin_id);
+  insert into public.sessions(id, club_id, status, started_at, created_by_user_id, court_count)
+  values (v_session_id, v_club_id, 'LIVE', now() - interval '60 minutes', v_admin_id, 2);
   insert into public.session_participants(session_id, player_id, status, ready_since)
   select v_session_id, player_id, 'READY', now() - interval '60 minutes'
   from unnest(v_players) as p(player_id);
@@ -267,9 +267,42 @@ begin
     raise exception 'Recommendation, match-link, or event history did not reconstruct';
   end if;
 
+  -- A free court can prepare a recommendation from the shared READY pool
+  -- while the current match remains in progress on another court.
+  select array_agg(gen_random_uuid() order by n) into v_ready from generate_series(1, 4) n;
+  insert into public.players(id, club_id, display_name, membership_type)
+  select player_id, v_club_id, 'ROTATION-SMOKE-FREE-COURT-' || ordinal::text, 'MEMBER'
+  from unnest(v_ready) with ordinality as p(player_id, ordinal);
+  insert into public.session_participants(session_id, player_id, status, ready_since)
+  select v_session_id, player_id, 'READY', now()
+  from unnest(v_ready) as p(player_id);
+  insert into public.participant_status_periods(session_participant_id, status)
+  select sp.id, 'READY' from public.session_participants sp
+  where sp.session_id = v_session_id and sp.player_id = any(v_ready);
+
+  select array_agg(player_id order by player_id) into v_candidate_ids
+  from public.session_participants
+  where session_id = v_session_id and status = 'READY';
+  v_recommended := v_ready;
+  select jsonb_agg(jsonb_build_object('player_id', p.player_id, 'rank', p.ordinality,
+    'priority_score', 100-p.ordinality, 'recommended', p.player_id=any(v_recommended),
+    'diagnostics', jsonb_build_object('tier','NORMAL','reasons',jsonb_build_array('free court smoke')))
+    order by p.ordinality) into v_ranked
+  from unnest(v_candidate_ids) with ordinality as p(player_id, ordinality);
+  if not exists (select 1 from public.matches
+      where session_id=v_session_id and court_number=1 and status='IN_PROGRESS')
+     or exists (select 1 from public.matches
+      where session_id=v_session_id and court_number=2 and status='IN_PROGRESS') then
+    raise exception 'Concurrent-court fixture must have an active match on court 1 and a free court 2';
+  end if;
+  v_recommendation_id := public.save_rotation_recommendation(v_session_id, v_recommended, v_ranked);
+  if v_recommendation_id is null then
+    raise exception 'Free court recommendation was not saved while another match was active';
+  end if;
+
   insert into smart_rotation_smoke_result(session_id) values (v_session_id);
 
-  raise notice 'SMART_ROTATION_SMOKE_PASS session=% rounds=5 actual_override=true debt4_reset=true resting_excluded=true', v_session_id;
+  raise notice 'SMART_ROTATION_SMOKE_PASS session=% rounds=5 actual_override=true debt4_reset=true resting_excluded=true concurrent_court_recommendation=true', v_session_id;
 end;
 $smoke$;
 
