@@ -17,6 +17,7 @@
 		participants,
 		activeMatches,
 		canManage = false,
+		demo = false,
 		headingLevel = 1,
 		authChecking = false,
 		online = true,
@@ -42,6 +43,7 @@
 		participants: Participant[];
 		activeMatches: ActiveMatch[];
 		canManage?: boolean;
+		demo?: boolean;
 		headingLevel?: 1 | 2;
 		authChecking?: boolean;
 		online?: boolean;
@@ -50,7 +52,7 @@
 		suggestedPlayers?: string[];
 		recentSessions?: PublicSessionHistory[];
 		onadminlogin: () => void;
-		onstartsession: (courtCount: number) => void;
+		onstartsession: (courtCount: number, mode: 'ASSISTED' | 'MANUAL', countKok: boolean) => void;
 		oncheckin: () => void;
 		onendsession: () => void;
 		onselect: (participant: Participant) => void;
@@ -109,6 +111,8 @@
 		visibleCourt = closest + 1;
 	}
 	let courtCount = $state(1);
+	let matchMode = $state<'ASSISTED' | 'MANUAL'>('ASSISTED');
+	let countKok = $state(true);
 	let validCourtCount = $derived(Number.isSafeInteger(courtCount) && courtCount > 0);
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
@@ -166,11 +170,11 @@
 						<h3 class="text-lg font-black">Sesi pertama klubmu</h3>
 						<ol class="mt-2 list-decimal space-y-2 pl-5 text-sm leading-6 text-[#527169]">
 							<li>
-								<a
-									class="inline-flex min-h-11 items-center font-bold underline"
-									href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
-									>Tambahkan pemain tetap</a
-								>, atau tambahkan tamu saat check in.
+								{#if demo}Pemain contoh sudah tersedia. Tambahkan tamu saat check in.{:else}<a
+										class="inline-flex min-h-11 items-center font-bold underline"
+										href={resolve('/clubs/[clubId]/players', { clubId: selectedClubId() })}
+										>Tambahkan pemain tetap</a
+									>, atau tambahkan tamu saat check in.{/if}
 							</li>
 							<li>Mulai sesi ketika pemain datang, lalu check in yang sudah hadir.</li>
 							<li>Setelah empat pemain READY, siapkan match dan periksa tim sebelum mulai.</li>
@@ -179,6 +183,18 @@
 				{/if}
 
 				{#if canManage}<div class="mt-7 max-w-sm">
+						<fieldset class="mb-5">
+							<legend class="text-sm font-bold">Cara mengatur match</legend>
+							<label class="mt-2 flex min-h-11 items-center gap-3"
+								><input type="radio" value="ASSISTED" bind:group={matchMode} /> Dibantu rekomendasi</label
+							>
+							<label class="flex min-h-11 items-center gap-3"
+								><input type="radio" value="MANUAL" bind:group={matchMode} /> Pilih pemain dan tim sendiri</label
+							>
+						</fieldset>
+						<label class="mb-5 flex min-h-11 items-center gap-3 text-sm font-bold"
+							><input type="checkbox" bind:checked={countKok} /> Hitung kok yang dipakai per match</label
+						>
 						<label class="block text-sm font-bold text-[#163630]" for="session-court-count"
 							>Jumlah court</label
 						>
@@ -200,7 +216,7 @@
 						<AppButton
 							class="mt-4"
 							disabled={!online || Boolean(pending) || !validCourtCount}
-							onclick={() => onstartsession(courtCount)}
+							onclick={() => onstartsession(courtCount, matchMode, countKok)}
 							>{pending || 'Mulai sesi malam ini'}</AppButton
 						>
 					</div>
@@ -280,6 +296,8 @@
 					activeMatch={match}
 					{courtNumber}
 					{canManage}
+					manualMode={session?.match_mode === 'MANUAL'}
+					{demo}
 					{online}
 					pending={match ? pendingForMatch(match.id) : pending}
 					onstart={(teamA, teamB, recommendationId, pairingAudit) =>
@@ -317,7 +335,7 @@
 		</div>
 	</div>
 
-	{#if canManage && availableCourtNumbers.length > 0 && suggestedPlayers.length === 4}
+	{#if canManage && session?.match_mode !== 'MANUAL' && availableCourtNumbers.length > 0 && suggestedPlayers.length === 4}
 		<section class="court-panel mt-5 p-5" aria-label="Saran empat pemain">
 			<h3 class="text-sm font-bold">Giliran berikutnya</h3>
 			<ul class="next-players">
@@ -333,7 +351,7 @@
 	{/if}
 
 	<div class="mt-5 grid gap-4">
-		{#each groups as group (group.status)}
+		{#each groups.filter((group) => !demo || !['OUT', 'LEFT'].includes(group.status)) as group (group.status)}
 			<ParticipantGroup
 				title={group.title}
 				status={group.status}

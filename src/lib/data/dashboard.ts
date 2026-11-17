@@ -58,13 +58,20 @@ export async function promoteGuestToMember(clubId: string, playerId: string) {
 	});
 	if (error) throw error;
 }
-export async function startSession(clubId: string, courtCount = 1) {
+export async function startSession(
+	clubId: string,
+	courtCount = 1,
+	matchMode: 'ASSISTED' | 'MANUAL' = 'ASSISTED',
+	countKok = true
+) {
 	if (!Number.isSafeInteger(courtCount) || courtCount < 1) {
 		throw new Error('Jumlah court harus berupa bilangan bulat positif.');
 	}
 	const { data, error } = await client().rpc('start_session', {
 		p_club_id: clubId,
-		p_court_count: courtCount
+		p_court_count: courtCount,
+		p_match_mode: matchMode,
+		p_count_kok: countKok
 	});
 	if (error) throw error;
 	return data as string;
@@ -99,6 +106,10 @@ export type PublicSessionHistory = {
 	closed_at: string | null;
 	fee_per_person: number | null;
 	attendance: number;
+	count_kok?: boolean;
+	kok_price?: number | null;
+	court_rent?: number | null;
+	match_mode?: 'ASSISTED' | 'MANUAL';
 };
 
 export type PublicFundSummary = { received: number; expenses: number; balance: number };
@@ -177,6 +188,10 @@ export type FinanceSessionAttendee = {
 	display_name: string;
 	amount: number;
 	paid_at: string | null;
+	base_amount?: number | null;
+	kok_amount?: number;
+	adjustment_amount?: number;
+	adjustment_reason?: string | null;
 };
 
 export async function getFinanceSessions(clubId: string) {
@@ -328,7 +343,9 @@ export async function getPublicSessionHistory(clubId = selectedClubId()) {
 	return cached(`history:${clubId}`, async () => {
 		const { data, error } = await client()
 			.from('public_session_history')
-			.select('id,started_at,closed_at,fee_per_person,attendance')
+			.select(
+				'id,started_at,closed_at,fee_per_person,attendance,count_kok,kok_price,court_rent,match_mode'
+			)
 			.eq('club_id', clubId)
 			.order('started_at', { ascending: false });
 		if (error) throw error;

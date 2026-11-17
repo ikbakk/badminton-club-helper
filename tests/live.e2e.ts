@@ -28,6 +28,7 @@ async function mockLiveBackend(
 	let activeCourtCount = courtCount;
 	let feeConfirmed = false;
 	let feeConfirmCount = 0;
+	let chargeConfirmBody: Record<string, unknown> | null = null;
 	let paidWriteCount = 0;
 	let startMatchBody: Record<string, unknown> | null = null;
 	let startSessionBody: Record<string, unknown> | null = null;
@@ -281,7 +282,10 @@ async function mockLiveBackend(
 			return route.fulfill({ json: sessionId });
 		}
 		if (path.endsWith('/rpc/suggest_session_fee')) return route.fulfill({ json: 15000 });
-		if (path.endsWith('/rpc/confirm_session_fee')) {
+		if (path.endsWith('/rpc/session_kok_matches')) return route.fulfill({ json: [] });
+		if (path.endsWith('/rpc/session_kok_shares')) return route.fulfill({ json: [] });
+		if (path.endsWith('/rpc/confirm_session_charges')) {
+			chargeConfirmBody = route.request().postDataJSON() as Record<string, unknown>;
 			feeConfirmCount += 1;
 			feeConfirmed = true;
 			return route.fulfill({ json: 2 });
@@ -400,6 +404,7 @@ async function mockLiveBackend(
 	return {
 		getPaidWriteCount: () => paidWriteCount,
 		getFeeConfirmCount: () => feeConfirmCount,
+		getChargeConfirmBody: () => chargeConfirmBody,
 		getStartSessionBody: () => startSessionBody,
 		getDeciderCommand: () => deciderCommand,
 		getStartMatchBody: () => startMatchBody,
@@ -529,7 +534,12 @@ test('admin chooses the session court count before starting the session', async 
 	await page.getByRole('button', { name: 'Mulai sesi malam ini' }).click();
 
 	await expect.poll(() => backend.getStartSessionBody()).not.toBeNull();
-	expect(backend.getStartSessionBody()).toEqual({ p_club_id: 'club-e2e', p_court_count: 2 });
+	expect(backend.getStartSessionBody()).toEqual({
+		p_club_id: 'club-e2e',
+		p_court_count: 2,
+		p_match_mode: 'ASSISTED',
+		p_count_kok: true
+	});
 });
 
 test('admin can end a session and continue on its dedicated close page', async ({ page }) => {
@@ -557,8 +567,10 @@ test('admin can end a session and continue on its dedicated close page', async (
 		'Rp30.000'
 	);
 	expect(backend.getFeeConfirmCount()).toBe(0);
+	await page.getByLabel('Sewa lapangan dibayar (Rp)').fill('120000');
 	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
 	await expect.poll(() => backend.getFeeConfirmCount()).toBe(1);
+	expect(backend.getChargeConfirmBody()).toMatchObject({ p_court_rent: 120000 });
 	await expect(page.getByRole('heading', { name: 'Checklist pembayaran' })).toBeVisible();
 	await expect(page.getByText('Ayu')).toBeVisible();
 	const firstPaidToggle = page.getByRole('checkbox').first();
@@ -644,6 +656,64 @@ test('score save gives delayed feedback and blocks duplicate submission until se
 	releaseSave();
 	await expect(page.getByRole('status').filter({ hasText: 'dikonfirmasi server' })).toBeVisible();
 	expect(requests).toBe(1);
+});
+
+test('admin can enter Set 2 after Set 1 is saved and refreshed', async ({ page }) => {
+	await mockLiveBackend(page, true);
+	let completedFirst = false;
+	const players = [
+		{ id: 'p1', name: 'A', team: 'A' },
+		{ id: 'p2', name: 'B', team: 'A' },
+		{ id: 'p3', name: 'C', team: 'B' },
+		{ id: 'p4', name: 'D', team: 'B' }
+	];
+	await page.route('**/rest/v1/live_active_match*', (route) =>
+		route.fulfill({
+			json: [
+				{
+					id: 'match-e2e',
+					session_id: sessionId,
+					sequence_number: 1,
+					court_number: 1,
+					sets: [
+						{
+							id: 'set-1',
+							setNumber: 1,
+							status: completedFirst ? 'COMPLETED' : 'IN_PROGRESS',
+							teamAScore: completedFirst ? 21 : null,
+							teamBScore: completedFirst ? 17 : null,
+							players
+						},
+						...(completedFirst
+							? [
+									{
+										id: 'set-2',
+										setNumber: 2,
+										status: 'IN_PROGRESS',
+										teamAScore: null,
+										teamBScore: null,
+										players
+									}
+								]
+							: [])
+					]
+				}
+			]
+		})
+	);
+	await page.route('**/api/live/complete-set', (route) => {
+		completedFirst = true;
+		return route.fulfill({ json: { result: 'SET_2' } });
+	});
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByLabel('Skor Tim A').fill('21');
+	await page.getByLabel('Skor Tim B').fill('17');
+	await page.getByRole('button', { name: 'Selesaikan Set 1' }).click();
+	await page.getByRole('button', { name: 'Mulai Set 2' }).click();
+	await expect(page.getByRole('button', { name: 'Selesaikan Set 2' })).toBeVisible();
+	await page.getByLabel('Skor Tim A').fill('21');
+	await page.getByLabel('Skor Tim B').fill('19');
+	await expect(page.getByRole('button', { name: 'Selesaikan Set 2' })).toBeEnabled();
 });
 
 test('substitution remains on its confirmation step when save fails', async ({ page }) => {
@@ -761,6 +831,65 @@ test('Algorithm 2 offers exactly three legal pairings and deterministic recommen
 	await expect(options).toHaveCount(3);
 	await expect(options.first()).toContainText('Paling seimbang');
 	await expect(options.first()).toContainText('Pemain 1 + Pemain 2 vs Pemain 3 + Pemain 4');
+});
+
+test('manual session can select a pairing without recommendation controls', async ({ page }) => {
+	const backend = await mockLiveBackend(page, false, false, false, false, 4);
+	await page.route('**/rest/v1/live_session*', (route) =>
+		route.fulfill({ json: [{ ...session, match_mode: 'MANUAL', count_kok: false }] })
+	);
+	await page.goto('/clubs/club-e2e/live');
+	await page.getByRole('button', { name: 'Siapkan match' }).click();
+	const sheet = page.locator('.sve-sheet.court-sheet').last();
+	await expect(sheet.getByText('REKOMENDASI · KAMU TETAP MEMILIH')).toHaveCount(0);
+	for (const name of ['Pemain 1', 'Pemain 2', 'Pemain 3', 'Pemain 4'])
+		await sheet
+			.getByLabel('Pilih empat pemain untuk match')
+			.getByText(name, { exact: true })
+			.click();
+	await sheet.getByRole('button', { name: 'Lanjutkan dengan pilihan ini' }).click();
+	await expect(sheet.getByText('REKOMENDASI TIM')).toHaveCount(0);
+	const chosen = sheet.getByRole('button', {
+		name: /Pemain 1 \+ Pemain 3 vs Pemain 2 \+ Pemain 4/
+	});
+	await chosen.click();
+	await expect(chosen).toHaveAttribute('aria-pressed', 'true');
+	await sheet.getByRole('button', { name: 'Mulai match' }).click();
+	await expect.poll(() => backend.getStartMatchBody()).not.toBeNull();
+	expect(backend.getStartMatchBody()!.p_team_a).toEqual(['p1', 'p3']);
+	expect(backend.getStartMatchBody()!.p_team_b).toEqual(['p2', 'p4']);
+	expect(backend.getSaveRecommendationBody()).toBeNull();
+	expect(backend.getSavePairingBody()).toBeNull();
+});
+
+test('Live lets an admin record and revise kok for a completed match', async ({ page }) => {
+	await mockLiveBackend(page);
+	let count: number | null = null;
+	const writes: number[] = [];
+	await page.route('**/rest/v1/live_session*', (route) =>
+		route.fulfill({ json: [{ ...session, count_kok: true }] })
+	);
+	await page.route('**/rest/v1/rpc/session_kok_matches', (route) =>
+		route.fulfill({ json: [{ match_id: 'match-complete', sequence_number: 3, kok_count: count }] })
+	);
+	await page.route('**/rest/v1/rpc/record_match_kok', (route) => {
+		count = route.request().postDataJSON().p_count;
+		writes.push(count!);
+		return route.fulfill({ json: null });
+	});
+	await page.goto('/clubs/club-e2e/live');
+	const kok = page.getByRole('region', { name: 'Kok per match' });
+	await expect(kok.getByText('Match 3')).toBeVisible();
+	await kok.getByRole('button', { name: 'Catat kok' }).click();
+	await page.getByRole('spinbutton', { name: 'Jumlah kok' }).fill('2');
+	await page.getByRole('button', { name: 'Simpan jumlah kok' }).click();
+	await expect(kok.getByText('2 kok')).toBeVisible();
+	await kok.getByRole('button', { name: 'Ubah jumlah kok' }).click();
+	await expect(page.getByRole('spinbutton', { name: 'Jumlah kok' })).toHaveValue('2');
+	await page.getByRole('spinbutton', { name: 'Jumlah kok' }).fill('3');
+	await page.getByRole('button', { name: 'Simpan jumlah kok' }).click();
+	await expect(kok.getByText('3 kok')).toBeVisible();
+	expect(writes).toEqual([2, 3]);
 });
 
 for (const [index, teamA, teamB] of [

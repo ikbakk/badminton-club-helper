@@ -31,6 +31,8 @@ export type LiveSession = {
 	club_id: string;
 	started_at: string;
 	court_count?: number;
+	match_mode?: 'ASSISTED' | 'MANUAL';
+	count_kok?: boolean;
 };
 export type MatchSet = {
 	id: string;
@@ -365,6 +367,48 @@ export function closeSession(sessionId: string) {
 		sets: number;
 		startedAt: string;
 	}>;
+}
+
+export async function recordMatchKok(matchId: string, count: number) {
+	if (!Number.isSafeInteger(count) || count < 0) throw new Error('Masukkan jumlah kok yang valid.');
+	const { error } = await supabase!.rpc('record_match_kok', {
+		p_match_id: matchId,
+		p_count: count
+	});
+	if (error) throw error;
+}
+
+export async function getSessionKokMatches(sessionId: string) {
+	const { data, error } = await supabase!.rpc('session_kok_matches', { p_session_id: sessionId });
+	if (error) throw error;
+	return (data ?? []) as { match_id: string; sequence_number: number; kok_count: number | null }[];
+}
+
+export async function getSessionKokShares(sessionId: string, price: number) {
+	const { data, error } = await supabase!.rpc('session_kok_shares', {
+		p_session_id: sessionId,
+		p_price: price
+	});
+	if (error) throw error;
+	return (data ?? []) as { player_id: string; kok_amount: number }[];
+}
+
+export async function confirmSessionCharges(
+	sessionId: string,
+	base: number,
+	kokPrice: number,
+	courtRent: number,
+	adjustments: Record<string, { amount: number; reason: string }>
+) {
+	const { data, error } = await supabase!.rpc('confirm_session_charges', {
+		p_session_id: sessionId,
+		p_base: base,
+		p_kok_price: kokPrice,
+		p_court_rent: courtRent,
+		p_adjustments: adjustments
+	});
+	if (error) throw error;
+	return Number(data);
 }
 
 export function reopenSession(sessionId: string) {

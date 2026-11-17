@@ -1,5 +1,8 @@
 <script lang="ts">
-	import DemoSession from '$lib/components/landing/DemoSession.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
+	onMount(() => {
+		void goto(resolve('/?demo=1'), { replaceState: true });
+	});
 </script>
-
-<DemoSession />

@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { browser } from '$app/environment';
+	import DemoSession from '$lib/components/landing/DemoSession.svelte';
 	import { ArrowRight, UsersRound, Scale, Wallet, Check } from '@lucide/svelte';
 	import BrandMark from '$lib/components/ui/BrandMark.svelte';
 	import SessionPreview from '$lib/components/landing/SessionPreview.svelte';
+	let demoOpen = $derived(browser && page.url.searchParams.has('demo'));
 	const features = [
 		{ icon: UsersRound, title: 'Giliran pemain', text: 'Bantu memilih empat pemain berikutnya.' },
 		{ icon: Scale, title: 'Pasangan seimbang', text: 'Saran pasangan, admin tetap memilih.' },
@@ -22,100 +26,104 @@
 		crossorigin="anonymous"
 	/></svelte:head
 >
-<div class="landing">
-	<a href="#main" class="skip">Lewati ke konten</a>
-	<header class="landing-header">
-		<a class="brand" href={resolve('/')} aria-label="Courtside beranda"><BrandMark />Courtside</a>
-		<nav aria-label="Navigasi utama">
-			<a href="#fitur" class="anchor-link">Fitur</a><a href="#cara-kerja" class="anchor-link"
-				>Cara kerja</a
-			><a class="login" href={resolve('/start')}>Masuk <ArrowRight size={16} /></a>
-		</nav>
-	</header>
-	<main id="main">
-		<section class="hero" aria-labelledby="hero-title">
-			<div class="hero-photo">
-				<img
-					src="/images/club-night.webp"
-					alt="Empat pemain sedang bermain ganda di lapangan badminton indoor"
-					fetchpriority="high"
-					width="1600"
-					height="1067"
-				/>
-			</div>
-			<div class="hero-copy">
-				<h1 id="hero-title">Main bareng.<br />Giliran lebih<br />teratur.</h1>
-				<p>Bantu admin memilih pemain berikutnya, mencatat skor, dan mengurus iuran klub.</p>
-				<div class="hero-actions">
-					<a href={resolve('/signup')} class="primary">Buat klub <ArrowRight size={18} /></a><a
-						href={resolve('/demo')}
-						class="secondary">Coba demo</a
-					>
+{#if demoOpen}
+	<DemoSession />
+{:else}
+	<div class="landing">
+		<a href="#main" class="skip">Lewati ke konten</a>
+		<header class="landing-header">
+			<a class="brand" href={resolve('/')} aria-label="Courtside beranda"><BrandMark />Courtside</a>
+			<nav aria-label="Navigasi utama">
+				<a href="#fitur" class="anchor-link">Fitur</a><a href="#cara-kerja" class="anchor-link"
+					>Cara kerja</a
+				><a class="login" href={resolve('/start')}>Masuk <ArrowRight size={16} /></a>
+			</nav>
+		</header>
+		<main id="main">
+			<section class="hero" aria-labelledby="hero-title">
+				<div class="hero-photo">
+					<img
+						src="/images/club-night.webp"
+						alt="Empat pemain sedang bermain ganda di lapangan badminton indoor"
+						fetchpriority="high"
+						width="1600"
+						height="1067"
+					/>
 				</div>
-				<p class="hero-note">Anggota cukup buka tautan klub. Tidak perlu akun.</p>
-			</div>
-			<div class="hero-preview"><SessionPreview /></div>
-		</section>
-		<section class="features" id="fitur" aria-label="Fitur Courtside">
-			{#each features as feature (feature.title)}{@const Icon = feature.icon}
-				<article>
-					<Icon size={30} strokeWidth={1.7} />
-					<div>
-						<h2>{feature.title}</h2>
-						<p>{feature.text}</p>
+				<div class="hero-copy">
+					<h1 id="hero-title">Main bareng.<br />Giliran lebih<br />teratur.</h1>
+					<p>Bantu admin memilih pemain berikutnya, mencatat skor, dan mengurus iuran klub.</p>
+					<div class="hero-actions">
+						<a href={resolve('/signup')} class="primary">Buat klub <ArrowRight size={18} /></a><a
+							href={resolve('/?demo=1')}
+							class="secondary">Coba demo</a
+						>
 					</div>
-				</article>{/each}
-		</section>
-		<section class="workflow" id="cara-kerja">
-			<div class="workflow-intro">
-				<h2>Dari datang<br />sampai <span>pulang.</span></h2>
-				<p>Lebih banyak main, dengan catatan yang bisa dibuka lagi minggu depan.</p>
-				<a href={resolve('/signup')} class="text-link">Siapkan klubmu <ArrowRight size={17} /></a>
-			</div>
-			<ol>
-				<li>
-					<span>1</span>
-					<div>
-						<h3>Buat klub dan daftar pemain</h3>
-						<p>Beri nama klubmu, tambahkan anggota, lalu bagikan tautan klub ke grup.</p>
-					</div>
-				</li>
-				<li>
-					<span>2</span>
-					<div>
-						<h3>Catat yang hadir, mulai main</h3>
-						<p>
-							Check in pemain saat datang. Periksa saran giliran dan pasangan, lalu simpan skor tiap
-							set.
-						</p>
-					</div>
-				</li>
-				<li>
-					<span>3</span>
-					<div>
-						<h3>Tutup sesi dan catat iuran</h3>
-						<p>
-							Tentukan iuran per orang dan tandai pembayaran yang sudah diterima. Hasil pertandingan
-							tersimpan di riwayat.
-						</p>
-					</div>
-				</li>
-			</ol>
-		</section>
-		<section class="closing">
-			<div>
-				<Check size={24} />
-				<h2>Main berikutnya, coba pakai Courtside.</h2>
-			</div>
-			<a href={resolve('/signup')} class="primary">Buat klub <ArrowRight size={18} /></a>
-		</section>
-	</main>
-	<footer>
-		<a href={resolve('/')} class="brand"><BrandMark size={20} />Courtside</a><span
-			>Untuk klub badminton.</span
-		><a href={resolve('/start')}>Sudah punya akun? Masuk</a>
-	</footer>
-</div>
+					<p class="hero-note">Anggota cukup buka tautan klub. Tidak perlu akun.</p>
+				</div>
+				<div class="hero-preview"><SessionPreview /></div>
+			</section>
+			<section class="features" id="fitur" aria-label="Fitur Courtside">
+				{#each features as feature (feature.title)}{@const Icon = feature.icon}
+					<article>
+						<Icon size={30} strokeWidth={1.7} />
+						<div>
+							<h2>{feature.title}</h2>
+							<p>{feature.text}</p>
+						</div>
+					</article>{/each}
+			</section>
+			<section class="workflow" id="cara-kerja">
+				<div class="workflow-intro">
+					<h2>Dari datang<br />sampai <span>pulang.</span></h2>
+					<p>Lebih banyak main, dengan catatan yang bisa dibuka lagi minggu depan.</p>
+					<a href={resolve('/signup')} class="text-link">Siapkan klubmu <ArrowRight size={17} /></a>
+				</div>
+				<ol>
+					<li>
+						<span>1</span>
+						<div>
+							<h3>Buat klub dan daftar pemain</h3>
+							<p>Beri nama klubmu, tambahkan anggota, lalu bagikan tautan klub ke grup.</p>
+						</div>
+					</li>
+					<li>
+						<span>2</span>
+						<div>
+							<h3>Catat yang hadir, mulai main</h3>
+							<p>
+								Check in pemain saat datang. Periksa saran giliran dan pasangan, lalu simpan skor
+								tiap set.
+							</p>
+						</div>
+					</li>
+					<li>
+						<span>3</span>
+						<div>
+							<h3>Tutup sesi dan catat iuran</h3>
+							<p>
+								Tentukan iuran per orang dan tandai pembayaran yang sudah diterima. Hasil
+								pertandingan tersimpan di riwayat.
+							</p>
+						</div>
+					</li>
+				</ol>
+			</section>
+			<section class="closing">
+				<div>
+					<Check size={24} />
+					<h2>Main berikutnya, coba pakai Courtside.</h2>
+				</div>
+				<a href={resolve('/signup')} class="primary">Buat klub <ArrowRight size={18} /></a>
+			</section>
+		</main>
+		<footer>
+			<a href={resolve('/')} class="brand"><BrandMark size={20} />Courtside</a><span
+				>Untuk klub badminton.</span
+			><a href={resolve('/start')}>Sudah punya akun? Masuk</a>
+		</footer>
+	</div>
+{/if}
 
 <style>
 	@font-face {

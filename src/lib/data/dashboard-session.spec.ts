@@ -16,13 +16,25 @@ describe('startSession', () => {
 		await startSession('club-1');
 		expect(api.rpc).toHaveBeenLastCalledWith('start_session', {
 			p_club_id: 'club-1',
-			p_court_count: 1
+			p_court_count: 1,
+			p_match_mode: 'ASSISTED',
+			p_count_kok: true
 		});
 
 		await startSession('club-1', 3);
 		expect(api.rpc).toHaveBeenLastCalledWith('start_session', {
 			p_club_id: 'club-1',
-			p_court_count: 3
+			p_court_count: 3,
+			p_match_mode: 'ASSISTED',
+			p_count_kok: true
+		});
+
+		await startSession('club-1', 2, 'MANUAL', false);
+		expect(api.rpc).toHaveBeenLastCalledWith('start_session', {
+			p_club_id: 'club-1',
+			p_court_count: 2,
+			p_match_mode: 'MANUAL',
+			p_count_kok: false
 		});
 	});
 

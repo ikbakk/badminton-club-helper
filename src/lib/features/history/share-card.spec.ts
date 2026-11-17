@@ -9,7 +9,7 @@ const recap = {
 	matches: 10,
 	sets: 20,
 	names: ['Andi & Bella <Klub>', 'Dini'],
-	finance: { fee: 15000, totalDue: 180000, paid: 12, attendees: 12 }
+	finance: { fee: 15000, kokPrice: 2000, totalDue: 180000, paid: 12, attendees: 12 }
 };
 describe('shareable session recap', () => {
 	it('keeps all attendance names safely in an editable vector without match-by-match results', () => {
@@ -17,6 +17,9 @@ describe('shareable session recap', () => {
 		expect(svg).toContain('Andi &amp; Bella &lt;Klub&gt;');
 		expect(svg).toContain('Dini');
 		expect(svg).toContain('Rp180.000');
+		expect(svg).toContain('tidak termasuk kok');
+		expect(svg).toContain('Harga per kok');
+		expect(svg).toContain('Rp2.000');
 		expect(svg).toContain('12/12');
 		expect(svg).not.toContain('Hasil pertandingan');
 	});
@@ -29,6 +32,13 @@ describe('shareable session recap', () => {
 		expect(renderShareCard({ ...recap, finance: { ...recap.finance, fee: null } })).toContain(
 			'Belum ditetapkan'
 		);
+	});
+	it('shows kok usage only when session tracking data is provided', () => {
+		const tracked = renderShareCard({ ...recap, kokUsed: 7 });
+		expect(tracked).toContain('>7</text>');
+		expect(tracked).toContain('Kok dipakai');
+		expect(renderShareCard({ ...recap, kokUsed: null })).toContain('Kok dipakai');
+		expect(renderShareCard(recap)).not.toContain('Kok dipakai');
 	});
 	it('grows to fit a larger roster and preserves long names', () => {
 		const names = Array.from({ length: 50 }, (_, i) => `Pemain ${i} Dengan Nama Panjang`);

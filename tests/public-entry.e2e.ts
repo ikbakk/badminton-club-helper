@@ -303,13 +303,55 @@ test('saved password with failed sign-out retries without another password write
 	expect(writes).toBe(1);
 });
 
-test('landing demo opens a read-only fictional session without backend calls', async ({ page }) => {
+test('landing demo starts with attendance and persists locally without backend calls', async ({
+	page
+}) => {
 	const reads = await backend(page);
 	await page.goto('/');
 	await page.getByRole('link', { name: 'Coba demo', exact: true }).click();
+	await expect(page).toHaveURL(/\/\?demo=1$/);
+	await page.getByRole('button', { name: 'Pemain', exact: true }).click();
+	await expect(page.getByRole('heading', { name: 'Pemain', exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Live', exact: true }).click();
 	await expect(page.getByRole('heading', { name: 'Coba Courtside', exact: true })).toBeVisible();
-	await expect(page.getByText('Set 1 · 21–18', { exact: true })).toBeVisible();
-	await expect(page.getByLabel('Skor Tim A')).toHaveCount(0);
-	await expect(page.getByRole('button', { name: 'Ganti pemain', exact: true })).toHaveCount(0);
+	await expect(page.getByRole('heading', { name: 'Mulai dari daftar hadir.' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Rekap sesi demo' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Mulai sesi malam ini' }).click();
+	await expect(page.getByRole('dialog', { name: 'Check in pemain' })).toBeVisible();
+	await page.getByLabel('Pilih pemain yang datang').getByText('DEMO P1', { exact: true }).click();
+	await page.getByLabel('Pilih pemain yang datang').getByText('DEMO P2', { exact: true }).click();
+	await page.getByRole('button', { name: 'Catat 2 pemain hadir' }).click();
+	await expect(page.getByRole('dialog', { name: 'Check in pemain' })).toHaveCount(0);
+	await page.reload();
+	await expect(page.getByText('2 siap — butuh 2 pemain lagi untuk main ganda.')).toBeVisible();
+	await page.getByRole('button', { name: 'Ulangi demo' }).click();
+	await expect(page.getByRole('heading', { name: 'Mulai dari daftar hadir.' })).toBeVisible();
+	expect(reads).toEqual([]);
+});
+
+test('demo fees appear after close and charge only attendees without optional kok', async ({
+	page
+}) => {
+	const reads = await backend(page);
+	await page.goto('/?demo=1');
+	await page.getByRole('checkbox', { name: 'Hitung kok yang dipakai per match' }).uncheck();
+	await page.getByRole('button', { name: 'Mulai sesi malam ini' }).click();
+	await page.getByLabel('Pilih pemain yang datang').getByText('DEMO P1', { exact: true }).click();
+	await page.getByRole('button', { name: 'Catat 1 pemain hadir' }).click();
+	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
+	await page
+		.getByRole('dialog', { name: 'Akhiri sesi demo' })
+		.getByRole('button', { name: 'Akhiri sesi' })
+		.click();
+	await expect(page.getByRole('heading', { name: 'Rekap sesi demo' })).toBeVisible();
+	await expect(page.getByLabel('Harga per kok (Rp)')).toHaveCount(0);
+	await expect(page.locator('.demo-recap .recap-person')).toHaveCount(1);
+	await expect(page.locator('.demo-recap .recap-person')).toContainText(
+		'Dasar Rp15.000 = Rp15.000'
+	);
+	await expect(page.getByText('Total tagihan: Rp15.000')).toBeVisible();
+	await page.getByRole('button', { name: 'Konfirmasi tagihan dan sewa' }).click();
+	await page.reload();
+	await expect(page.getByRole('heading', { name: 'Rekap sesi demo' })).toBeVisible();
 	expect(reads).toEqual([]);
 });

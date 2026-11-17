@@ -36,6 +36,7 @@
 		subscribeToLiveUpdates,
 		type LiveSessionSnapshot
 	} from '$lib/data/live';
+	import { getSessionKokMatches, recordMatchKok } from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
 	import { supabase } from '$lib/supabase';
 	import { toast } from 'sve-ui';
@@ -110,6 +111,9 @@
 	let manualAuthInProgress = false;
 	let showCheckIn = $state(false);
 	let showEndSession = $state(false);
+	let kokMatchId = $state<string | null>(null);
+	let kokCount = $state('');
+	let savingKok = $state(false);
 	let selectedParticipant = $state<Participant | null>(null);
 	let pending = $derived(live.pending);
 
@@ -133,6 +137,26 @@
 	let displayName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
 	let canManageLive = $derived(Boolean(userEmail && club?.is_club_admin));
 	let checkedInIds = $derived(new Set(participants.map((participant) => participant.id)));
+	const kokMatchesQueryKey = ['live', 'session-kok-matches', clubId];
+	const kokMatchesQuery = createQuery(() => ({
+		queryKey: [...kokMatchesQueryKey, session?.id],
+		queryFn: () => getSessionKokMatches(session!.id),
+		enabled: browser && canManageLive && Boolean(session?.id && session?.count_kok),
+		refetchInterval: 15_000
+	}));
+	let kokMatches = $derived(kokMatchesQuery.data ?? []);
+	let kokCountsIncomplete = $derived(
+		Boolean(
+			session?.count_kok &&
+			(kokMatchesQuery.isPending ||
+				kokMatchesQuery.isError ||
+				kokMatches.some((match) => match.kok_count === null))
+		)
+	);
+	function openKokMatch(matchId: string, count: number | null) {
+		kokMatchId = matchId;
+		kokCount = count === null ? '' : String(count);
+	}
 	const participantStatusLabel: Record<ParticipantStatus, string> = {
 		READY: 'Siap',
 		PLAYING: 'Sedang main',
@@ -248,13 +272,17 @@
 			) ?? []
 		);
 	});
-	async function createSession(courtCount = 1) {
+	async function createSession(
+		courtCount = 1,
+		mode: 'ASSISTED' | 'MANUAL' = 'ASSISTED',
+		countKok = true
+	) {
 		if (!club?.is_club_admin || !online || pending) return;
 		const selectedClub = club.id;
 		live.pending = 'Memulai sesi…';
 		try {
 			await liveCommandMutation.mutateAsync({
-				action: () => startSession(selectedClub, courtCount),
+				action: () => startSession(selectedClub, courtCount, mode, countKok),
 				invalidateLive: true
 			});
 			notify('Sesi dimulai.');
@@ -304,7 +332,20 @@
 	}
 
 	async function saveSet(matchId: string, teamA: number, teamB: number) {
-		return live.completeSet(matchId, teamA, teamB);
+		const match = activeMatches.find((item) => item.id === matchId);
+		const playing = match?.sets.find((item) => item.status === 'IN_PROGRESS');
+		const first = match?.sets.find((item) => item.setNumber === 1);
+		const finished =
+			playing?.setNumber === 3 ||
+			(playing?.setNumber === 2 &&
+				first?.teamAScore !== null &&
+				first!.teamAScore! > first!.teamBScore! === teamA > teamB);
+		const saved = await live.completeSet(matchId, teamA, teamB);
+		if (saved && finished && session?.count_kok) {
+			await queryClient.invalidateQueries({ queryKey: kokMatchesQueryKey });
+			openKokMatch(matchId, null);
+		}
+		return saved;
 	}
 
 	async function correctSet(matchId: string, setNumber: 1 | 2 | 3, teamA: number, teamB: number) {
@@ -322,10 +363,34 @@
 	}
 
 	async function skipDecider(matchId: string) {
-		return live.finishTiedMatch(matchId);
+		const saved = await live.finishTiedMatch(matchId);
+		if (saved && session?.count_kok) {
+			await queryClient.invalidateQueries({ queryKey: kokMatchesQueryKey });
+			openKokMatch(matchId, null);
+		}
+		return saved;
+	}
+
+	async function saveKok() {
+		if (!kokMatchId || savingKok) return;
+		savingKok = true;
+		try {
+			await recordMatchKok(kokMatchId, Number(kokCount));
+			await queryClient.invalidateQueries({ queryKey: kokMatchesQueryKey });
+			kokMatchId = null;
+			notify('Jumlah kok tersimpan.');
+		} catch (error) {
+			notifyError(error, 'Jumlah kok belum tersimpan.');
+		} finally {
+			savingKok = false;
+		}
 	}
 
 	async function endSession() {
+		if (kokCountsIncomplete) {
+			notify('Catat jumlah kok untuk setiap match di tab Live sebelum mengakhiri sesi.');
+			return;
+		}
 		const closingSessionId = session?.id;
 		if (await live.close()) {
 			showEndSession = false;
@@ -611,6 +676,39 @@
 			onstartdecider={startDecider}
 			onskiptiedmatch={skipDecider}
 		/>
+		{#if canManageLive && session?.count_kok}
+			<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-5" aria-label="Kok per match">
+				<h2 class="text-lg font-bold">Kok per match</h2>
+				<p class="mt-1 text-sm text-[#527169]">
+					Catat jumlah kok setelah match selesai. Nol berarti tidak memakai kok baru.
+				</p>
+				{#if kokMatchesQuery.isError}
+					<p class="mt-3 text-sm" role="alert">Daftar match belum bisa dimuat.</p>
+					<AppButton variant="secondary" onclick={() => void kokMatchesQuery.refetch()}
+						>Coba lagi</AppButton
+					>
+				{:else if kokMatches.length}
+					<ul class="mt-4 divide-y divide-[#d6ddd3] border-y border-[#d6ddd3]">
+						{#each kokMatches as match (match.match_id)}
+							<li class="flex items-center justify-between gap-3 py-3">
+								<span class="text-sm"
+									><b>Match {match.sequence_number}</b><span class="block text-[#527169]"
+										>{match.kok_count === null ? 'Belum dicatat' : `${match.kok_count} kok`}</span
+									></span
+								>
+								<AppButton
+									variant="secondary"
+									onclick={() => openKokMatch(match.match_id, match.kok_count)}
+									>{match.kok_count === null ? 'Catat kok' : 'Ubah jumlah kok'}</AppButton
+								>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="mt-3 text-sm text-[#527169]">Belum ada match selesai.</p>
+				{/if}
+			</section>
+		{/if}
 		{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
 			<section class="mt-5 border-y border-[#d6ddd3] py-5">
 				<h2 class="text-xl font-bold">Rekap sesi belum dikonfirmasi</h2>
@@ -820,6 +918,8 @@
 				{participants.length} pemain tercatat.
 				{#if activeMatch}
 					Selesaikan atau batalkan match yang sedang berjalan sebelum mengakhiri sesi.
+				{:else if kokCountsIncomplete}
+					Catat jumlah kok untuk setiap match selesai di tab Live sebelum mengakhiri sesi.
 				{:else}
 					Pastikan malam ini benar-benar selesai sebelum ditutup.
 				{/if}
@@ -829,8 +929,38 @@
 					>Lanjut bermain</AppButton
 				><AppButton
 					variant="danger"
-					disabled={Boolean(pending) || Boolean(activeMatch)}
+					disabled={Boolean(pending) || Boolean(activeMatch) || kokCountsIncomplete}
 					onclick={endSession}>{pending || 'Akhiri sesi'}</AppButton
+				>
+			</div>
+		</div>
+	</CourtDialog>
+{/if}
+
+{#if kokMatchId}
+	<CourtDialog open title="Kok yang dipakai" onOpenChange={(open) => !open && (kokMatchId = null)}>
+		<div class="p-6 text-[#163630]">
+			<h2 class="text-2xl font-bold">Berapa kok dipakai?</h2>
+			<p class="mt-2 text-sm text-[#527169]">
+				Catat total kok untuk match ini, termasuk semua set. Masukkan 0 jika tidak memakai kok baru.
+			</p>
+			<label class="mt-5 block text-sm font-bold"
+				>Jumlah kok<input
+					type="number"
+					min="0"
+					step="1"
+					bind:value={kokCount}
+					class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+				/></label
+			>
+			<div class="mt-5 flex gap-3">
+				<AppButton variant="secondary" onclick={() => (kokMatchId = null)}>Nanti saja</AppButton
+				><AppButton
+					disabled={savingKok ||
+						kokCount === '' ||
+						!Number.isSafeInteger(Number(kokCount)) ||
+						Number(kokCount) < 0}
+					onclick={saveKok}>Simpan jumlah kok</AppButton
 				>
 			</div>
 		</div>
