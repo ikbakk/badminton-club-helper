@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { fade } from 'svelte/transition';
 	import { selectedClubId } from '$lib/club-context';
 	import { resolve } from '$app/paths';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
@@ -114,6 +116,8 @@
 	let matchMode = $state<'ASSISTED' | 'MANUAL'>('ASSISTED');
 	let countKok = $state(true);
 	let validCourtCount = $derived(Number.isSafeInteger(courtCount) && courtCount > 0);
+	const stateTransitionDuration =
+		browser && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180;
 
 	const groups: { title: string; status: ParticipantStatus }[] = [
 		{ title: 'SIAP / MENUNGGU', status: 'READY' },
@@ -155,7 +159,7 @@
 </script>
 
 {#if !session}
-	<section class="court-panel">
+	<section class="court-panel" in:fade={{ duration: stateTransitionDuration }}>
 		<div class="grid lg:grid-cols-[1.2fr_0.8fr]">
 			<div class="p-6 sm:p-9">
 				<h2 class="max-w-[11ch] text-4xl font-black tracking-[-0.04em] text-[#163630] sm:text-5xl">
@@ -254,7 +258,7 @@
 		</div>
 	</section>
 {:else}
-	<div class="session-heading">
+	<div class="session-heading" in:fade={{ duration: stateTransitionDuration }}>
 		<div>
 			<svelte:element this={headingLevel === 1 ? 'h1' : 'h2'}>Sesi malam ini</svelte:element>
 			<p>Mulai {startedAt} · {participants.length} pemain hadir</p>
@@ -286,6 +290,7 @@
 		bind:this={courtRail}
 		class="court-rail"
 		class:multicourt={sessionCourtCount > 1}
+		in:fade={{ duration: stateTransitionDuration }}
 		onscroll={updateVisibleCourt}
 	>
 		{#each courtNumbers as courtNumber (courtNumber)}
@@ -319,7 +324,7 @@
 		{/each}
 	</div>
 
-	<div class="session-tools">
+	<div class="session-tools" in:fade={{ duration: stateTransitionDuration }}>
 		<p>{nextAction}</p>
 		<div>
 			{#if canManage}<AppButton variant="secondary" disabled={!online} onclick={oncheckin}
@@ -336,7 +341,11 @@
 	</div>
 
 	{#if canManage && session?.match_mode !== 'MANUAL' && availableCourtNumbers.length > 0 && suggestedPlayers.length === 4}
-		<section class="court-panel mt-5 p-5" aria-label="Saran empat pemain">
+		<section
+			class="court-panel mt-5 p-5"
+			aria-label="Saran empat pemain"
+			in:fade={{ duration: stateTransitionDuration }}
+		>
 			<h3 class="text-sm font-bold">Giliran berikutnya</h3>
 			<ul class="next-players">
 				{#each suggestedPlayers as name, index (index)}<li class="next-player">
@@ -350,7 +359,7 @@
 		</section>
 	{/if}
 
-	<div class="mt-5 grid gap-4">
+	<div class="mt-5 grid gap-4" in:fade={{ duration: stateTransitionDuration }}>
 		{#each groups.filter((group) => !demo || !['OUT', 'LEFT'].includes(group.status)) as group (group.status)}
 			<ParticipantGroup
 				title={group.title}

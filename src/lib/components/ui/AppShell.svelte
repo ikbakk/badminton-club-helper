@@ -5,6 +5,7 @@
 	import type { Snippet } from 'svelte';
 	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
 	import { authState, loadCachedClub, setCachedClub } from '$lib/auth-state.svelte';
+	import { isDemoClub } from '$lib/features/demo/local-store';
 	import { History, Radio, Settings, UsersRound, Wallet, Share2, UserRound } from '@lucide/svelte';
 	import Avatar from './Avatar.svelte';
 	import BrandMark from './BrandMark.svelte';
@@ -16,6 +17,7 @@
 		mode,
 		headerActions,
 		onaccesschange,
+		initialClubAccess,
 		demo = false,
 		ondemonavigate
 	}: {
@@ -25,9 +27,13 @@
 		mode?: string;
 		headerActions?: Snippet;
 		onaccesschange?: (club: Club | null) => void;
+		initialClubAccess?: Club | null;
 		demo?: boolean;
 		ondemonavigate?: (view: string) => void;
 	} = $props();
+	let currentClubAccess = $derived(
+		initialClubAccess !== undefined ? initialClubAccess : authState.club
+	);
 
 	const links = [
 		{ href: '/live', route: '/clubs/[clubId]/live', label: 'Live', icon: Radio },
@@ -49,8 +55,8 @@
 		links.filter(
 			(link) =>
 				link.href !== '/settings' ||
-				demo ||
-				Boolean(authState.club?.id === selectedClubId() && authState.club?.is_club_admin)
+				(!isDemoClub(selectedClubId()) &&
+					Boolean(currentClubAccess?.id === selectedClubId() && currentClubAccess?.is_club_admin))
 		)
 	);
 
@@ -69,6 +75,10 @@
 
 	onMount(() => {
 		let active = true;
+		if (!demo && initialClubAccess !== undefined) {
+			setCachedClub(initialClubAccess);
+			return;
+		}
 		if (!demo) loadCachedClub();
 		if (demo)
 			return () => {
@@ -85,7 +95,9 @@
 			active = false;
 		};
 	});
-	$effect(() => onaccesschange?.(authState.club?.id === selectedClubId() ? authState.club : null));
+	$effect(() =>
+		onaccesschange?.(currentClubAccess?.id === selectedClubId() ? currentClubAccess : null)
+	);
 </script>
 
 <div class="app-shell">
@@ -129,13 +141,13 @@
 			<a
 				class="club-identity"
 				href={demo
-					? resolve('/?demo=1')
+					? resolve('/clubs/[clubId]/live', { clubId: 'demo' })
 					: resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
 			>
 				<Avatar name={clubName} size="sm" /><strong>{clubName}</strong>
 			</a>
 			<div class="club-tools">
-				{#if authState.club?.id === selectedClubId() && authState.club?.is_club_admin}<span
+				{#if !isDemoClub(selectedClubId()) && currentClubAccess?.id === selectedClubId() && currentClubAccess?.is_club_admin}<span
 						class="access-badge">Admin</span
 					><a
 						class="icon-control"
@@ -148,8 +160,10 @@
 						aria-label="Salin tautan klub"><Share2 size={18} /></button
 					>{/if}
 				>
-				{#if demo}<a class="icon-control" href={resolve('/')} aria-label="Kembali ke beranda"
-						><UserRound size={19} /></a
+				{#if demo || isDemoClub(selectedClubId())}<a
+						class="icon-control"
+						href={resolve('/')}
+						aria-label="Kembali ke beranda"><UserRound size={19} /></a
 					>{:else if headerActions}<details class="account-menu">
 						<summary class="icon-control" aria-label="Akun dan klub saya"
 							><UserRound size={19} /></summary

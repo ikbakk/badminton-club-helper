@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { seedSupabaseAuthCookie } from './helpers/supabase-auth';
 
 const settings = {
 	club_id: 'club-settings-e2e',
@@ -85,26 +86,10 @@ async function mockSettingsBackend(page: Page) {
 			}
 		})
 	);
-	await page.addInitScript(() => {
-		localStorage.setItem(
-			'sb-courtside-e2e-auth-token',
-			JSON.stringify({
-				access_token: 'e2e-access-token',
-				token_type: 'bearer',
-				expires_in: 3600,
-				expires_at: Math.floor(Date.now() / 1000) + 3600,
-				refresh_token: 'e2e-refresh-token',
-				user: {
-					id: 'admin-settings-e2e',
-					aud: 'authenticated',
-					role: 'authenticated',
-					email: 'admin@example.com',
-					app_metadata: {},
-					user_metadata: {},
-					created_at: '2026-10-01T00:00:00Z'
-				}
-			})
-		);
+	await seedSupabaseAuthCookie(page, {
+		id: 'admin-settings-e2e',
+		email: 'admin@example.com',
+		created_at: '2026-10-01T00:00:00Z'
 	});
 	return {
 		getSavedSettings: () => savedSettings,

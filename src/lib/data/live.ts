@@ -2,6 +2,16 @@ import { getPublicClub } from '$lib/data/dashboard';
 import { selectedClubId } from '$lib/club-context';
 import { supabase } from '$lib/supabase';
 import type { Participant, Membership, ParticipantStatus } from '$lib/domain/types';
+import {
+	isDemoClub,
+	localDemoCloseSession,
+	localDemoCommand,
+	localDemoCompleteSet,
+	localDemoKokShares,
+	localDemoSnapshot,
+	readLocalDemo,
+	updateLocalDemo
+} from '$lib/features/demo/local-store';
 
 type LiveParticipantRow = {
 	participant_id: string;
@@ -67,6 +77,7 @@ export const emptyLiveSessionSnapshot: LiveSessionSnapshot = {
 const liveTopic = (sessionId: string) => `live:${sessionId}`;
 
 export function subscribeToLiveUpdates(sessionId: string, onUpdate: () => void) {
+	if (sessionId.startsWith('demo-session')) return () => {};
 	const client = supabase;
 	if (!client) return () => {};
 	const channel = client
@@ -87,6 +98,7 @@ function broadcastLiveUpdate(sessionId: string) {
 
 /** Capture the query's identity across its initial profile lookup and later reads. */
 export async function loadClubLiveSession(clubId: string): Promise<LiveSessionSnapshot> {
+	if (isDemoClub(clubId)) return localDemoSnapshot();
 	if (!(await getPublicClub(clubId))) {
 		throw new Error('Klub tidak ditemukan. Periksa tautan dari admin klub.');
 	}
@@ -95,6 +107,7 @@ export async function loadClubLiveSession(clubId: string): Promise<LiveSessionSn
 
 export async function loadLiveSession(clubId = selectedClubId()): Promise<LiveSessionSnapshot> {
 	if (!clubId) return emptyLiveSessionSnapshot;
+	if (isDemoClub(clubId)) return localDemoSnapshot();
 	if (!supabase) return emptyLiveSessionSnapshot;
 	const { data: sessions, error: sessionError } = await supabase
 		.from('live_session')
@@ -162,6 +175,8 @@ export async function loadLiveSession(clubId = selectedClubId()): Promise<LiveSe
 }
 
 export async function checkInPlayer(sessionId: string, playerId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return localDemoCommand('check_in_player', { p_session_id: sessionId, p_player_id: playerId });
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { error } = await supabase.rpc('check_in_player', {
 		p_session_id: sessionId,
@@ -173,6 +188,11 @@ export async function checkInPlayer(sessionId: string, playerId: string) {
 }
 
 export async function checkInPlayers(sessionId: string, playerIds: string[]) {
+	if (sessionId.startsWith('demo-session'))
+		return localDemoCommand('check_in_players', {
+			p_session_id: sessionId,
+			p_player_ids: playerIds
+		});
 	if (!supabase) throw new Error('Supabase is not configured.');
 	if (!playerIds.length) return;
 	const { error } = await supabase.rpc('check_in_players', {
@@ -188,6 +208,12 @@ export async function changeParticipantStatus(
 	participantId: string,
 	status: ParticipantStatus
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return localDemoCommand('change_participant_status', {
+			p_session_id: sessionId,
+			p_participant_id: participantId,
+			p_status: status
+		});
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { error } = await supabase.rpc('change_participant_status', {
 		p_session_id: sessionId,
@@ -217,6 +243,15 @@ export function startMatch(
 	courtNumber = 1
 ) {
 	return (async () => {
+		if (sessionId.startsWith('demo-session')) {
+			const matchId = localDemoCommand('start_match', {
+				p_session_id: sessionId,
+				p_team_a: teamA,
+				p_team_b: teamB,
+				p_court_number: courtNumber
+			}) as string;
+			return { matchId, pairingAuditSaved: Boolean(pairingAudit) };
+		}
 		const matchId = await command('start_match', {
 			p_session_id: sessionId,
 			p_lease_id: null,
@@ -243,6 +278,10 @@ export function startMatch(
 }
 
 export function startDeciderSet(sessionId: string, matchId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('start_decider_set', { p_session_id: sessionId, p_match_id: matchId })
+		);
 	return command('start_decider_set', {
 		p_session_id: sessionId,
 		p_match_id: matchId,
@@ -251,6 +290,10 @@ export function startDeciderSet(sessionId: string, matchId: string) {
 }
 
 export function finishTiedMatch(sessionId: string, matchId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('finish_tied_match', { p_session_id: sessionId, p_match_id: matchId })
+		);
 	return command('finish_tied_match', {
 		p_session_id: sessionId,
 		p_match_id: matchId,
@@ -262,6 +305,8 @@ export async function saveRotationRecommendation(
 	sessionId: string,
 	recommendation: import('$lib/domain/rotation/types').RotationRecommendation
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(`demo-recommendation-${Date.now()}`);
 	if (!supabase) throw new Error('Supabase is not configured.');
 	const { data, error } = await supabase.rpc('save_rotation_recommendation', {
 		p_session_id: sessionId,
@@ -304,6 +349,8 @@ export async function completeSet(
 	teamAScore: number,
 	teamBScore: number
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(localDemoCompleteSet(setId, teamAScore, teamBScore));
 	const result = await trustedRatingCommand('/api/live/complete-set', {
 		sessionId,
 		clubId,
@@ -316,6 +363,10 @@ export async function completeSet(
 }
 
 export function abandonMatch(sessionId: string, matchId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('abandon_match', { p_session_id: sessionId, p_match_id: matchId })
+		);
 	return command('abandon_match', {
 		p_session_id: sessionId,
 		p_lease_id: null,
@@ -324,6 +375,10 @@ export function abandonMatch(sessionId: string, matchId: string) {
 }
 
 export function addGuestAndCheckIn(sessionId: string, name: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('add_guest_and_check_in', { p_session_id: sessionId, p_name: name })
+		);
 	return command('add_guest_and_check_in', {
 		p_session_id: sessionId,
 		p_lease_id: null,
@@ -338,6 +393,16 @@ export function substitutePlayer(
 	replacementPlayerId: string,
 	outgoingStatus: 'RESTING' | 'OUT' | 'LEFT'
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('substitute_player', {
+				p_session_id: sessionId,
+				p_match_id: matchId,
+				p_outgoing_player_id: outgoingPlayerId,
+				p_replacement_player_id: replacementPlayerId,
+				p_outgoing_status: outgoingStatus
+			})
+		);
 	return command('substitute_player', {
 		p_session_id: sessionId,
 		p_lease_id: null,
@@ -353,6 +418,14 @@ export function setLeaveAfterMatch(
 	participantId: string,
 	leaveAfterMatch: boolean
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			localDemoCommand('set_leave_after_match', {
+				p_session_id: sessionId,
+				p_participant_id: participantId,
+				p_leave_after_match: leaveAfterMatch
+			})
+		);
 	return command('set_leave_after_match', {
 		p_session_id: sessionId,
 		p_lease_id: null,
@@ -362,6 +435,8 @@ export function setLeaveAfterMatch(
 }
 
 export function closeSession(sessionId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(localDemoCloseSession(sessionId));
 	return command('close_session', { p_session_id: sessionId, p_lease_id: null }) as Promise<{
 		attendance: number;
 		sets: number;
@@ -370,6 +445,10 @@ export function closeSession(sessionId: string) {
 }
 
 export async function recordMatchKok(matchId: string, count: number) {
+	if (matchId.startsWith('demo-match-')) {
+		localDemoCommand('record_match_kok', { p_match_id: matchId, p_count: count });
+		return;
+	}
 	if (!Number.isSafeInteger(count) || count < 0) throw new Error('Masukkan jumlah kok yang valid.');
 	const { error } = await supabase!.rpc('record_match_kok', {
 		p_match_id: matchId,
@@ -379,12 +458,29 @@ export async function recordMatchKok(matchId: string, count: number) {
 }
 
 export async function getSessionKokMatches(sessionId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return readLocalDemo()
+			.activeMatches.concat(readLocalDemo().completed)
+			.map((match) => ({
+				match_id: match.id,
+				sequence_number: match.sequence_number,
+				kok_count: readLocalDemo().kokByMatch[match.id] ?? null
+			}));
 	const { data, error } = await supabase!.rpc('session_kok_matches', { p_session_id: sessionId });
 	if (error) throw error;
 	return (data ?? []) as { match_id: string; sequence_number: number; kok_count: number | null }[];
 }
 
 export async function getSessionKokShares(sessionId: string, price: number) {
+	if (sessionId.startsWith('demo-session')) {
+		const state = readLocalDemo();
+		const shares = new Map(
+			localDemoKokShares(price).map((share) => [share.player_id, share.kok_amount])
+		);
+		return state.participants
+			.filter((player) => state.attendeeIds.includes(player.id))
+			.map((player) => ({ player_id: player.id, kok_amount: shares.get(player.id) ?? 0 }));
+	}
 	const { data, error } = await supabase!.rpc('session_kok_shares', {
 		p_session_id: sessionId,
 		p_price: price
@@ -400,6 +496,12 @@ export async function confirmSessionCharges(
 	courtRent: number,
 	adjustments: Record<string, { amount: number; reason: string }>
 ) {
+	if (sessionId.startsWith('demo-session'))
+		return updateLocalDemo((state) => {
+			state.pricing = { base, kokPrice, courtRent };
+			state.adjustments = adjustments;
+			return base;
+		});
 	const { data, error } = await supabase!.rpc('confirm_session_charges', {
 		p_session_id: sessionId,
 		p_base: base,
@@ -412,10 +514,18 @@ export async function confirmSessionCharges(
 }
 
 export function reopenSession(sessionId: string) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			updateLocalDemo((state) => {
+				state.hasEndedSession = false;
+				return true;
+			})
+		);
 	return command('reopen_session', { p_session_id: sessionId, p_lease_id: null });
 }
 
 export async function suggestSessionFee(sessionId: string) {
+	if (sessionId.startsWith('demo-session')) return 15000;
 	const result = await command('suggest_session_fee', {
 		p_session_id: sessionId,
 		p_lease_id: null
@@ -429,6 +539,7 @@ export async function correctCompletedSet(
 	teamAScore: number,
 	teamBScore: number
 ) {
+	if (setId.startsWith('demo-match-')) return Promise.resolve(true);
 	return trustedRatingCommand('/api/live/correct-set', {
 		clubId,
 		setId,
@@ -438,6 +549,17 @@ export async function correctCompletedSet(
 }
 
 export function confirmSessionFee(sessionId: string, fee: number) {
+	if (sessionId.startsWith('demo-session'))
+		return Promise.resolve(
+			updateLocalDemo((state) => {
+				state.pricing = {
+					base: fee,
+					kokPrice: state.pricing?.kokPrice ?? 0,
+					courtRent: state.pricing?.courtRent ?? 0
+				};
+				return fee;
+			})
+		);
 	return command('confirm_session_fee', {
 		p_session_id: sessionId,
 		p_lease_id: null,

@@ -2,7 +2,9 @@ import type { ActiveMatch, LiveSession, MatchSet } from '$lib/data/live';
 import type { Participant, ParticipantStatus } from '$lib/domain/types';
 import { recommendNextPlayers } from '$lib/domain/rotation';
 
-export const DEMO_STORAGE_KEY = 'courtside:demo-session:v3';
+export const DEMO_STORAGE_KEY = 'courtside:demo-session:v4';
+export const DEMO_CLUB_ID = 'demo';
+export const DEMO_CLUB_NAME = 'Klub Demo';
 
 export type DemoState = {
 	session: LiveSession | null;
@@ -19,6 +21,7 @@ export type DemoState = {
 	openingKas: number;
 	countKok: boolean;
 	hasEndedSession: boolean;
+	closedAt?: string;
 	attendeeIds: string[];
 };
 
@@ -137,6 +140,7 @@ export function readDemoState(storage: Pick<Storage, 'getItem'>): DemoState {
 			openingKas: parsed.openingKas ?? 0,
 			countKok: parsed.countKok ?? true,
 			hasEndedSession: parsed.hasEndedSession ?? false,
+			closedAt: parsed.closedAt,
 			attendeeIds: parsed.attendeeIds ?? [],
 			participants: parsed.participants.map((player) => ({
 				...player,

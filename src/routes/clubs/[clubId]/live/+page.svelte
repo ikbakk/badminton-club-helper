@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { onDestroy, untrack } from 'svelte';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { selectedClubId } from '$lib/club-context';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
@@ -11,7 +11,11 @@
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
-	import { currentUser, signInWithPassword } from '$lib/auth';
+	import {
+		hasLegacyBrowserSession,
+		migrateLegacyBrowserSession,
+		signInWithPassword
+	} from '$lib/auth';
 	import { setCachedClub } from '$lib/auth-state.svelte';
 	import {
 		addPlayer,
@@ -38,10 +42,13 @@
 	} from '$lib/data/live';
 	import { getSessionKokMatches, recordMatchKok } from '$lib/data/live';
 	import type { Participant, ParticipantStatus } from '$lib/domain/types';
+	import { isDemoClub } from '$lib/features/demo/local-store';
 	import { supabase } from '$lib/supabase';
 	import { toast } from 'sve-ui';
+	import type { PageProps } from './$types';
 
 	type Tab = 'live' | 'players' | 'history' | 'fund';
+	let { data }: PageProps = $props();
 	const queryClient = useQueryClient();
 	const clubId = selectedClubId();
 	const scopedLiveQueryKey = [...liveSessionQueryKey, clubId];
@@ -84,13 +91,15 @@
 	let tab = $state<Tab>('live');
 	let email = $state('');
 	let password = $state('');
-	let userEmail = $state<string | null>(null);
-	let club = $state<Club | null>(null);
+	let userEmail = $state<string | null>(untrack(() => data.userEmail));
+	let club = $state<Club | null>(untrack(() => data.club));
+	const initialUserEmail = untrack(() => data.userEmail);
+	const initialAuthAccessState = untrack(() => data.authAccessState);
 	let publicClub = $state<{ id: string; name: string } | null>(null);
 	let publicRoster = $state<{ id: string; display_name: string }[]>([]);
 	let publicHistory = $state<PublicSessionHistory[]>([]);
 	let fundSummary = $state<PublicFundSummary | null>(null);
-	let roster = $state<RosterPlayer[]>([]);
+	let roster = $state<RosterPlayer[]>(untrack(() => data.roster));
 	let live = new LiveController(
 		(message) => toast.error(message),
 		queryClient,
@@ -98,6 +107,7 @@
 			liveCommandMutation.mutateAsync({ action, invalidateLive, waitForRefresh }),
 		scopedLiveQueryKey
 	);
+	live.setAdminAuthorized(Boolean(untrack(() => data.club?.is_club_admin)));
 	let session = $derived(liveSnapshot.session);
 	let participants = $derived(liveSnapshot.participants);
 	let activeMatches = $derived(liveSnapshot.activeMatches);
@@ -106,7 +116,7 @@
 	let playerName = $state('');
 	let adminLoginOpen = $state(false);
 	let authAccessState = $state<'idle' | 'signing-in' | 'checking' | 'ready' | 'denied' | 'error'>(
-		'idle'
+		untrack(() => data.authAccessState)
 	);
 	let manualAuthInProgress = false;
 	let showCheckIn = $state(false);
@@ -120,6 +130,16 @@
 	function notify(message: string) {
 		toast(message);
 	}
+
+	$effect(() => {
+		const initial = data;
+		userEmail = initial.userEmail;
+		club = initial.club;
+		roster = initial.roster;
+		authAccessState = initial.authAccessState;
+		live.setAdminAuthorized(Boolean(initial.club?.is_club_admin));
+		if (browser) setCachedClub(initial.club);
+	});
 
 	function notifyError(error: unknown, fallback: string) {
 		const message =
@@ -213,11 +233,15 @@
 	}
 
 	async function refreshPublic() {
-		const [club, history, fund] = await Promise.all([
-			getPublicClub(),
-			getPublicSessionHistory(),
-			getPublicFundSummary()
-		]);
+		const club = await getPublicClub();
+		if (!club) {
+			publicClub = null;
+			publicHistory = [];
+			fundSummary = null;
+			publicRoster = [];
+			return;
+		}
+		const [history, fund] = await Promise.all([getPublicSessionHistory(), getPublicFundSummary()]);
 		publicClub = club;
 		publicHistory = history;
 		fundSummary = fund;
@@ -425,19 +449,26 @@
 		stopAuth?.();
 	});
 
-	if (browser) {
+	if (browser && !isDemoClub(clubId)) {
+		if (!initialUserEmail && hasLegacyBrowserSession()) authAccessState = 'checking';
 		void (async () => {
 			online = navigator.onLine;
 			live.setOnline(online);
 			void refreshPublic().catch((error) =>
 				notifyError(error, 'Data klub belum bisa dimuat. Coba lagi.')
 			);
-			userEmail = (await currentUser())?.email ?? null;
-			if (disposed) return;
-			if (userEmail) await refreshAccount();
-			else {
-				live.setAdminAuthorized(false);
+			if (!initialUserEmail && hasLegacyBrowserSession()) {
+				manualAuthInProgress = true;
+				try {
+					if (await migrateLegacyBrowserSession()) await invalidateAll();
+				} catch (error) {
+					authAccessState = initialAuthAccessState;
+					notifyError(error, 'Sesi lama belum bisa dipindahkan. Masuk kembali sebagai admin.');
+				} finally {
+					manualAuthInProgress = false;
+				}
 			}
+			if (disposed) return;
 			const subscription = supabase?.auth.onAuthStateChange((_event, authSession) => {
 				if (disposed) return;
 				const nextEmail = authSession?.user.email ?? null;
@@ -468,12 +499,14 @@
 >
 
 {#snippet headerActions()}
-	{#if userEmail}<AppButton class="w-full justify-center" variant="ghost" onclick={signOut}
-			>Keluar</AppButton
+	{#if userEmail && !isDemoClub(clubId)}<AppButton
+			class="w-full justify-center"
+			variant="ghost"
+			onclick={signOut}>Keluar</AppButton
 		>{/if}
 {/snippet}
 
-<AppShell current="/live" clubName={displayName} {headerActions}>
+<AppShell current="/live" clubName={displayName} {headerActions} initialClubAccess={club}>
 	{#if adminLoginOpen}
 		<CourtDialog
 			open={adminLoginOpen}

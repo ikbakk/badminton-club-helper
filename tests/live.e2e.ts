@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { seedSupabaseAuthCookie } from './helpers/supabase-auth';
 
 const sessionId = 'session-live-e2e';
 const session = {
@@ -379,26 +380,10 @@ async function mockLiveBackend(
 		)
 	);
 	if (authenticated) {
-		await page.addInitScript(() => {
-			localStorage.setItem(
-				'sb-courtside-e2e-auth-token',
-				JSON.stringify({
-					access_token: 'e2e-access-token',
-					token_type: 'bearer',
-					expires_in: 3600,
-					expires_at: Math.floor(Date.now() / 1000) + 3600,
-					refresh_token: 'e2e-refresh-token',
-					user: {
-						id: 'admin-e2e',
-						aud: 'authenticated',
-						role: 'authenticated',
-						email: 'admin@example.com',
-						app_metadata: {},
-						user_metadata: {},
-						created_at: '2026-10-01T00:00:00Z'
-					}
-				})
-			);
+		await seedSupabaseAuthCookie(page, {
+			id: 'admin-e2e',
+			email: 'admin@example.com',
+			created_at: '2026-10-01T00:00:00Z'
 		});
 	}
 	return {

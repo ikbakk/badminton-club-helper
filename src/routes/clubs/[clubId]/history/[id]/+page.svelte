@@ -13,6 +13,7 @@
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
+	import { isDemoClub } from '$lib/features/demo/local-store';
 	import { getSessionKokMatches } from '$lib/data/live';
 	import {
 		getPublicClub,
@@ -195,7 +196,7 @@
 	}
 
 	async function loadEvaluation() {
-		if (!supabase || !session || evaluationLoading) return;
+		if (!supabase || isDemoClub(clubId) || !session || evaluationLoading) return;
 		const requestedSession = session.id;
 		evaluationLoading = true;
 		evaluationError = '';
@@ -217,7 +218,7 @@
 	}
 
 	async function exportEvaluation() {
-		if (!supabase || !session) return;
+		if (!supabase || isDemoClub(clubId) || !session) return;
 		const { data } = await supabase.auth.getSession();
 		if (!data.session?.access_token) return;
 		const response = await fetch(`/api/history/${session.id}/evaluation`, {
