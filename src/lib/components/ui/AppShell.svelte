@@ -5,6 +5,7 @@
 	import type { Snippet } from 'svelte';
 	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
 	import { authState, loadCachedClub, setCachedClub } from '$lib/auth-state.svelte';
+	import { isDemoClub } from '$lib/features/demo/local-store';
 	import { History, Radio, Settings, UsersRound, Wallet, Share2, UserRound } from '@lucide/svelte';
 	import Avatar from './Avatar.svelte';
 	import BrandMark from './BrandMark.svelte';
@@ -15,7 +16,10 @@
 		clubName = 'Klub',
 		mode,
 		headerActions,
-		onaccesschange
+		onaccesschange,
+		initialClubAccess,
+		demo = false,
+		ondemonavigate
 	}: {
 		children: Snippet;
 		current: string;
@@ -23,7 +27,13 @@
 		mode?: string;
 		headerActions?: Snippet;
 		onaccesschange?: (club: Club | null) => void;
+		initialClubAccess?: Club | null;
+		demo?: boolean;
+		ondemonavigate?: (view: string) => void;
 	} = $props();
+	let currentClubAccess = $derived(
+		initialClubAccess !== undefined ? initialClubAccess : authState.club
+	);
 
 	const links = [
 		{ href: '/live', route: '/clubs/[clubId]/live', label: 'Live', icon: Radio },
@@ -45,7 +55,8 @@
 		links.filter(
 			(link) =>
 				link.href !== '/settings' ||
-				Boolean(authState.club?.id === selectedClubId() && authState.club?.is_club_admin)
+				(!isDemoClub(selectedClubId()) &&
+					Boolean(currentClubAccess?.id === selectedClubId() && currentClubAccess?.is_club_admin))
 		)
 	);
 
@@ -64,7 +75,15 @@
 
 	onMount(() => {
 		let active = true;
-		loadCachedClub();
+		if (!demo && initialClubAccess !== undefined) {
+			setCachedClub(initialClubAccess);
+			return;
+		}
+		if (!demo) loadCachedClub();
+		if (demo)
+			return () => {
+				active = false;
+			};
 		void getClub(selectedClubId())
 			.then((club) => {
 				if (active) setCachedClub(club);
@@ -76,7 +95,9 @@
 			active = false;
 		};
 	});
-	$effect(() => onaccesschange?.(authState.club?.id === selectedClubId() ? authState.club : null));
+	$effect(() =>
+		onaccesschange?.(currentClubAccess?.id === selectedClubId() ? currentClubAccess : null)
+	);
 </script>
 
 <div class="app-shell">
@@ -84,18 +105,29 @@
 		<a class="app-brand" href={resolve('/')}><BrandMark />Courtside</a>
 		<p class="sidebar-note">Ruang klubmu.</p>
 		<nav class="app-navigation" aria-label="Navigasi utama">
-			{#each visibleLinks.filter((link) => link.href !== '/settings') as link (link.href)}
+			{#each visibleLinks as link (link.href)}
 				{@const Icon = link.icon}
-				<a
-					href={resolve(link.route, { clubId: selectedClubId() })}
-					data-sveltekit-preload-data="hover"
-					onmouseenter={() => void prefetchPublicSurface(link.href).catch(() => {})}
-					onfocus={() => void prefetchPublicSurface(link.href).catch(() => {})}
-					aria-current={current === link.href ? 'page' : undefined}
-					class:active={current === link.href}
-				>
-					<Icon size={20} strokeWidth={1.8} /><span>{link.label}</span>
-				</a>
+				{#if demo}
+					<button
+						type="button"
+						onclick={() => ondemonavigate?.(link.href)}
+						aria-current={current === link.href ? 'page' : undefined}
+						class:active={current === link.href}
+					>
+						<Icon size={20} strokeWidth={1.8} /><span>{link.label}</span>
+					</button>
+				{:else}
+					<a
+						href={resolve(link.route, { clubId: selectedClubId() })}
+						data-sveltekit-preload-data="hover"
+						onmouseenter={() => void prefetchPublicSurface(link.href).catch(() => {})}
+						onfocus={() => void prefetchPublicSurface(link.href).catch(() => {})}
+						aria-current={current === link.href ? 'page' : undefined}
+						class:active={current === link.href}
+					>
+						<Icon size={20} strokeWidth={1.8} /><span>{link.label}</span>
+					</a>
+				{/if}
 			{/each}
 		</nav>
 		<div class="sidebar-footer">
@@ -106,21 +138,33 @@
 	</aside>
 	<div class="app-workspace">
 		<header class="club-header">
-			<a class="club-identity" href={resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}>
+			<a
+				class="club-identity"
+				href={demo
+					? resolve('/clubs/[clubId]/live', { clubId: 'demo' })
+					: resolve('/clubs/[clubId]/live', { clubId: selectedClubId() })}
+			>
 				<Avatar name={clubName} size="sm" /><strong>{clubName}</strong>
 			</a>
 			<div class="club-tools">
-				{#if authState.club?.id === selectedClubId() && authState.club?.is_club_admin}<span
+				{#if !isDemoClub(selectedClubId()) && currentClubAccess?.id === selectedClubId() && currentClubAccess?.is_club_admin}<span
 						class="access-badge">Admin</span
 					><a
 						class="icon-control"
 						href={resolve('/clubs/[clubId]/settings', { clubId: selectedClubId() })}
 						aria-label="Pengaturan"><Settings size={19} /></a
 					>{/if}
-				<button class="icon-control" onclick={copyClubLink} aria-label="Salin tautan klub"
-					><Share2 size={18} /></button
+				{#if !demo}<button
+						class="icon-control"
+						onclick={copyClubLink}
+						aria-label="Salin tautan klub"><Share2 size={18} /></button
+					>{/if}
 				>
-				{#if headerActions}<details class="account-menu">
+				{#if demo || isDemoClub(selectedClubId())}<a
+						class="icon-control"
+						href={resolve('/')}
+						aria-label="Kembali ke beranda"><UserRound size={19} /></a
+					>{:else if headerActions}<details class="account-menu">
 						<summary class="icon-control" aria-label="Akun dan klub saya"
 							><UserRound size={19} /></summary
 						>
@@ -202,7 +246,7 @@
 		border-top: 1px solid var(--court-line);
 		padding: 6px 8px max(8px, env(safe-area-inset-bottom));
 	}
-	.app-navigation a {
+	.app-navigation :is(a, button) {
 		position: relative;
 		display: flex;
 		min-height: 48px;
@@ -217,10 +261,10 @@
 		font-weight: 650;
 		border-radius: 6px;
 	}
-	.app-navigation a.active {
+	.app-navigation :is(a, button).active {
 		color: var(--court-action-deep);
 	}
-	.app-navigation a.active:before {
+	.app-navigation :is(a, button).active:before {
 		content: '';
 		position: absolute;
 		top: -7px;
@@ -229,7 +273,7 @@
 		height: 2px;
 		background: var(--court-action);
 	}
-	.app-navigation a:hover {
+	.app-navigation :is(a, button):hover {
 		background: var(--court-soft);
 	}
 	.app-workspace {
@@ -348,18 +392,18 @@
 			padding: 0;
 			gap: 6px;
 		}
-		.app-navigation a {
+		.app-navigation :is(a, button) {
 			flex-direction: row;
 			justify-content: flex-start;
 			padding: 12px 16px;
 			gap: 14px;
 			font-size: 13px;
 		}
-		.app-navigation a.active {
+		.app-navigation :is(a, button).active {
 			color: var(--court-ink);
 			background: var(--court-soft);
 		}
-		.app-navigation a.active:before {
+		.app-navigation :is(a, button).active:before {
 			display: none;
 		}
 		.sidebar-footer {

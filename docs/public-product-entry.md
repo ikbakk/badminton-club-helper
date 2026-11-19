@@ -10,6 +10,7 @@ The product's working name is Courtside. PB NEWBIE is an existing club, with the
 - `/clubs/[clubId]/live` and the sibling Players, History, Fund, Settings, and session-close routes always carry an explicit club ID.
 - Old unscoped application links lead to `/start`. Unknown club links do not fall back to another club.
 - The club shell provides a public Live link to copy. Visitors remain read-only and need no account.
+- The `Coba demo` view on the landing page (`/?demo=1`) is a fictional, interactive session that needs no account. It starts with multi-player check-in that marks selected players READY locally, then shows the recap and per-attendee fees only after session close. A base fee applies to each checked-in player; the per-kok share is optional when kok counting was enabled. Its players, match progress, and scores live only in that browser's `localStorage`; reset clears the demo state. It does not write to a club or the database.
 
 An account can create one club; each new club gets that authenticated user as its Club Admin. Existing memberships are preserved. No public club directory or PB NEWBIE promotion is included. UUID links avoid name collisions and do not change when a club is renamed. Billing, subscriptions, custom slugs, private/invite-only viewing, multiple courts, and additional admin invitations are separate future work. Public club links are not secrecy guarantees: the existing public-safe data remains publicly readable.
 

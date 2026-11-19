@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { evaluateSession } from '../src/lib/domain/session-evaluation';
 import { pbNewbieSessionFixture } from '../src/lib/domain/session-evaluation.fixture';
+import { seedSupabaseAuthCookie } from './helpers/supabase-auth';
 
 const sessionId = 'history-evaluation-e2e';
 const evaluation = evaluateSession({ ...pbNewbieSessionFixture, sessionId });
@@ -11,39 +12,18 @@ async function setupHistory(
 	admin: boolean,
 	attendance = 12
 ) {
-	await page.addInitScript(
-		({ admin }) => {
-			if (!admin) return;
+	if (admin) {
+		await seedSupabaseAuthCookie(page, {
+			id: 'admin-e2e',
+			app_metadata: { provider: 'email', providers: ['email'] }
+		});
+		await page.addInitScript(() => {
 			localStorage.setItem(
 				'pb-newbie:club-access',
 				JSON.stringify({ id: 'club-e2e', name: 'PB NEWBIE', is_club_admin: true })
 			);
-			const payload = btoa(
-				JSON.stringify({ sub: 'admin-e2e', exp: Math.floor(Date.now() / 1000) + 3600 })
-			)
-				.replace(/=/g, '')
-				.replace(/\+/g, '-')
-				.replace(/\//g, '_');
-			localStorage.setItem(
-				'sb-courtside-e2e-auth-token',
-				JSON.stringify({
-					access_token: `e30.${payload}.sig`,
-					refresh_token: 'e2e-refresh',
-					token_type: 'bearer',
-					expires_at: Math.floor(Date.now() / 1000) + 3600,
-					user: {
-						id: 'admin-e2e',
-						aud: 'authenticated',
-						role: 'authenticated',
-						app_metadata: { provider: 'email', providers: ['email'] },
-						user_metadata: {},
-						created_at: new Date().toISOString()
-					}
-				})
-			);
-		},
-		{ admin }
-	);
+		});
+	}
 	await page.route('**/rest/v1/**', async (route) => {
 		const path = new URL(route.request().url()).pathname;
 		if (path.endsWith('/public_club_profile'))

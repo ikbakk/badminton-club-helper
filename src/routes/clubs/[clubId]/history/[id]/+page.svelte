@@ -13,6 +13,8 @@
 	import CourtDialog from '$lib/components/ui/CourtDialog.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { supabase } from '$lib/supabase';
+	import { isDemoClub } from '$lib/features/demo/local-store';
+	import { getSessionKokMatches } from '$lib/data/live';
 	import {
 		getPublicClub,
 		getPublicSessionAttendance,
@@ -194,7 +196,7 @@
 	}
 
 	async function loadEvaluation() {
-		if (!supabase || !session || evaluationLoading) return;
+		if (!supabase || isDemoClub(clubId) || !session || evaluationLoading) return;
 		const requestedSession = session.id;
 		evaluationLoading = true;
 		evaluationError = '';
@@ -216,7 +218,7 @@
 	}
 
 	async function exportEvaluation() {
-		if (!supabase || !session) return;
+		if (!supabase || isDemoClub(clubId) || !session) return;
 		const { data } = await supabase.auth.getSession();
 		if (!data.session?.access_token) return;
 		const response = await fetch(`/api/history/${session.id}/evaluation`, {
@@ -246,6 +248,12 @@
 		shareNotice = '';
 		try {
 			const fee = session.fee_per_person ?? financeRecap?.fee_per_person ?? null;
+			const kokMatches = session.count_kok ? await getSessionKokMatches(session.id) : null;
+			const kokUsed = kokMatches
+				? kokMatches.every((match) => match.kok_count !== null)
+					? kokMatches.reduce((sum, match) => sum + (match.kok_count ?? 0), 0)
+					: null
+				: undefined;
 			const svg = renderShareCard(
 				{
 					clubName,
@@ -254,10 +262,12 @@
 					courtsUsed: new Set(matches.map((match) => match.court_number ?? 1)).size,
 					matches: matches.length,
 					sets: matches.reduce((total, match) => total + completedSetCount(match), 0),
+					kokUsed,
 					names: attendees.map((player) => player.display_name),
 					finance: includeFinance
 						? {
 								fee,
+								kokPrice: session.count_kok ? (session.kok_price ?? null) : undefined,
 								totalDue: financeRecap?.expected_fees ?? (fee ?? 0) * session.attendance,
 								paid: attendees.filter((player) => player.is_paid === true).length,
 								attendees: attendees.length || session.attendance

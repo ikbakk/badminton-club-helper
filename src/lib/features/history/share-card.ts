@@ -7,8 +7,15 @@ export type ShareCardData = {
 	courtsUsed: number;
 	matches: number;
 	sets: number;
+	kokUsed?: number | null;
 	names: string[];
-	finance?: { fee: number | null; totalDue: number; paid: number; attendees: number };
+	finance?: {
+		fee: number | null;
+		kokPrice?: number | null;
+		totalDue: number;
+		paid: number;
+		attendees: number;
+	};
 };
 const escapeXml = (value: string) =>
 	value.replace(
@@ -98,14 +105,17 @@ export function renderShareCard(data: ShareCardData, fontData = '') {
 	svg += text(48, headerHeight - 82, 'Rekap sesi badminton', 36, 700, '#c8d9d0');
 	svg += text(48, headerHeight - 30, data.date, 29, 500, '#fffaf0');
 	svg += `<rect x="32" y="${metricsTop}" width="1016" height="158" rx="24" fill="#e5ece5"/>`;
-	[
+	const metrics: [number | string, string][] = [
 		[data.attendance, 'Pemain'],
 		[data.courtsUsed, 'Court dipakai'],
 		[data.matches, 'Match'],
 		[data.sets, 'Set']
-	].forEach(([value, label], i) => {
-		const x = 159 + i * 254;
-		if (i) svg += `<path d="M${x - 127} ${metricsTop + 24}v110" stroke="#b9c5bb"/>`;
+	];
+	if (data.kokUsed !== undefined) metrics.push([data.kokUsed ?? '—', 'Kok dipakai']);
+	const metricWidth = 1016 / metrics.length;
+	metrics.forEach(([value, label], i) => {
+		const x = 32 + metricWidth * (i + 0.5);
+		if (i) svg += `<path d="M${32 + metricWidth * i} ${metricsTop + 24}v110" stroke="#b9c5bb"/>`;
 		svg += text(x, metricsTop + 92, String(value), 72, 800, '#163630', 'text-anchor="middle"');
 		svg += text(x, metricsTop + 134, String(label), 25, 700, '#38675b', 'text-anchor="middle"');
 	});
@@ -116,19 +126,39 @@ export function renderShareCard(data: ShareCardData, fontData = '') {
 	if (data.finance) {
 		const f = data.finance;
 		const top = financeTop + 30;
-		svg += `<rect x="32" y="${top}" width="1016" height="140" rx="24" fill="#e5ece5"/><path d="M505 ${top + 25}v90M788 ${top + 25}v90" stroke="#b9c5bb"/>`;
-		svg += text(56, top + 48, 'Iuran sesi', 30, 800);
+		const columns = f.kokPrice === undefined ? 3 : 4;
+		const columnWidth = 1016 / columns;
+		svg += `<rect x="32" y="${top}" width="1016" height="140" rx="24" fill="#e5ece5"/>`;
+		for (let i = 1; i < columns; i++) {
+			const x = 32 + columnWidth * i;
+			svg += `<path d="M${x} ${top + 18}v104" stroke="#b9c5bb"/>`;
+		}
+		const xAt = (column: number) => 56 + columnWidth * column;
+		svg += text(xAt(0), top + 39, 'Iuran per orang', 21, 800);
+		svg += text(xAt(0), top + 64, 'tidak termasuk kok', 18, 600, '#38675b');
 		svg += text(
-			56,
-			top + 95,
+			xAt(0),
+			top + 108,
 			f.fee === null ? 'Belum ditetapkan' : `${money(f.fee)} / orang`,
-			27,
+			24,
 			600
 		);
-		svg += text(535, top + 47, 'Total tagihan', 24, 500, '#38675b');
-		svg += text(535, top + 95, f.fee === null ? '—' : money(f.totalDue), 29, 800);
-		svg += text(818, top + 64, `${f.paid}/${f.attendees}`, 37, 800);
-		svg += text(818, top + 102, 'lunas', 25, 600, '#38675b');
+		const totalColumn = f.kokPrice === undefined ? 1 : 2;
+		if (f.kokPrice !== undefined) {
+			svg += text(xAt(1), top + 48, 'Harga per kok', 21, 600, '#38675b');
+			svg += text(
+				xAt(1),
+				top + 98,
+				f.kokPrice === null ? 'Belum ditetapkan' : money(f.kokPrice),
+				f.kokPrice === null ? 17 : 25,
+				800
+			);
+		}
+		svg += text(xAt(totalColumn), top + 48, 'Total tagihan', 21, 500, '#38675b');
+		svg += text(xAt(totalColumn), top + 98, f.fee === null ? '—' : money(f.totalDue), 27, 800);
+		const paidColumn = totalColumn + 1;
+		svg += text(xAt(paidColumn), top + 64, `${f.paid}/${f.attendees}`, 34, 800);
+		svg += text(xAt(paidColumn), top + 102, 'lunas', 23, 600, '#38675b');
 	}
 	svg += `<path d="M48 ${footerTop + 30}h984" stroke="#b9c5bb"/>`;
 	svg += brand(48, footerTop + 62, '#163630', 0.65);

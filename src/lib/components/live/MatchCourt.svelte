@@ -13,6 +13,8 @@
 		activeMatch,
 		courtNumber,
 		canManage = false,
+		manualMode = false,
+		demo = false,
 		online = true,
 		pending = '',
 		onpreparenext,
@@ -28,6 +30,8 @@
 		activeMatch: ActiveMatch | null;
 		courtNumber: number;
 		canManage?: boolean;
+		manualMode?: boolean;
+		demo?: boolean;
 		online?: boolean;
 		pending?: string;
 		onpreparenext: () => Promise<{ id: string; recommendation: RotationRecommendation } | null>;
@@ -66,7 +70,7 @@
 	let correctionSet = $state<1 | 2 | 3 | null>(null);
 	let correctionA = $state('');
 	let correctionB = $state('');
-	let selectedPairing = $state<PairingOption | null>(null);
+	let selectedPairingKey = $state<string | null>(null);
 	let confirmedScoreSet = $state<number | null>(null);
 	let scoreSaving = $state(false);
 	let scoreSaveSlow = $state(false);
@@ -91,6 +95,10 @@
 	);
 	let pairingOptions = $derived(pairingStates.length === 4 ? evaluatePairings(pairingStates) : []);
 	let recommendedPairing = $derived(pairingOptions[0] ?? null);
+	const pairingKey = (option: PairingOption) => option.teams.flat().join('-');
+	let selectedPairing = $derived(
+		pairingOptions.find((option) => pairingKey(option) === selectedPairingKey) ?? null
+	);
 	let recommendedPlayers = $derived(
 		recommendation?.selectedPlayerIds
 			.map((id) => ready.find((player) => player.id === id))
@@ -132,16 +140,25 @@
 					return { id, rating: player.rating, sigma: player.uncertainty, games: player.setsPlayed };
 				})
 			);
-			selectedPairing = legalPairings[0] ?? null;
+			const initialPairing = manualMode
+				? (legalPairings.find(
+						(option) =>
+							option.teams[0].includes(selected[0]) && option.teams[0].includes(selected[1])
+					) ??
+					legalPairings[0] ??
+					null)
+				: (legalPairings[0] ?? null);
+			selectedPairingKey = initialPairing ? pairingKey(initialPairing) : null;
 			stage = 'teams';
 		}
 	}
 
 	async function beginPreparation() {
 		selected = [];
+		selectedPairingKey = null;
 		recommendation = null;
 		recommendationId = null;
-		if (ready.length >= 4 && online) {
+		if (!manualMode && ready.length >= 4 && online) {
 			const prepared = await onpreparenext();
 			if (prepared) {
 				recommendation = prepared.recommendation;
@@ -153,9 +170,9 @@
 	}
 
 	function swapPair() {
-		if (pairingOptions.length)
-			selectedPairing =
-				pairingOptions.find((option) => option !== selectedPairing) ?? pairingOptions[0];
+		if (!pairingOptions.length) return;
+		const index = pairingOptions.findIndex((option) => pairingKey(option) === selectedPairingKey);
+		selectedPairingKey = pairingKey(pairingOptions[(index + 1) % pairingOptions.length]);
 	}
 
 	function playerName(id: string) {
@@ -164,6 +181,7 @@
 
 	async function submitScore() {
 		if (scoreSaving || confirmedScoreSet === playingSet?.setNumber) return;
+		const submittedSetNumber = playingSet?.setNumber ?? null;
 		const a = Number(scoreA);
 		const b = Number(scoreB);
 		if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a === b) return;
@@ -172,7 +190,7 @@
 		const slowTimer = setTimeout(() => (scoreSaveSlow = true), 1500);
 		try {
 			if (await oncomplete(a, b)) {
-				confirmedScoreSet = playingSet?.setNumber ?? null;
+				confirmedScoreSet = submittedSetNumber;
 				scoreA = '';
 				scoreB = '';
 			}
@@ -564,7 +582,7 @@
 									selectedPairing.teams[0],
 									selectedPairing.teams[1],
 									recommendationId,
-									recommendedPairing && pairingOptions.length === 3
+									!manualMode && recommendedPairing && pairingOptions.length === 3
 										? { recommended: recommendedPairing, options: pairingOptions }
 										: undefined,
 									courtNumber
@@ -643,34 +661,59 @@
 					/>
 				</div>
 			{:else if selectedPairing && recommendedPairing}
-				<div class="border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
-					<p class="text-xs font-black tracking-[0.12em] text-[#38675b]">REKOMENDASI TIM</p>
-					<h4 class="mt-1 text-xl font-black tracking-[-0.04em] text-[#163630]">
-						{playerName(recommendedPairing.teams[0][0])} + {playerName(
-							recommendedPairing.teams[0][1]
-						)}<br />vs<br />{playerName(recommendedPairing.teams[1][0])} + {playerName(
-							recommendedPairing.teams[1][1]
-						)}
-					</h4>
-					<p class="mt-2 text-sm text-[#527169]">
-						Paling seimbang · selisih kekuatan {recommendedPairing.predictedGap.toFixed(1)}
-					</p>
-				</div>
+				{#if !manualMode}
+					<div class="border-b border-[#b9c5bb] bg-[#e5ece5] px-5 py-4">
+						<p class="text-xs font-black tracking-[0.12em] text-[#38675b]">REKOMENDASI TIM</p>
+						<h4 class="mt-1 text-xl font-black tracking-[-0.04em] text-[#163630]">
+							{#if demo}
+								<span class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
+									<span class="grid grid-cols-2 gap-2">
+										<b>{playerName(recommendedPairing.teams[0][0])}</b><b
+											>{playerName(recommendedPairing.teams[0][1])}</b
+										>
+									</span>
+									<b class="text-[#e2653e]">VS</b>
+									<span class="grid grid-cols-2 gap-2">
+										<b>{playerName(recommendedPairing.teams[1][0])}</b><b
+											>{playerName(recommendedPairing.teams[1][1])}</b
+										>
+									</span>
+								</span>
+							{:else}
+								{playerName(recommendedPairing.teams[0][0])} + {playerName(
+									recommendedPairing.teams[0][1]
+								)}<br />vs<br />{playerName(recommendedPairing.teams[1][0])} + {playerName(
+									recommendedPairing.teams[1][1]
+								)}
+							{/if}
+						</h4>
+						<p class="mt-2 text-sm text-[#527169]">
+							Paling seimbang · selisih kekuatan {recommendedPairing.predictedGap.toFixed(1)}
+						</p>
+					</div>
+				{/if}
 				<div class="grid gap-2 p-5">
 					{#each pairingOptions as option, index (option.teams.flat().join('-'))}
 						<button
-							class={`min-h-14 rounded-[var(--court-control-radius)] border px-4 py-3 text-left ${selectedPairing === option ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
-							onclick={() => (selectedPairing = option)}
+							class={`min-h-20 rounded-[var(--court-control-radius)] border px-4 py-3 text-left ${selectedPairingKey === pairingKey(option) ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+							aria-pressed={selectedPairingKey === pairingKey(option)}
+							onclick={() => (selectedPairingKey = pairingKey(option))}
 						>
-							<b
-								>{playerName(option.teams[0][0])} + {playerName(option.teams[0][1])} vs {playerName(
-									option.teams[1][0]
-								)} + {playerName(option.teams[1][1])}</b
-							>
+							<span class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+								<span class="grid grid-cols-2 gap-2 text-center">
+									<b>{playerName(option.teams[0][0])}</b><b>{playerName(option.teams[0][1])}</b>
+								</span>
+								<b class="text-center text-[#e2653e]">VS</b>
+								<span class="grid grid-cols-2 gap-2 text-center">
+									<b>{playerName(option.teams[1][0])}</b><b>{playerName(option.teams[1][1])}</b>
+								</span>
+							</span>
 							<span class="ml-2 text-xs"
-								>{index === 0
-									? 'Paling seimbang'
-									: `Selisih ${option.predictedGap.toFixed(1)}`}</span
+								>{manualMode
+									? ''
+									: index === 0
+										? 'Paling seimbang'
+										: `Selisih ${option.predictedGap.toFixed(1)}`}</span
 							>
 						</button>
 					{/each}

@@ -6,7 +6,9 @@ Club Admin is the only write authority for session and finance operations. There
 
 ## Session fee and obligations
 
-Fee is set/confirmed during session close, not session start. The session fee is an integer rupiah amount; closing creates an obligation for each attendee. One obligation represents the amount owed by one player for one session.
+Charges are confirmed during session close. The Club Admin enters a base rupiah amount for every checked-in attendee, a per-kok price, and court rent. When kok counting is enabled, every completed match needs a count (zero is valid). Match kok cost is split by actual completed set appearances, including substitutions, with deterministic whole-rupiah rounding. A player adjustment needs a reason. The confirmed obligation stores the base, kok, and adjustment breakdown for each attendee.
+
+Confirming charges also records the entered court rent as a paid COURT expense in the same transaction. This immediately reduces Kas. A zero rent needs no expense row. Kok usage adds to player charges; buying kok stock is a separate SHUTTLECOCK expense and must only be recorded when money is actually spent.
 
 ## Payments, credit, and debt
 
@@ -18,7 +20,7 @@ Club Admins can configure one bank destination, one ShopeePay destination, and a
 
 ## Expenses and fund
 
-Official expense categories are COURT, SHUTTLECOCK, and OTHER. Club fund is derived as all actual payments minus official expenses. Public reporting may expose aggregate fund transparency, but individual debt/payment details and private finance records remain restricted.
+Official expense categories are COURT, SHUTTLECOCK, and OTHER. Kas is the cumulative club fund: all confirmed received payments minus paid expenses across sessions. Unpaid player obligations are shown separately and do not increase Kas. Public reporting may expose aggregate fund transparency, but individual debt/payment details and private finance records remain restricted.
 
 ## Product boundary
 

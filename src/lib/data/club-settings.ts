@@ -1,4 +1,5 @@
 import { supabase } from '$lib/supabase';
+import { isDemoClub } from '$lib/features/demo/local-store';
 
 export type ClubSettings = {
 	club_id: string;
@@ -23,12 +24,25 @@ function client() {
 }
 
 export async function getClubSettings(clubId: string): Promise<ClubSettings | null> {
+	if (isDemoClub(clubId))
+		return {
+			club_id: clubId,
+			name: 'Klub Demo',
+			bank_name: null,
+			bank_account_name: null,
+			bank_account_number: null,
+			shopeepay_name: null,
+			shopeepay_number: null,
+			qris_image_url: null,
+			publish_publicly: false
+		};
 	const { data, error } = await client().rpc('club_settings', { p_club_id: clubId });
 	if (error) throw error;
 	return (data?.[0] ?? null) as ClubSettings | null;
 }
 
 export async function updateClubSettings(clubId: string, settings: ClubSettingsInput) {
+	if (isDemoClub(clubId)) return;
 	const { error } = await client().rpc('update_club_settings', {
 		p_club_id: clubId,
 		p_name: settings.name,
@@ -46,6 +60,7 @@ export async function updateClubSettings(clubId: string, settings: ClubSettingsI
 export async function getPublicPaymentDestinations(
 	clubId: string
 ): Promise<PublicPaymentDestinations | null> {
+	if (isDemoClub(clubId)) return null;
 	const { data, error } = await client().rpc('public_payment_destinations', {
 		p_club_id: clubId
 	});

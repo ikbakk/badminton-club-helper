@@ -22,7 +22,13 @@
 		type FinanceSessionAttendee,
 		type PublicSessionHistory
 	} from '$lib/data/dashboard';
-	import { confirmSessionFee, reopenSession, suggestSessionFee } from '$lib/data/live';
+	import {
+		confirmSessionCharges,
+		getSessionKokMatches,
+		getSessionKokShares,
+		reopenSession,
+		suggestSessionFee
+	} from '$lib/data/live';
 
 	let { params }: { params: { id: string } } = $props();
 	let club = $state<Club | null>(null);
@@ -51,6 +57,12 @@
 	let attendees = $state<FinanceSessionAttendee[]>([]);
 	let matchCount = $derived(closeQuery.data?.matchCount ?? 0);
 	let fee = $state('');
+	let kokPrice = $state('0');
+	let courtRent = $state('0');
+	let kokMatches = $state<
+		{ match_id: string; sequence_number: number; kok_count: number | null }[]
+	>([]);
+	let shares = $state<Record<string, number>>({});
 	let feeSuggested = $state(false);
 	let loading = $derived(closeQuery.isPending);
 	let savingFee = $state(false);
@@ -59,7 +71,32 @@
 	let paidOverrides = $state<Record<string, boolean>>({});
 	let notice = $state('');
 	let isAdmin = $derived(Boolean(club?.is_club_admin));
-	let totalDue = $derived(Number(fee || session?.fee_per_person || 0) * (session?.attendance ?? 0));
+	let totalDue = $derived(
+		Number(fee || 0) * (session?.attendance ?? 0) +
+			Object.values(shares).reduce((sum, amount) => sum + amount, 0)
+	);
+	let totalKokUsed = $derived(kokMatches.reduce((sum, match) => sum + (match.kok_count ?? 0), 0));
+	let totalKokCost = $derived(Object.values(shares).reduce((sum, amount) => sum + amount, 0));
+	let missingKok = $derived(
+		Boolean(session?.count_kok && kokMatches.some((match) => match.kok_count === null))
+	);
+	$effect(() => {
+		if (!isAdmin || !session || session.fee_per_person !== null) return;
+		const price = Number(kokPrice);
+		if (!Number.isSafeInteger(price) || price < 0) return;
+		let cancelled = false;
+		void getSessionKokShares(session.id, price)
+			.then((rows) => {
+				if (!cancelled)
+					shares = Object.fromEntries(rows.map((row) => [row.player_id, Number(row.kok_amount)]));
+			})
+			.catch(() => {
+				if (!cancelled) notice = 'Rincian biaya kok belum bisa dihitung.';
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
 	let paidCount = $derived(
 		attendees.filter((person) => paidOverrides[person.player_id] ?? Boolean(person.paid_at)).length
 	);
@@ -91,6 +128,11 @@
 
 	async function loadAdminData() {
 		if (!club?.is_club_admin || !session) return;
+		kokMatches = await getSessionKokMatches(session.id);
+		if (session.kok_price !== null && session.kok_price !== undefined)
+			kokPrice = String(session.kok_price);
+		if (session.court_rent !== null && session.court_rent !== undefined)
+			courtRent = String(session.court_rent);
 		if (!fee) {
 			const suggestion = await suggestSessionFee(session.id);
 			if (suggestion && !fee) {
@@ -233,18 +275,25 @@
 
 	async function saveFee() {
 		const amount = Number(fee);
+		const price = Number(kokPrice);
+		const rent = Number(courtRent);
 		if (
 			savingFee ||
 			!session ||
 			session.attendance < 1 ||
 			!Number.isSafeInteger(amount) ||
-			amount <= 0
+			amount <= 0 ||
+			!Number.isSafeInteger(price) ||
+			price < 0 ||
+			!Number.isSafeInteger(rent) ||
+			rent < 0 ||
+			missingKok
 		)
 			return;
 		savingFee = true;
 		notice = '';
 		try {
-			await confirmSessionFee(session.id, amount);
+			await confirmSessionCharges(session.id, amount, price, rent, {});
 			invalidatePublicData();
 			await load();
 			notice = 'Iuran sesi tersimpan dan daftar pembayaran siap diperbarui.';
@@ -254,7 +303,6 @@
 			savingFee = false;
 		}
 	}
-
 	async function reopen() {
 		if (
 			!session ||
@@ -366,10 +414,10 @@
 			</section>
 		{:else}
 			<section class="mt-6 border-b border-[#d6ddd3] pb-6">
-				<h2 class="text-2xl font-bold tracking-[-0.04em]">Tetapkan iuran per orang</h2>
+				<h2 class="text-2xl font-bold tracking-[-0.04em]">Tinjau biaya sesi</h2>
 				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
-					Konfirmasi iuran membuat tagihan sesi untuk setiap pemain yang hadir. Nilai ini akan masuk
-					ke riwayat.
+					Atur pembayaran dasar, harga kok, dan sewa lapangan. Sewa dianggap sudah dibayar saat
+					biaya dikonfirmasi.
 				</p>
 				{#if session.fee_per_person === null}
 					<form
@@ -387,7 +435,17 @@
 								tagihan.
 							{/if}
 						</p>
-						<label class="block text-sm font-bold" for="session-fee">Iuran per orang</label>
+						<label class="block text-sm font-bold" for="session-fee"
+							>Iuran dasar per orang (tidak termasuk kok)</label
+						>
+						<div class="mt-3 flex flex-wrap gap-2">
+							{#each [10000, 15000, 20000] as preset (preset)}<AppButton
+									variant="secondary"
+									type="button"
+									onclick={() => (fee = String(preset))}
+									>Rp{preset.toLocaleString('id-ID')}</AppButton
+								>{/each}
+						</div>
 						<div class="mt-2 flex items-stretch gap-3">
 							<span class="flex items-center border border-[#d6ddd3] bg-[#e5ece5] px-4 font-bold"
 								>Rp</span
@@ -402,15 +460,45 @@
 								bind:value={fee}
 							/>
 						</div>
+						<div class="mt-4 grid gap-4 sm:grid-cols-2">
+							<label class="text-sm font-bold"
+								>Harga per kok (Rp)<input
+									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+									type="number"
+									min="0"
+									step="1"
+									bind:value={kokPrice}
+								/></label
+							>
+							<label class="text-sm font-bold"
+								>Sewa lapangan dibayar (Rp)<input
+									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+									type="number"
+									min="0"
+									step="1"
+									bind:value={courtRent}
+								/></label
+							>
+						</div>
+						{#if missingKok}
+							<p class="mt-3 text-sm font-bold text-[#9a3d25]" role="alert">
+								Jumlah kok per match belum lengkap. Buka kembali sesi dan catat di tab Live.
+							</p>
+						{/if}
 						<div class="mt-4 grid gap-1 border-y border-[#d6ddd3] py-3 text-sm">
 							<p class="flex justify-between gap-3">
 								<span>Jumlah pemain</span><b>{session.attendance}</b>
 							</p>
 							<p class="flex justify-between gap-3">
-								<span>Iuran per orang</span><b
+								<span>Iuran dasar per orang (tidak termasuk kok)</span><b
 									>{Number(fee) > 0 ? money(Number(fee)) : 'Belum diisi'}</b
 								>
 							</p>
+							{#if session.count_kok}
+								<p class="flex justify-between gap-3">
+									<span>Kok terpakai</span><b>{totalKokUsed} kok · {money(totalKokCost)}</b>
+								</p>
+							{/if}
 							<p class="flex justify-between gap-3 text-base">
 								<span>Total tagihan yang akan dibuat</span><b
 									>{Number(fee) > 0 ? money(totalDue) : 'Belum dihitung'}</b
@@ -425,7 +513,7 @@
 						<div class="mt-5 flex flex-wrap gap-3">
 							<AppButton
 								type="submit"
-								disabled={savingFee || session.attendance === 0 || !Number(fee)}
+								disabled={savingFee || session.attendance === 0 || !Number(fee) || missingKok}
 							>
 								{savingFee ? 'Menyimpan…' : 'Konfirmasi iuran & buat tagihan'}
 							</AppButton>
@@ -437,7 +525,9 @@
 						{money(session.fee_per_person)} <span class="text-base">/ orang</span>
 					</p>
 					<p class="mt-1 text-sm text-[#527169]">
-						Total tagihan: {money(session.fee_per_person * session.attendance)}
+						Total tagihan: {money(
+							attendees.reduce((sum, person) => sum + Number(person.amount ?? 0), 0)
+						)}
 					</p>
 				{/if}
 			</section>
