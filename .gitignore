@@ -40,5 +40,5 @@ simulation-results/
 
 /.superpowers/
 
-# Nibox local state
-.nibox/
+# Inbox local state
+.inbox/
