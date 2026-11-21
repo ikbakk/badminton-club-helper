@@ -45,3 +45,20 @@ export async function seedSupabaseAuthCookie(page: Page, user: E2EUser) {
 		}
 	]);
 }
+
+/** Seed the PKCE verifier cookie that a real Supabase recovery redirect carries forward. */
+export async function seedSupabasePkceVerifierCookie(page: Page, verifier: string) {
+	const value = `base64-${Buffer.from(JSON.stringify(verifier)).toString('base64url')}`;
+	await page.context().addCookies([
+		{
+			name: 'sb-courtside-e2e-auth-token-code-verifier',
+			value,
+			domain: 'localhost',
+			path: '/',
+			httpOnly: false,
+			secure: false,
+			sameSite: 'Lax',
+			expires: Math.floor(Date.now() / 1000) + 3600
+		}
+	]);
+}

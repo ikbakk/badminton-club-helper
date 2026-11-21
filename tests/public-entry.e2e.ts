@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { seedSupabaseAuthCookie } from './helpers/supabase-auth';
+import { seedSupabaseAuthCookie, seedSupabasePkceVerifierCookie } from './helpers/supabase-auth';
 
 const clubA = '11111111-1111-4111-8111-111111111111';
 const clubB = '22222222-2222-4222-8222-222222222222';
@@ -213,6 +213,24 @@ test('validated recovery link saves only matching passwords and returns to sign-
 	page
 }) => {
 	await backend(page);
+	await seedSupabasePkceVerifierCookie(page, 'e2e-pkce-verifier/recovery');
+	const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+	const payload = Buffer.from(
+		JSON.stringify({
+			sub: user.id,
+			aud: 'authenticated',
+			role: 'authenticated',
+			exp: Math.floor(Date.now() / 1000) + 3600
+		})
+	).toString('base64url');
+	const session = {
+		access_token: `${header}.${payload}.e2e-signature`,
+		refresh_token: 'test-refresh',
+		token_type: 'bearer',
+		expires_in: 3600,
+		user
+	};
+	await page.route('**/auth/v1/token?grant_type=pkce', (route) => route.fulfill({ json: session }));
 	let writes = 0;
 	await page.route('**/auth/v1/user', (route) => {
 		if (route.request().method() === 'PUT') {
@@ -222,12 +240,7 @@ test('validated recovery link saves only matching passwords and returns to sign-
 		return route.fulfill({ json: user });
 	});
 	await page.route('**/auth/v1/logout**', (route) => route.fulfill({ status: 204 }));
-	const payload = Buffer.from(
-		JSON.stringify({ sub: user.id, exp: Math.floor(Date.now() / 1000) + 3600 })
-	).toString('base64url');
-	await page.goto(
-		`/reset-password#access_token=e30.${payload}.sig&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=recovery`
-	);
+	await page.goto('/reset-password?code=e2e-recovery-code');
 	await expect(page.getByLabel('Kata sandi baru', { exact: true })).toBeVisible();
 	await page.getByLabel('Kata sandi baru', { exact: true }).fill('new-password');
 	await page.getByLabel('Ulangi kata sandi').fill('wrong-password');

@@ -696,6 +696,7 @@
 					{#each pairingOptions as option, index (option.teams.flat().join('-'))}
 						<button
 							class={`min-h-20 rounded-[var(--court-control-radius)] border px-4 py-3 text-left ${selectedPairingKey === pairingKey(option) ? 'border-[#163630] bg-[#163630] text-[#fffaf0]' : 'border-[#b9c5bb] bg-[#fffaf0] text-[#163630]'}`}
+							aria-label={`${playerName(option.teams[0][0])} + ${playerName(option.teams[0][1])} vs ${playerName(option.teams[1][0])} + ${playerName(option.teams[1][1])}`}
 							aria-pressed={selectedPairingKey === pairingKey(option)}
 							onclick={() => (selectedPairingKey = pairingKey(option))}
 						>
