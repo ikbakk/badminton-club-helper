@@ -39,3 +39,6 @@ output/playwright
 simulation-results/
 
 /.superpowers/
+
+# Nibox local state
+.nibox/
