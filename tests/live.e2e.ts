@@ -547,7 +547,9 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await page.getByRole('link', { name: 'Lanjutkan rekap' }).click();
 	await expect(page.getByRole('link', { name: 'Konfirmasi rekap' })).toBeVisible();
 	await expect(page.getByText('Jumlah pemain').locator('..')).toContainText('2');
-	await expect(page.getByText('Iuran per orang').last().locator('..')).toContainText('Rp15.000');
+	await expect(
+		page.getByText('Iuran dasar per orang (tidak termasuk kok)').last().locator('..')
+	).toContainText('Rp15.000');
 	await expect(page.getByText('Total tagihan yang akan dibuat').locator('..')).toContainText(
 		'Rp30.000'
 	);
@@ -815,7 +817,7 @@ test('Algorithm 2 offers exactly three legal pairings and deterministic recommen
 	const options = sheet.locator('button').filter({ hasText: /Paling seimbang|Selisih/ });
 	await expect(options).toHaveCount(3);
 	await expect(options.first()).toContainText('Paling seimbang');
-	await expect(options.first()).toContainText('Pemain 1 + Pemain 2 vs Pemain 3 + Pemain 4');
+	await expect(options.first()).toHaveAccessibleName('Pemain 1 + Pemain 2 vs Pemain 3 + Pemain 4');
 });
 
 test('manual session can select a pairing without recommendation controls', async ({ page }) => {

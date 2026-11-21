@@ -36,6 +36,8 @@ async function setupHistory(
 						started_at: pbNewbieSessionFixture.startedAt,
 						closed_at: pbNewbieSessionFixture.closedAt,
 						fee_per_person: null,
+						count_kok: true,
+						kok_price: 2500,
 						attendance
 					}
 				]
@@ -48,10 +50,14 @@ async function setupHistory(
 			return route.fulfill({
 				json: admin ? [{ id: 'club-e2e', name: 'PB NEWBIE', is_club_admin: true }] : []
 			});
+		if (path.endsWith('/session_kok_matches'))
+			return route.fulfill({
+				json: [{ match_id: 'match-e2e', sequence_number: 1, kok_count: 6 }]
+			});
 		return route.fulfill({ json: [] });
 	});
 	await page.route(`**/api/history/${sessionId}/evaluation`, async (route) => {
-		if (!admin || !route.request().headers().authorization?.startsWith('Bearer e30.'))
+		if (!admin || !route.request().headers().authorization?.startsWith('Bearer '))
 			return route.fulfill({ status: 403, json: { message: 'Club Admin authority is required.' } });
 		return route.fulfill({ json: evaluation, headers: { 'cache-control': 'private, no-store' } });
 	});
@@ -116,7 +122,11 @@ test('recap shares the full roster as PNG and can omit all finance', async ({ pa
 		const download = await pending;
 		return readFile((await download.path())!, 'utf8');
 	};
-	expect(await downloadSvg()).toContain('Iuran sesi');
+	const financialSvg = await downloadSvg();
+	expect(financialSvg).toContain('Iuran per orang');
+	expect(financialSvg).toContain('tidak termasuk kok');
+	expect(financialSvg).toContain('Harga per kok');
+	expect(financialSvg).toContain('Rp2.500');
 	await page.getByRole('checkbox', { name: 'Sertakan iuran dan pembayaran' }).uncheck();
 	await expect(image).not.toHaveAttribute('src', financialImage!);
 	const vector = await downloadSvg();
