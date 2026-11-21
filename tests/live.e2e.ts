@@ -545,7 +545,7 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await page.getByRole('link', { name: 'Kembali ke Live' }).click();
 	await expect(page.getByRole('heading', { name: 'Rekap sesi belum dikonfirmasi' })).toBeVisible();
 	await page.getByRole('link', { name: 'Lanjutkan rekap' }).click();
-	await expect(page.getByRole('link', { name: 'Konfirmasi rekap' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Lanjut', exact: true })).toBeVisible();
 	await expect(page.getByText('Jumlah pemain').locator('..')).toContainText('2');
 	await expect(
 		page.getByText('Iuran dasar per orang (tidak termasuk kok)').last().locator('..')
@@ -558,8 +558,10 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
 	await expect.poll(() => backend.getFeeConfirmCount()).toBe(1);
 	expect(backend.getChargeConfirmBody()).toMatchObject({ p_court_rent: 120000 });
+	await expect(page.getByRole('heading', { name: 'Tinjau biaya sesi' })).toHaveCount(0);
 	await expect(page.getByRole('heading', { name: 'Checklist pembayaran' })).toBeVisible();
 	await expect(page.getByText('Ayu')).toBeVisible();
+	await expect(page.locator('li').filter({ hasText: 'Ayu' }).getByText('Rp15.000')).toBeVisible();
 	const firstPaidToggle = page.getByRole('checkbox').first();
 	await firstPaidToggle.check();
 	await firstPaidToggle.uncheck();
@@ -568,20 +570,20 @@ test('admin can end a session and continue on its dedicated close page', async (
 	await firstPaidToggle.check();
 	await expect(page.getByText('1/2 lunas')).toBeVisible();
 	await expect.poll(() => backend.getPaidWriteCount()).toBe(2);
-	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
-	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}/confirm$`));
+	await page.getByRole('link', { name: 'Lanjut', exact: true }).click();
+	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}\\?step=confirm$`));
 	await expect(
-		page.getByRole('heading', { name: 'Sesi selesai. Lanjut ke riwayat?' })
+		page.getByRole('heading', { name: 'Pastikan sebelum melihat riwayat' })
 	).toBeVisible();
 	await page.getByRole('link', { name: 'Kembali edit iuran & pembayaran' }).click();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
 
 	await page.getByRole('checkbox').nth(1).check();
-	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	await page.getByRole('link', { name: 'Lanjut', exact: true }).click();
 	await expect(page.getByText('2 lunas · 0 belum', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Kembali edit iuran & pembayaran' }).click();
 	await page.getByRole('checkbox').nth(1).uncheck();
-	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	await page.getByRole('link', { name: 'Lanjut', exact: true }).click();
 	await expect(page.getByText('1 lunas · 1 belum', { exact: true })).toBeVisible();
 	await page.getByRole('link', { name: 'Selesai & lihat riwayat' }).click();
 	await expect(page).toHaveURL(new RegExp(`/history/${sessionId}$`));
@@ -603,6 +605,32 @@ test('active match prevents session close but keeps its action discoverable', as
 	const dialog = page.getByRole('dialog');
 	await expect(dialog.getByText(/Selesaikan atau batalkan match/)).toBeVisible();
 	await expect(dialog.getByRole('button', { name: 'Akhiri sesi', exact: true })).toBeDisabled();
+});
+
+test('unavailable kok lineup details do not block ending a session', async ({ page }) => {
+	await mockLiveBackend(page);
+	await page.route('**/rest/v1/live_session*', (route) =>
+		route.fulfill({
+			json: [{ ...session, count_kok: true }],
+			headers: { 'content-range': '0-0/1' }
+		})
+	);
+	await page.route('**/rest/v1/rpc/session_kok_matches', (route) =>
+		route.fulfill({ json: [{ match_id: 'match-complete', sequence_number: 1, kok_count: 2 }] })
+	);
+	await page.route('**/rest/v1/rpc/session_kok_match_lineups', (route) =>
+		route.fulfill({ status: 404, json: { message: 'Could not find the function' } })
+	);
+	await page.goto('/clubs/club-e2e/live');
+
+	await expect(page.getByText('Lineup belum tersedia').first()).toBeVisible();
+	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
+	const confirm = page
+		.getByRole('dialog')
+		.getByRole('button', { name: 'Akhiri sesi', exact: true });
+	await expect(confirm).toBeEnabled();
+	await confirm.click();
+	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
 });
 
 test('failed score save keeps the operator input available for retry', async ({ page }) => {
@@ -635,13 +663,13 @@ test('score save gives delayed feedback and blocks duplicate submission until se
 	await page.getByRole('button', { name: 'Selesaikan Set 1' }).click();
 	const saveButton = page.getByRole('button', { name: 'Menyimpan skor…' });
 	await expect(saveButton).toBeDisabled();
-	await expect(
-		page.getByRole('status').filter({ hasText: 'Menunggu konfirmasi server' })
-	).toBeVisible();
-	await expect(page.getByText('Penyimpanan masih berlangsung')).toBeVisible({ timeout: 5000 });
-	await expect(page.getByRole('status').filter({ hasText: 'dikonfirmasi server' })).toHaveCount(0);
+	await expect(saveButton.locator('svg.animate-spin')).toBeVisible();
+	const slowSaveButton = page.getByRole('button', { name: 'Masih menyimpan…' });
+	await expect(slowSaveButton).toBeDisabled({ timeout: 5000 });
+	await expect(slowSaveButton.locator('svg.animate-spin')).toBeVisible();
+	await expect(page.getByText('Penyimpanan masih berlangsung')).toHaveCount(0);
 	releaseSave();
-	await expect(page.getByRole('status').filter({ hasText: 'dikonfirmasi server' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Skor dikonfirmasi' })).toBeVisible();
 	expect(requests).toBe(1);
 });
 
@@ -793,9 +821,7 @@ test('a 1–1 match asks whether to play Set 3 before the next pairing', async (
 	const decision = page.getByRole('region', { name: 'Keputusan Set 3 untuk court 1' });
 	await expect(decision.getByRole('heading', { name: 'Skor 1–1' })).toBeVisible();
 	await expect(decision.getByRole('button', { name: 'Lanjut Set 3' })).toBeVisible();
-	await expect(
-		decision.getByRole('button', { name: 'Akhiri 1–1 dan lanjut ke pairing berikutnya' })
-	).toBeVisible();
+	await expect(decision.getByRole('button', { name: 'Akhiri match 1–1' })).toBeVisible();
 	await decision.getByRole('button', { name: 'Lanjut Set 3' }).click();
 	await expect.poll(() => backend.getDeciderCommand()).not.toBeNull();
 	expect(backend.getDeciderCommand()!.path).toContain('/rpc/start_decider_set');
@@ -859,6 +885,17 @@ test('Live lets an admin record and revise kok for a completed match', async ({ 
 	await page.route('**/rest/v1/rpc/session_kok_matches', (route) =>
 		route.fulfill({ json: [{ match_id: 'match-complete', sequence_number: 3, kok_count: count }] })
 	);
+	await page.route('**/rest/v1/rpc/session_kok_match_lineups', (route) =>
+		route.fulfill({
+			json: [
+				{
+					match_id: 'match-complete',
+					team_a: ['Pemain Tim A 1', 'Pemain Tim A 2'],
+					team_b: ['Pemain Tim B 1', 'Pemain Tim B 2']
+				}
+			]
+		})
+	);
 	await page.route('**/rest/v1/rpc/record_match_kok', (route) => {
 		count = route.request().postDataJSON().p_count;
 		writes.push(count!);
@@ -866,7 +903,11 @@ test('Live lets an admin record and revise kok for a completed match', async ({ 
 	});
 	await page.goto('/clubs/club-e2e/live');
 	const kok = page.getByRole('region', { name: 'Kok per match' });
+	await expect(kok.getByText('Jumlah kok', { exact: true })).toBeVisible();
+	await expect(kok.getByText('Info tim')).toBeVisible();
 	await expect(kok.getByText('Match 3')).toBeVisible();
+	await expect(kok.getByText('Pemain Tim A 1')).toBeVisible();
+	await expect(kok.getByText('Pemain Tim B 1')).toBeVisible();
 	await kok.getByRole('button', { name: 'Catat kok' }).click();
 	await page.getByRole('spinbutton', { name: 'Jumlah kok' }).fill('2');
 	await page.getByRole('button', { name: 'Simpan jumlah kok' }).click();
@@ -1048,13 +1089,13 @@ test('confirmation waits for a replacement payment write after rapid toggles', a
 	await toggle.check();
 	await expect.poll(() => writes).toBe(1);
 	await toggle.uncheck();
-	await page.getByRole('link', { name: 'Konfirmasi rekap' }).click();
+	await page.getByRole('link', { name: 'Lanjut', exact: true }).click();
 	releaseFirst();
 	await expect.poll(() => writes).toBe(2);
 	await expect(page.getByText('Menyimpan pembayaran…', { exact: true })).toBeVisible();
 	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}$`));
 	releaseSecond();
-	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}/confirm$`));
+	await expect(page).toHaveURL(new RegExp(`/session-close/${sessionId}\\?step=confirm$`));
 });
 
 test('new club guidance explains the first session without blocking guest play', async ({
@@ -1170,7 +1211,11 @@ for (const admin of [true, false]) {
 			const court = page.getByRole('region', { name: 'Court 2', exact: true });
 			await expect(court).toBeVisible();
 			await expect(court.getByRole('heading')).toHaveText(
-				ready === 0 ? 'Menunggu pemain.' : ready < 4 ? 'Pemain belum cukup.' : '4 pemain siap.'
+				ready === 0 ? 'Menunggu pemain' : ready < 4 ? 'Belum cukup pemain' : 'Lapangan tersedia'
+			);
+			await expect(court.locator('.court-idle-count')).toHaveAttribute(
+				'aria-label',
+				`${ready} pemain siap`
 			);
 			const prepare = court.getByRole('button', { name: 'Siapkan match' });
 			if (!admin) await expect(prepare).toHaveCount(0);

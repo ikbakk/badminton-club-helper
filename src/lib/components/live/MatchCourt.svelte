@@ -1,6 +1,8 @@
 <script lang="ts">
 	import AppButton from '$lib/components/ui/AppButton.svelte';
-	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowLeft, LoaderCircle } from '@lucide/svelte';
+	import { gsap } from 'gsap';
+	import type { TransitionConfig } from 'svelte/transition';
 	import CourtSheet from '$lib/components/ui/CourtSheet.svelte';
 	import MultiSelect from '$lib/components/ui/MultiSelect.svelte';
 	import type { ActiveMatch } from '$lib/data/live';
@@ -74,12 +76,74 @@
 	let confirmedScoreSet = $state<number | null>(null);
 	let scoreSaving = $state(false);
 	let scoreSaveSlow = $state(false);
+	let scorePending = $derived(scoreSaving || pending === 'Menyimpan skor…');
+
+	function decisionMotion(node: Element): TransitionConfig {
+		if (
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches
+		) {
+			return { duration: 0 };
+		}
+
+		const timeline = gsap.timeline({ paused: true });
+		timeline.fromTo(
+			node,
+			{ autoAlpha: 0, y: 12, scale: 0.99 },
+			{ autoAlpha: 1, y: 0, scale: 1, duration: 0.32, ease: 'power2.out' }
+		);
+		const contentSections = node.querySelectorAll(
+			'.match-heading, .match-teams, .court-decision-content'
+		);
+		if (contentSections.length) {
+			timeline.fromTo(
+				contentSections,
+				{ autoAlpha: 0, y: 8 },
+				{ autoAlpha: 1, y: 0, duration: 0.22, stagger: 0.05, ease: 'power1.out' },
+				0.06
+			);
+		}
+
+		return {
+			duration: timeline.duration() * 1000,
+			tick: (progress) => timeline.progress(progress)
+		};
+	}
+
+	function decisionActionMotion(node: HTMLElement, state: string) {
+		let previousState = state;
+		let tween: gsap.core.Tween | undefined;
+		return {
+			update(nextState: string) {
+				if (nextState === previousState) return;
+				previousState = nextState;
+				tween?.kill();
+				if (
+					typeof window !== 'undefined' &&
+					window.matchMedia('(prefers-reduced-motion: reduce)').matches
+				) {
+					return;
+				}
+				tween = gsap.fromTo(
+					node,
+					{ autoAlpha: 0.75, y: 4 },
+					{ autoAlpha: 1, y: 0, duration: 0.18, ease: 'power1.out' }
+				);
+			},
+			destroy() {
+				tween?.kill();
+			}
+		};
+	}
 
 	let ready = $derived(participants.filter((player) => player.status === 'READY'));
 	let playingSet = $derived(activeMatch?.sets.find((set) => set.status === 'IN_PROGRESS') ?? null);
 	let completedSets = $derived(activeMatch?.sets.filter((set) => set.status === 'COMPLETED') ?? []);
-	let teamA = $derived(playingSet?.players.filter((player) => player.team === 'A') ?? []);
-	let teamB = $derived(playingSet?.players.filter((player) => player.team === 'B') ?? []);
+	let matchPlayers = $derived(
+		playingSet?.players ?? completedSets[completedSets.length - 1]?.players ?? []
+	);
+	let teamA = $derived(matchPlayers.filter((player) => player.team === 'A'));
+	let teamB = $derived(matchPlayers.filter((player) => player.team === 'B'));
 	let selectedPlayers = $derived(
 		selected.map((id) => ready.find((player) => player.id === id)).filter(Boolean)
 	);
@@ -276,15 +340,19 @@
 			<div class="match-teams">
 				<div>
 					<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM A</p>
-					<p class="mt-2 text-sm font-extrabold text-[#fffaf0]">
-						{teamA.map((player) => player.name).join(' + ')}
+					<p class="team-lineup mt-2 text-sm font-extrabold text-[#fffaf0]">
+						{#each teamA as player (player.id)}
+							<span title={player.name}>{player.name}</span>
+						{/each}
 					</p>
 				</div>
 				<span class="text-lg font-bold text-[#f6a381]">VS</span>
 				<div>
 					<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM B</p>
-					<p class="mt-2 text-sm font-extrabold text-[#fffaf0]">
-						{teamB.map((player) => player.name).join(' + ')}
+					<p class="team-lineup mt-2 text-sm font-extrabold text-[#fffaf0]">
+						{#each teamB as player (player.id)}
+							<span title={player.name}>{player.name}</span>
+						{/each}
 					</p>
 				</div>
 			</div>
@@ -298,7 +366,7 @@
 					</p>
 					<div class="mt-5 grid grid-cols-2 gap-3">
 						<AppButton
-							class="w-full"
+							class="w-full gap-2"
 							disabled={!online}
 							onclick={() =>
 								playingSet.setNumber === 2 ? (setTwoStarted = true) : (setThreeStarted = true)}
@@ -394,11 +462,7 @@
 				</div>
 			{:else if canManage}
 				<div class="score-entry">
-					<h3 class="score-entry-title">
-						Catat hasil Set {playingSet.setNumber}
-					</h3>
-					<p class="score-entry-note">Masukkan skor akhir setelah reli terakhir.</p>
-					<div class="mt-5 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+					<div class="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
 						<label class="score-label"
 							>Skor Tim A<input
 								class="score-input"
@@ -423,33 +487,12 @@
 								!online ||
 								!scoreA ||
 								!scoreB}
-							>{pending ||
-								(confirmedScoreSet === playingSet.setNumber
-									? 'Skor dikonfirmasi'
-									: `Selesaikan Set ${playingSet.setNumber}`)}</AppButton
+							>{#if scorePending}<LoaderCircle class="size-4 animate-spin" aria-hidden="true" />
+								<span>{scoreSaveSlow ? 'Masih menyimpan…' : 'Menyimpan skor…'}</span>
+							{:else if confirmedScoreSet === playingSet.setNumber}<span>Skor dikonfirmasi</span>
+							{:else}<span>Selesaikan Set {playingSet.setNumber}</span>{/if}</AppButton
 						>
 					</div>
-					{#if scoreSaving}
-						<p
-							class="mt-3 text-sm font-bold text-[#527169]"
-							role="status"
-							aria-live="polite"
-							aria-atomic="true"
-						>
-							{scoreSaveSlow
-								? 'Penyimpanan masih berlangsung. Jangan kirim ulang skor.'
-								: 'Menunggu konfirmasi server…'}
-						</p>
-					{:else if confirmedScoreSet === playingSet.setNumber}
-						<p
-							class="mt-3 text-sm font-bold text-[#38675b]"
-							role="status"
-							aria-live="polite"
-							aria-atomic="true"
-						>
-							Skor Set {playingSet.setNumber} dikonfirmasi server. Memperbarui kondisi lapangan…
-						</p>
-					{/if}
 				</div>
 			{/if}
 			{#if completedSets.length || canManage}
@@ -477,17 +520,53 @@
 		</section>
 	{/key}
 {:else if activeMatch && awaitingDecider}
-	<section class="court-panel" aria-label={`Keputusan Set 3 untuk court ${courtNumber}`}>
-		<div class="bg-[#f7f2e8] p-5">
-			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">
-				COURT {courtNumber} · MATCH {activeMatch.sequence_number}
-			</p>
-			<h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">Skor 1–1</h3>
-			<p class="mt-2 text-sm leading-6 text-[#527169]">
-				Pilih apakah kedua tim lanjut ke set penentu atau akhiri match dengan hasil 1–1. Pemain
-				tetap di court sampai pilihan berhasil disimpan.
-			</p>
-			{#if canManage}<div class="mt-5 grid gap-3 sm:grid-cols-2">
+	<section
+		class="match-court court-decision"
+		aria-label={`Keputusan Set 3 untuk court ${courtNumber}`}
+		transition:decisionMotion
+	>
+		<div class="match-heading">
+			<div class="flex items-center justify-between gap-4">
+				<div>
+					<p class="text-[10px] font-black tracking-[0.14em] text-[#b9c5bb]">
+						COURT {courtNumber}
+					</p>
+					<h2 class="text-xl font-black tracking-[-0.04em]">
+						Match {activeMatch.sequence_number}
+					</h2>
+				</div>
+				<span class="text-xs font-black tracking-[0.12em] text-[#f5bb61]">SET 3?</span>
+			</div>
+		</div>
+		<div class="match-teams">
+			<div>
+				<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM A</p>
+				<p class="team-lineup mt-2 text-sm font-extrabold text-[#fffaf0]">
+					{#each teamA as player (player.id)}<span title={player.name}>{player.name}</span>{/each}
+				</p>
+			</div>
+			<span class="text-lg font-bold text-[#f6a381]">VS</span>
+			<div>
+				<p class="text-xs font-black tracking-[0.12em] text-[#b9c5bb]">TIM B</p>
+				<p class="team-lineup mt-2 text-sm font-extrabold text-[#fffaf0]">
+					{#each teamB as player (player.id)}<span title={player.name}>{player.name}</span>{/each}
+				</p>
+			</div>
+		</div>
+		<div class="match-step court-decision-content px-5 py-6">
+			<div>
+				<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">HASIL SEMENTARA</p>
+				<h3 class="mt-2 text-2xl font-black tracking-[-0.04em] text-[#163630]">Skor 1–1</h3>
+				<p class="mt-2 text-sm leading-6 text-[#527169]">
+					Pilih apakah kedua tim lanjut ke set penentu atau akhiri match dengan hasil 1–1. Pemain
+					tetap di court sampai pilihan berhasil disimpan.
+				</p>
+			</div>
+			{#if canManage}
+				<div
+					class="mt-5 grid gap-3 sm:grid-cols-2"
+					use:decisionActionMotion={`${pending}:${online}`}
+				>
 					<AppButton
 						disabled={Boolean(pending) || !online}
 						onclick={() => onstartdecider(activeMatch.id)}>{pending || 'Lanjut Set 3'}</AppButton
@@ -495,42 +574,50 @@
 					<AppButton
 						variant="secondary"
 						disabled={Boolean(pending) || !online}
-						onclick={() => onskiptiedmatch(activeMatch.id)}
-						>Akhiri 1–1 dan lanjut ke pairing berikutnya</AppButton
+						onclick={() => onskiptiedmatch(activeMatch.id)}>Akhiri match 1–1</AppButton
 					>
-				</div>{/if}
+				</div>
+			{/if}
 		</div>
 	</section>
 {:else}
-	<section class="court-panel" aria-label={`Court ${courtNumber}`}>
-		<div class="bg-[#e5ece5] p-5">
-			<p class="text-xs font-black tracking-[0.14em] text-[#38675b]">COURT {courtNumber}</p>
-			<h3 class="text-xl font-black tracking-[-0.04em] text-[#163630]">
-				{#if ready.length === 0}Menunggu pemain.
-				{:else if ready.length < 4}Pemain belum cukup.
-				{:else}{ready.length} pemain siap.{/if}
-			</h3>
-			<p class="mt-2 text-sm leading-6 text-[#527169]">
-				{#if ready.length === 0}
-					Court belum digunakan. {canManage
-						? 'Check in pemain lewat daftar hadir untuk mulai bermain.'
-						: 'Menunggu pemain READY dan persiapan match oleh admin.'}
-				{:else if ready.length < 4}
-					{ready.length} pemain READY — butuh {4 - ready.length} pemain lagi untuk main ganda di court
-					ini.
-				{:else}
-					{canManage
-						? 'Siapkan match berikutnya saat lapangan kosong.'
-						: 'Court belum digunakan. Menunggu admin menyiapkan match berikutnya.'}
-				{/if}
-			</p>
-			{#if canManage}<div class="mt-5">
-					<AppButton
-						disabled={ready.length < 4 || !online || Boolean(pending)}
-						onclick={beginPreparation}>Siapkan match</AppButton
-					>
-				</div>{/if}
+	<section class="court-panel court-idle" aria-label={`Court ${courtNumber}`}>
+		<div class="court-idle-header">
+			<p>COURT {courtNumber}</p>
 		</div>
+		<div class="court-idle-content">
+			<div class="court-idle-count" aria-label={`${ready.length} pemain siap`}>
+				<strong>{ready.length}</strong><span>PEMAIN SIAP</span>
+			</div>
+			<div class="court-idle-copy">
+				<h3>
+					{#if ready.length === 0}Menunggu pemain
+					{:else if ready.length < 4}Belum cukup pemain
+					{:else}Lapangan tersedia{/if}
+				</h3>
+				<p>
+					{#if ready.length === 0}
+						Court belum digunakan. {canManage
+							? 'Check in pemain lewat daftar hadir untuk mulai bermain.'
+							: 'Menunggu pemain READY dan persiapan match oleh admin.'}
+					{:else if ready.length < 4}
+						{ready.length} pemain READY — butuh {4 - ready.length} pemain lagi untuk main ganda di court
+						ini.
+					{:else}
+						{canManage
+							? 'Pilih empat pemain READY untuk menyiapkan match berikutnya.'
+							: 'Court belum digunakan. Menunggu admin menyiapkan match berikutnya.'}
+					{/if}
+				</p>
+			</div>
+		</div>
+		{#if canManage}<div class="court-idle-action">
+				<AppButton
+					class="w-full"
+					disabled={ready.length < 4 || !online || Boolean(pending)}
+					onclick={beginPreparation}>Siapkan match</AppButton
+				>
+			</div>{/if}
 	</section>
 {/if}
 
@@ -701,15 +788,19 @@
 							onclick={() => (selectedPairingKey = pairingKey(option))}
 						>
 							<span class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-								<span class="grid grid-cols-2 gap-2 text-center">
-									<b>{playerName(option.teams[0][0])}</b><b>{playerName(option.teams[0][1])}</b>
+								<span class="grid min-w-0 grid-cols-1 gap-1 text-center">
+									<b class="truncate">{playerName(option.teams[0][0])}</b><b class="truncate"
+										>{playerName(option.teams[0][1])}</b
+									>
 								</span>
 								<b class="text-center text-[#e2653e]">VS</b>
-								<span class="grid grid-cols-2 gap-2 text-center">
-									<b>{playerName(option.teams[1][0])}</b><b>{playerName(option.teams[1][1])}</b>
+								<span class="grid min-w-0 grid-cols-1 gap-1 text-center">
+									<b class="truncate">{playerName(option.teams[1][0])}</b><b class="truncate"
+										>{playerName(option.teams[1][1])}</b
+									>
 								</span>
 							</span>
-							<span class="ml-2 text-xs"
+							<span class="mt-2 block text-center text-xs"
 								>{manualMode
 									? ''
 									: index === 0
@@ -757,6 +848,83 @@
 		color: var(--court-chalk);
 		box-shadow: 0 8px 20px rgb(22 54 48 / 8%);
 	}
+	.court-decision {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+	.court-decision-content {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		justify-content: center;
+	}
+	.court-idle {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+	}
+	.court-idle-header {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		padding: 16px 20px;
+		background: var(--court-ink);
+		color: var(--court-chalk);
+	}
+	.court-idle-header p {
+		font-size: 10px;
+		font-weight: 900;
+		letter-spacing: 0.14em;
+	}
+	.court-idle-content {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		padding: 24px 20px;
+		background: var(--court-soft);
+		text-align: center;
+	}
+	.court-idle-count {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		color: var(--court-ink);
+	}
+	.court-idle-count strong {
+		font-size: clamp(52px, 10vw, 64px);
+		font-weight: 900;
+		letter-spacing: -0.06em;
+		line-height: 1;
+		font-variant-numeric: tabular-nums;
+	}
+	.court-idle-count span {
+		color: var(--court-muted);
+		font-size: 10px;
+		font-weight: 900;
+		letter-spacing: 0.1em;
+	}
+	.court-idle-copy h3 {
+		color: var(--court-ink);
+		font-size: 20px;
+		font-weight: 850;
+		letter-spacing: -0.04em;
+	}
+	.court-idle-copy p {
+		margin-top: 8px;
+		color: #527169;
+		font-size: 14px;
+		line-height: 1.6;
+	}
+	.court-idle-action {
+		padding: 16px 20px;
+		border-top: 1px solid var(--court-line);
+		background: var(--court-chalk);
+	}
 	.match-court:before {
 		content: '';
 		position: absolute;
@@ -783,24 +951,22 @@
 	.match-teams p {
 		overflow-wrap: anywhere;
 	}
-	.match-teams p:last-child {
+	.team-lineup {
+		display: grid;
+		grid-template-rows: repeat(2, 1.6em);
+		align-content: center;
 		font-size: 16px;
 		font-weight: 700;
 		line-height: 1.6;
 	}
+	.team-lineup span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	.score-entry {
-		padding: 8px 20px 20px;
-	}
-	.score-entry-title {
-		font-size: 13px;
-		font-weight: 650;
-		color: #fffaf0;
-	}
-	.score-entry-note {
-		font-size: 11px;
-		line-height: 1.6;
-		color: #c5d6cc;
-		margin-top: 6px;
+		padding: 0 20px 20px;
 	}
 	.score-label {
 		font-size: 11px;

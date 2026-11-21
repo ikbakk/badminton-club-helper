@@ -48,6 +48,7 @@
 		"@supabase/ssr": "0.12.7",
 		"@supabase/supabase-js": "^2.117.2",
 		"@tanstack/svelte-query": "^6.3.0",
+		"gsap": "^3.15.1",
 		"sve-ui": "^0.15.0"
 	}
 }

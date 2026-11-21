@@ -5,10 +5,11 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { selectedClubId } from '$lib/club-context';
 	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { ArrowLeft, ArrowRight } from '@lucide/svelte';
+	import { ArrowLeft, ArrowRight, LoaderCircle } from '@lucide/svelte';
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import {
@@ -244,6 +245,7 @@
 	}
 
 	let continuing = $state(false);
+	let recapStep = $derived(page.url.searchParams.get('step') === 'confirm' ? 'confirm' : 'details');
 	async function continueToRecap(event: MouseEvent) {
 		event.preventDefault();
 		if (continuing || savingFee) return;
@@ -263,7 +265,9 @@
 			}
 
 			invalidatePublicData();
-			await goto(resolve('/clubs/[clubId]/session-close/[id]/confirm', { clubId, id: params.id }));
+			await goto(
+				resolve('/clubs/[clubId]/session-close/[id]?step=confirm', { clubId, id: params.id })
+			);
 		} finally {
 			continuing = false;
 		}
@@ -350,16 +354,16 @@
 		>
 			<div class="flex flex-wrap items-start justify-between gap-3">
 				<h1 class="text-3xl font-bold tracking-[-0.035em]">Rekap sesi selesai</h1>
-				{#if isAdmin}
+				{#if isAdmin && recapStep === 'details'}
 					<a
 						class="court-button court-button--primary"
-						href={resolve('/clubs/[clubId]/session-close/[id]/confirm', {
+						href={resolve('/clubs/[clubId]/session-close/[id]?step=confirm', {
 							clubId: selectedClubId(),
 							id: params.id
 						})}
 						onclick={continueToRecap}
 						aria-disabled={continuing || savingFee}
-						>{continuing ? 'Menyimpan pembayaran…' : 'Konfirmasi rekap'}</a
+						>{continuing ? 'Menyimpan pembayaran…' : 'Lanjut'}</a
 					>
 				{/if}
 			</div>
@@ -412,125 +416,168 @@
 					>
 				</div>
 			</section>
-		{:else}
-			<section class="mt-6 border-b border-[#d6ddd3] pb-6">
-				<h2 class="text-2xl font-bold tracking-[-0.04em]">Tinjau biaya sesi</h2>
-				<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
-					Atur pembayaran dasar, harga kok, dan sewa lapangan. Sewa dianggap sudah dibayar saat
-					biaya dikonfirmasi.
+		{:else if recapStep === 'confirm'}
+			<section class="mt-7">
+				<h2 class="text-2xl font-bold tracking-[-0.04em]">Pastikan sebelum melihat riwayat</h2>
+				<p class="mt-3 text-sm leading-6 text-[#527169]">
+					Rekap sesi sudah siap. Kamu masih bisa kembali untuk mengubah checklist pembayaran.
 				</p>
-				{#if session.fee_per_person === null}
-					<form
-						class="mt-5"
-						onsubmit={(event) => {
-							event.preventDefault();
-							void saveFee();
-						}}
+				<dl class="mt-6 divide-y divide-[#b9c5bb] border-y border-[#d6ddd3] bg-[#fffaf0] px-4">
+					<div class="flex min-h-14 items-center justify-between gap-4">
+						<dt class="text-sm font-bold">Hadir</dt>
+						<dd class="font-bold tabular-nums">{session.attendance} pemain</dd>
+					</div>
+					<div class="flex min-h-14 items-center justify-between gap-4">
+						<dt class="text-sm font-bold">Pembayaran</dt>
+						<dd class="text-right text-sm font-bold tabular-nums">
+							{paidCount} lunas · {attendees.length - paidCount} belum
+						</dd>
+					</div>
+				</dl>
+				<p class="mt-4 border-l-2 border-[#e2653e] pl-3 text-sm leading-6 text-[#527169]">
+					{#if session.fee_per_person === null}
+						Iuran belum dikonfirmasi. Kembali untuk menetapkan iuran dan mencatat pembayaran.
+					{:else if attendees.length > paidCount}
+						Masih ada {attendees.length - paidCount} pembayaran yang belum ditandai. Kamu dapat memperbaruinya
+						kapan saja.
+					{:else}
+						Semua pembayaran sudah ditandai lunas. Kamu tetap dapat kembali untuk mengubah
+						checklist.
+					{/if}
+				</p>
+				<div class="mt-7 grid gap-3 sm:grid-cols-2">
+					<a
+						class="flex min-h-12 items-center justify-center gap-2 rounded-[var(--court-control-radius)] border border-[#163630] bg-[#fffaf0] px-4 text-sm font-bold hover:bg-[#e5ece5]"
+						href={resolve('/clubs/[clubId]/session-close/[id]', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}
 					>
-						<p class="mt-3 text-sm leading-6 text-[#527169]" role="note">
-							{#if feeSuggested}
-								Nilai terisi dari iuran sesi terakhir. Tinjau atau ubah sebelum membuat tagihan.
-							{:else}
-								Belum ada iuran sesi sebelumnya. Masukkan nilai yang disepakati sebelum membuat
-								tagihan.
-							{/if}
-						</p>
-						<label class="block text-sm font-bold" for="session-fee"
-							>Iuran dasar per orang (tidak termasuk kok)</label
+						<ArrowLeft size={18} /> Kembali edit iuran & pembayaran
+					</a>
+					<a
+						class="flex min-h-12 items-center justify-center gap-2 rounded-[var(--court-control-radius)] bg-[#163630] px-4 text-sm font-bold text-[#fffaf0] hover:bg-[#38675b]"
+						href={resolve('/clubs/[clubId]/history/[id]', {
+							clubId: selectedClubId(),
+							id: params.id
+						})}
+					>
+						Selesai & lihat riwayat <ArrowRight size={17} />
+					</a>
+				</div>
+			</section>
+		{:else}
+			{#if session.fee_per_person === null}
+				<section class="mt-6 border-b border-[#d6ddd3] pb-6">
+					<h2 class="text-2xl font-bold tracking-[-0.04em]">Tinjau biaya sesi</h2>
+					<p class="mt-2 max-w-prose text-sm leading-6 text-[#527169]">
+						Atur pembayaran dasar, harga kok, dan sewa lapangan. Sewa dianggap sudah dibayar saat
+						biaya dikonfirmasi.
+					</p>
+					{#if session.fee_per_person === null}
+						<form
+							class="mt-5"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void saveFee();
+							}}
 						>
-						<div class="mt-3 flex flex-wrap gap-2">
-							{#each [10000, 15000, 20000] as preset (preset)}<AppButton
-									variant="secondary"
-									type="button"
-									onclick={() => (fee = String(preset))}
-									>Rp{preset.toLocaleString('id-ID')}</AppButton
-								>{/each}
-						</div>
-						<div class="mt-2 flex items-stretch gap-3">
-							<span class="flex items-center border border-[#d6ddd3] bg-[#e5ece5] px-4 font-bold"
-								>Rp</span
-							>
-							<input
-								id="session-fee"
-								type="number"
-								class="min-h-14 min-w-0 flex-1 rounded-md border border-[#163630] bg-[#fffaf0] px-4 text-xl font-bold tabular-nums"
-								inputmode="numeric"
-								required
-								min="1"
-								bind:value={fee}
-							/>
-						</div>
-						<div class="mt-4 grid gap-4 sm:grid-cols-2">
-							<label class="text-sm font-bold"
-								>Harga per kok (Rp)<input
-									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-									type="number"
-									min="0"
-									step="1"
-									bind:value={kokPrice}
-								/></label
-							>
-							<label class="text-sm font-bold"
-								>Sewa lapangan dibayar (Rp)<input
-									class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
-									type="number"
-									min="0"
-									step="1"
-									bind:value={courtRent}
-								/></label
-							>
-						</div>
-						{#if missingKok}
-							<p class="mt-3 text-sm font-bold text-[#9a3d25]" role="alert">
-								Jumlah kok per match belum lengkap. Buka kembali sesi dan catat di tab Live.
+							<p class="mt-3 text-sm leading-6 text-[#527169]" role="note">
+								{#if feeSuggested}
+									Nilai terisi dari iuran sesi terakhir. Tinjau atau ubah sebelum membuat tagihan.
+								{:else}
+									Belum ada iuran sesi sebelumnya. Masukkan nilai yang disepakati sebelum membuat
+									tagihan.
+								{/if}
 							</p>
-						{/if}
-						<div class="mt-4 grid gap-1 border-y border-[#d6ddd3] py-3 text-sm">
-							<p class="flex justify-between gap-3">
-								<span>Jumlah pemain</span><b>{session.attendance}</b>
-							</p>
-							<p class="flex justify-between gap-3">
-								<span>Iuran dasar per orang (tidak termasuk kok)</span><b
-									>{Number(fee) > 0 ? money(Number(fee)) : 'Belum diisi'}</b
+							<label class="block text-sm font-bold" for="session-fee"
+								>Iuran dasar per orang (tidak termasuk kok)</label
+							>
+							<div class="mt-3 flex flex-wrap gap-2">
+								{#each [10000, 15000, 20000] as preset (preset)}<AppButton
+										variant="secondary"
+										type="button"
+										onclick={() => (fee = String(preset))}
+										>Rp{preset.toLocaleString('id-ID')}</AppButton
+									>{/each}
+							</div>
+							<div class="mt-2 flex items-stretch gap-3">
+								<span class="flex items-center border border-[#d6ddd3] bg-[#e5ece5] px-4 font-bold"
+									>Rp</span
 								>
-							</p>
-							{#if session.count_kok}
-								<p class="flex justify-between gap-3">
-									<span>Kok terpakai</span><b>{totalKokUsed} kok · {money(totalKokCost)}</b>
+								<input
+									id="session-fee"
+									type="number"
+									class="min-h-14 min-w-0 flex-1 rounded-md border border-[#163630] bg-[#fffaf0] px-4 text-xl font-bold tabular-nums"
+									inputmode="numeric"
+									required
+									min="1"
+									bind:value={fee}
+								/>
+							</div>
+							<div class="mt-4 grid gap-4 sm:grid-cols-2">
+								<label class="text-sm font-bold"
+									>Harga per kok (Rp)<input
+										class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+										type="number"
+										min="0"
+										step="1"
+										bind:value={kokPrice}
+									/></label
+								>
+								<label class="text-sm font-bold"
+									>Sewa lapangan dibayar (Rp)<input
+										class="mt-2 min-h-12 w-full border border-[#b9c5bb] bg-[#fffaf0] px-3"
+										type="number"
+										min="0"
+										step="1"
+										bind:value={courtRent}
+									/></label
+								>
+							</div>
+							{#if missingKok}
+								<p class="mt-3 text-sm font-bold text-[#9a3d25]" role="alert">
+									Jumlah kok per match belum lengkap. Buka kembali sesi dan catat di tab Live.
 								</p>
 							{/if}
-							<p class="flex justify-between gap-3 text-base">
-								<span>Total tagihan yang akan dibuat</span><b
-									>{Number(fee) > 0 ? money(totalDue) : 'Belum dihitung'}</b
+							<div class="mt-4 grid gap-1 border-y border-[#d6ddd3] py-3 text-sm">
+								<p class="flex justify-between gap-3">
+									<span>Jumlah pemain</span><b>{session.attendance}</b>
+								</p>
+								<p class="flex justify-between gap-3">
+									<span>Iuran dasar per orang (tidak termasuk kok)</span><b
+										>{Number(fee) > 0 ? money(Number(fee)) : 'Belum diisi'}</b
+									>
+								</p>
+								{#if session.count_kok}
+									<p class="flex justify-between gap-3">
+										<span>Kok terpakai</span><b>{totalKokUsed} kok · {money(totalKokCost)}</b>
+									</p>
+								{/if}
+								<p class="flex justify-between gap-3 text-base">
+									<span>Total tagihan yang akan dibuat</span><b
+										>{Number(fee) > 0 ? money(totalDue) : 'Belum dihitung'}</b
+									>
+								</p>
+							</div>
+							{#if session.attendance === 0}
+								<p class="mt-3 text-sm font-bold text-[#9a3d25]">
+									Tidak ada pemain hadir, jadi tidak ada tagihan yang perlu dibuat.
+								</p>
+							{/if}
+							<div class="mt-5 flex flex-wrap gap-3">
+								<AppButton
+									type="submit"
+									disabled={savingFee || session.attendance === 0 || !Number(fee) || missingKok}
 								>
-							</p>
-						</div>
-						{#if session.attendance === 0}
-							<p class="mt-3 text-sm font-bold text-[#9a3d25]">
-								Tidak ada pemain hadir, jadi tidak ada tagihan yang perlu dibuat.
-							</p>
-						{/if}
-						<div class="mt-5 flex flex-wrap gap-3">
-							<AppButton
-								type="submit"
-								disabled={savingFee || session.attendance === 0 || !Number(fee) || missingKok}
-							>
-								{savingFee ? 'Menyimpan…' : 'Konfirmasi iuran & buat tagihan'}
-							</AppButton>
-							<AppButton variant="secondary" onclick={reopen}>Buka lagi sesi</AppButton>
-						</div>
-					</form>
-				{:else}
-					<p class="mt-4 text-3xl font-bold tabular-nums">
-						{money(session.fee_per_person)} <span class="text-base">/ orang</span>
-					</p>
-					<p class="mt-1 text-sm text-[#527169]">
-						Total tagihan: {money(
-							attendees.reduce((sum, person) => sum + Number(person.amount ?? 0), 0)
-						)}
-					</p>
-				{/if}
-			</section>
+									{savingFee ? 'Menyimpan…' : 'Konfirmasi iuran & buat tagihan'}
+								</AppButton>
+								<AppButton variant="secondary" onclick={reopen}>Buka lagi sesi</AppButton>
+							</div>
+						</form>
+					{/if}
+				</section>
+			{/if}
 
 			{#if session.fee_per_person !== null}
 				<section class="mt-6">
@@ -549,7 +596,11 @@
 						<ul class="divide-y divide-[#b9c5bb] border-b border-[#d6ddd3]">
 							{#each attendees as person (person.player_id)}
 								<li>
-									<label class="flex min-h-16 cursor-pointer items-center gap-4 py-3">
+									<label
+										class={`flex min-h-16 cursor-pointer items-center gap-4 rounded-lg px-3 py-3 transition-colors ${
+											isPaid(person) ? 'bg-[#e5f1e8]' : 'bg-[#fff0e9]'
+										}`}
+									>
 										<input
 											type="checkbox"
 											class="size-6 rounded-md accent-[#163630]"
@@ -559,20 +610,38 @@
 										/>
 										<span class="min-w-0 flex-1">
 											<b class="block truncate">{person.display_name}</b>
-											<span class="text-sm text-[#527169]">{money(person.amount)}</span>
+										</span>
+										<span class="shrink-0 text-right">
+											<b class="block text-lg font-extrabold text-[#163630] tabular-nums"
+												>{money(person.amount)}</b
+											>
+											<span class="block text-xs text-[#527169]">
+												{#if person.base_amount !== null && person.base_amount !== undefined}
+													{money(person.base_amount)} + {money(person.kok_amount ?? 0)} biaya kok
+												{:else}
+													Total tagihan
+												{/if}
+											</span>
 										</span>
 										<span
 											class={isPaid(person)
 												? 'text-sm font-bold text-[#38675b]'
 												: 'text-sm font-bold text-[#9a3d25]'}
 										>
-											{savingPlayers[person.player_id]
-												? 'Menyimpan…'
-												: queuedPlayers[person.player_id]
-													? 'Menunggu…'
-													: isPaid(person)
-														? 'Lunas'
-														: 'Belum bayar'}
+											{#if savingPlayers[person.player_id] || queuedPlayers[person.player_id]}
+												<span
+													class="inline-flex items-center gap-2"
+													role="status"
+													aria-label="Menyimpan status pembayaran"
+												>
+													<LoaderCircle size={16} class="animate-spin" aria-hidden="true" />
+													<span>Menyimpan…</span>
+												</span>
+											{:else if isPaid(person)}
+												Lunas
+											{:else}
+												Belum bayar
+											{/if}
 										</span>
 									</label>
 								</li>

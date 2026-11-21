@@ -710,39 +710,78 @@
 			onskiptiedmatch={skipDecider}
 		/>
 		{#if canManageLive && session?.count_kok}
-			<section class="mt-5 border border-[#b9c5bb] bg-[#fffaf0] p-5" aria-label="Kok per match">
-				<h2 class="text-lg font-bold">Kok per match</h2>
-				<p class="mt-1 text-sm text-[#527169]">
-					Catat jumlah kok setelah match selesai. Nol berarti tidak memakai kok baru.
-				</p>
+			<section class="court-panel mt-5" aria-label="Kok per match">
+				<div class="border-b border-[#b9c5bb] px-4 py-3">
+					<h2 class="text-lg font-bold">Kok per match</h2>
+					<p class="mt-1 text-sm text-[#527169]">
+						Catat jumlah kok setelah match selesai. Nol berarti tidak memakai kok baru.
+					</p>
+				</div>
 				{#if kokMatchesQuery.isError}
-					<p class="mt-3 text-sm" role="alert">Daftar match belum bisa dimuat.</p>
-					<AppButton variant="secondary" onclick={() => void kokMatchesQuery.refetch()}
-						>Coba lagi</AppButton
-					>
+					<div class="p-4">
+						<p class="text-sm" role="alert">Daftar match belum bisa dimuat.</p>
+						<AppButton variant="secondary" onclick={() => void kokMatchesQuery.refetch()}
+							>Coba lagi</AppButton
+						>
+					</div>
 				{:else if kokMatches.length}
-					<ul class="mt-4 divide-y divide-[#d6ddd3] border-y border-[#d6ddd3]">
+					<div
+						class="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 border-b border-[#d6ddd3] bg-[#e5ece5] px-4 py-2 text-xs font-black text-[#38675b] sm:grid-cols-[10rem_minmax(0,1fr)]"
+					>
+						<span>Jumlah kok</span><span>Info tim</span>
+					</div>
+					<ul class="divide-y divide-[#d6ddd5]">
 						{#each kokMatches as match (match.match_id)}
-							<li class="flex items-center justify-between gap-3 py-3">
-								<span class="text-sm"
-									><b>Match {match.sequence_number}</b><span class="block text-[#527169]"
-										>{match.kok_count === null ? 'Belum dicatat' : `${match.kok_count} kok`}</span
-									></span
+							<li
+								class="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3 px-4 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]"
+							>
+								<div class="grid justify-items-start gap-1.5">
+									<b class="text-xs text-[#527169]">Match {match.sequence_number}</b>
+									<strong class="text-sm text-[#163630]"
+										>{match.kok_count === null ? 'Belum dicatat' : `${match.kok_count} kok`}</strong
+									>
+									<AppButton
+										variant="secondary"
+										onclick={() => openKokMatch(match.match_id, match.kok_count)}
+										>{match.kok_count === null ? 'Catat kok' : 'Ubah jumlah kok'}</AppButton
+									>
+								</div>
+								<div
+									class="grid min-w-0 gap-1.5"
+									aria-label={`Info tim match ${match.sequence_number}`}
 								>
-								<AppButton
-									variant="secondary"
-									onclick={() => openKokMatch(match.match_id, match.kok_count)}
-									>{match.kok_count === null ? 'Catat kok' : 'Ubah jumlah kok'}</AppButton
-								>
+									<div
+										class="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 rounded-[var(--court-control-radius)] border-l-4 border-[#38675b] bg-[#e5ece5] px-2 py-1.5 text-xs"
+									>
+										<b class="text-[#38675b]">Tim A</b>
+										<div class="flex min-w-0 flex-wrap gap-x-2 gap-y-1 font-bold text-[#163630]">
+											{#if match.team_a.length}
+												{#each match.team_a as player (player)}<span>{player}</span>{/each}
+											{:else}<span class="font-medium text-[#527169]">Lineup belum tersedia</span
+												>{/if}
+										</div>
+									</div>
+									<div
+										class="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 rounded-[var(--court-control-radius)] border-l-4 border-[#e2653e] bg-[#fff1ec] px-2 py-1.5 text-xs"
+									>
+										<b class="text-[#a94225]">Tim B</b>
+										<div class="flex min-w-0 flex-wrap gap-x-2 gap-y-1 font-bold text-[#163630]">
+											{#if match.team_b.length}
+												{#each match.team_b as player (player)}<span>{player}</span>{/each}
+											{:else}<span class="font-medium text-[#527169]">Lineup belum tersedia</span
+												>{/if}
+										</div>
+									</div>
+								</div>
 							</li>
 						{/each}
 					</ul>
 				{:else}
-					<p class="mt-3 text-sm text-[#527169]">Belum ada match selesai.</p>
+					<p class="p-4 text-sm text-[#527169]">Belum ada match selesai.</p>
 				{/if}
 			</section>
 		{/if}
-		{#if canManageLive && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
+		{#if canManageLive && !session && publicHistory.some((item) => item.closed_at && item.fee_per_person === null)}
 			<section class="mt-5 border-y border-[#d6ddd3] py-5">
 				<h2 class="text-xl font-bold">Rekap sesi belum dikonfirmasi</h2>
 				<p class="mt-1 text-sm leading-5 text-[#527169]">

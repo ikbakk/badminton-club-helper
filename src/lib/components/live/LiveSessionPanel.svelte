@@ -263,7 +263,14 @@
 			<svelte:element this={headingLevel === 1 ? 'h1' : 'h2'}>Sesi malam ini</svelte:element>
 			<p>Mulai {startedAt} · {participants.length} pemain hadir</p>
 		</div>
-		<span class="live-badge"><span></span>Live</span>
+		<div class="session-heading-actions">
+			{#if canManage}<AppButton variant="secondary" disabled={!online} onclick={oncheckin}
+					>Check in pemain</AppButton
+				><AppButton variant="ghost" disabled={!online || Boolean(pending)} onclick={onendsession}
+					>Akhiri sesi</AppButton
+				>
+			{:else}<span class="live-badge"><span></span>Live</span>{/if}
+		</div>
 	</div>
 
 	{#if !online}<p
@@ -326,18 +333,16 @@
 
 	<div class="session-tools" in:fade={{ duration: stateTransitionDuration }}>
 		<p>{nextAction}</p>
-		<div>
-			{#if canManage}<AppButton variant="secondary" disabled={!online} onclick={oncheckin}
-					>Check in pemain</AppButton
-				><AppButton variant="ghost" disabled={!online || Boolean(pending)} onclick={onendsession}
-					>Akhiri sesi</AppButton
-				>
-			{:else if authChecking}<div class="w-32" role="status" aria-label="Memeriksa akses admin">
-					<LoadingSkeleton height="2.75rem" />
-				</div>
-			{:else}<AppButton variant="secondary" onclick={onadminlogin}>Masuk sebagai admin</AppButton
-				>{/if}
-		</div>
+		{#if authChecking && !canManage}<div
+				class="w-32"
+				role="status"
+				aria-label="Memeriksa akses admin"
+			>
+				<LoadingSkeleton height="2.75rem" />
+			</div>
+		{:else if !canManage}<AppButton variant="secondary" onclick={onadminlogin}
+				>Masuk sebagai admin</AppButton
+			>{/if}
 	</div>
 
 	{#if canManage && session?.match_mode !== 'MANUAL' && availableCourtNumbers.length > 0 && suggestedPlayers.length === 4}
@@ -412,7 +417,7 @@
 	}
 	.court-rail.multicourt {
 		display: flex;
-		align-items: flex-start;
+		align-items: stretch;
 		overflow-x: auto;
 		overscroll-behavior-x: contain;
 		scroll-snap-type: x mandatory;
@@ -422,6 +427,9 @@
 	}
 	.court-slide {
 		min-width: 0;
+	}
+	.court-slide :global(.match-court) {
+		height: 100%;
 	}
 	.multicourt .court-slide {
 		flex: 0 0 calc(100% - 20px);
@@ -457,6 +465,13 @@
 		font-size: 12px;
 		color: var(--court-muted);
 		margin-top: 6px;
+	}
+	.session-heading-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
+		flex-wrap: wrap;
 	}
 	.live-badge {
 		display: flex;

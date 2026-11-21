@@ -94,7 +94,7 @@ test('new organizer creates their own club and enters its explicit Live URL', as
 	await page.getByRole('button', { name: 'Buat klub', exact: true }).click();
 	await expect(page).toHaveURL(new RegExp(`/clubs/${clubB}/live$`));
 	await expect(page.getByText('Klub Beta').first()).toBeVisible();
-	expect(reads.some((url) => url.includes('club_id=eq.' + clubB))).toBe(true);
+	await expect.poll(() => reads.some((url) => url.includes('club_id=eq.' + clubB))).toBe(true);
 	expect(reads.some((url) => url.includes(clubA))).toBe(false);
 });
 
@@ -340,7 +340,10 @@ test('demo fees appear after close and charge only attendees without optional ko
 	await page.getByLabel('Skor Tim A').fill('18');
 	await page.getByLabel('Skor Tim B').fill('21');
 	await page.getByRole('button', { name: 'Selesaikan Set 2' }).click();
-	await page.getByRole('button', { name: 'Akhiri 1–1 dan lanjut ke pairing berikutnya' }).click();
+	await page
+		.getByRole('region', { name: 'Keputusan Set 3 untuk court 1' })
+		.getByRole('button', { name: 'Akhiri match 1–1', exact: true })
+		.click();
 	await page.getByLabel('Jumlah kok').fill('3');
 	await page.getByRole('button', { name: 'Simpan jumlah kok' }).click();
 	await page.getByRole('button', { name: 'Akhiri sesi', exact: true }).click();
@@ -350,7 +353,8 @@ test('demo fees appear after close and charge only attendees without optional ko
 		.click();
 	await expect(page).toHaveURL(/\/clubs\/demo\/session-close\//);
 	await page.getByRole('button', { name: 'Konfirmasi iuran & buat tagihan' }).click();
-	await expect(page.getByText('Total tagihan: Rp60.000')).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Tinjau biaya sesi' })).toHaveCount(0);
+	await expect(page.locator('li b.text-lg')).toHaveCount(4);
 	await expect(page.getByRole('heading', { name: 'Checklist pembayaran' })).toBeVisible();
 	expect(reads).toEqual([]);
 });

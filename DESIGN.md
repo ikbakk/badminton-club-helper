@@ -75,7 +75,7 @@ Use restrained downward shadows for the landing preview, account menu, modal lay
 
 ## Shapes
 
-Controls use the control radius, panels use the panel radius, and initials avatars are circular. Sheets round the top edge while retaining full mobile width. Forms, selectable rows and notices inherit these shapes.
+Controls use the control radius, panels use the panel radius, and initials avatars are circular. Use the shared `.court-panel` class for panel borders, radius, surface and overflow instead of rebuilding those styles with per-page utilities. Sheets round the top edge while retaining full mobile width. Forms, selectable rows and notices inherit these shapes.
 
 ## Components
 

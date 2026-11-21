@@ -458,17 +458,53 @@ export async function recordMatchKok(matchId: string, count: number) {
 }
 
 export async function getSessionKokMatches(sessionId: string) {
-	if (sessionId.startsWith('demo-session'))
-		return readLocalDemo()
-			.activeMatches.concat(readLocalDemo().completed)
-			.map((match) => ({
+	if (sessionId.startsWith('demo-session')) {
+		const state = readLocalDemo();
+		return state.activeMatches.concat(state.completed).map((match) => {
+			const lineup = (team: 'A' | 'B') =>
+				[
+					...new Set(
+						match.sets.flatMap((set) =>
+							set.players.filter((player) => player.team === team).map((player) => player.name)
+						)
+					)
+				].sort((a, b) => a.localeCompare(b));
+			return {
 				match_id: match.id,
 				sequence_number: match.sequence_number,
-				kok_count: readLocalDemo().kokByMatch[match.id] ?? null
-			}));
-	const { data, error } = await supabase!.rpc('session_kok_matches', { p_session_id: sessionId });
-	if (error) throw error;
-	return (data ?? []) as { match_id: string; sequence_number: number; kok_count: number | null }[];
+				kok_count: state.kokByMatch[match.id] ?? null,
+				team_a: lineup('A'),
+				team_b: lineup('B')
+			};
+		});
+	}
+	const matchesResult = await supabase!.rpc('session_kok_matches', { p_session_id: sessionId });
+	if (matchesResult.error) throw matchesResult.error;
+	// Team names enrich the kok list, but must not block kok counts or session close
+	// when the optional lineup RPC is unavailable on a not-yet-migrated database.
+	const lineupsResult = await supabase!.rpc('session_kok_match_lineups', {
+		p_session_id: sessionId
+	});
+	const lineups = new Map(
+		(
+			(lineupsResult.error ? [] : (lineupsResult.data ?? [])) as {
+				match_id: string;
+				team_a: string[];
+				team_b: string[];
+			}[]
+		).map((lineup) => [lineup.match_id, lineup])
+	);
+	return (
+		(matchesResult.data ?? []) as {
+			match_id: string;
+			sequence_number: number;
+			kok_count: number | null;
+		}[]
+	).map((match) => ({
+		...match,
+		team_a: lineups.get(match.match_id)?.team_a ?? [],
+		team_b: lineups.get(match.match_id)?.team_b ?? []
+	}));
 }
 
 export async function getSessionKokShares(sessionId: string, price: number) {
