@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { selectedClubId } from '$lib/club-context';
-	import { publicSurfaceKey } from '$lib/data/query-client';
+	import { fundOptions } from '$lib/data/navigation-queries';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -10,9 +11,6 @@
 	import {
 		getFinanceSessionAttendees,
 		getFinanceSessions,
-		getPublicClub,
-		getPublicFundActivity,
-		getPublicFundSummary,
 		invalidatePublicData,
 		recordExpense,
 		setSessionAttendeePaid,
@@ -27,20 +25,15 @@
 		publicPaymentDestinationsQueryKey
 	} from '$lib/data/club-settings';
 	const clubId = selectedClubId();
+	import type { PageProps } from './$types';
+	let { data }: PageProps = $props();
 	const fundQuery = createQuery(() => ({
-		queryKey: publicSurfaceKey(clubId, 'fund'),
-		enabled: browser,
-		retry: false,
-		queryFn: async () => {
-			const [club, summary, activity] = await Promise.all([
-				getPublicClub(clubId),
-				getPublicFundSummary(clubId),
-				getPublicFundActivity(clubId)
-			]);
-			return { club, summary, activity };
-		}
+		...fundOptions(clubId),
+		initialData: data.initialFund,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
+		enabled: browser
 	}));
-	let club = $state<Club | null>(null);
+	let club = $state<Club | null>(untrack(() => data.clubAccess));
 	let publicClub = $derived(fundQuery.data?.club ?? null);
 	let clubName = $derived(club?.name ?? publicClub?.name ?? 'Klub');
 
@@ -50,14 +43,17 @@
 			? publicPaymentDestinationsQueryKey(publicClub.id)
 			: ['public-payment-destinations', 'unavailable'],
 		queryFn: () => getPublicPaymentDestinations(publicClub!.id),
+		initialData: data.initialPaymentDestinations,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		enabled: browser && Boolean(publicClub?.id),
 		staleTime: 60_000
 	}));
 	let paymentDestinations = $derived(paymentDestinationsQuery.data ?? null);
 	let activity: PublicFundActivity[] = $derived(fundQuery.data?.activity ?? []);
-	let sessions = $state<FinanceSession[]>([]);
+	let sessions = $state<FinanceSession[]>(untrack(() => data.initialFinanceSessions ?? []));
 	let attendees = $state<Record<string, FinanceSessionAttendee[]>>({});
 	let expandedSession = $state('');
+	let openingSession = $state('');
 	let loading = $derived(fundQuery.isPending);
 	let pending = $state('');
 	let notice = $state('');
@@ -104,7 +100,7 @@
 
 	async function handleAccessChange(accountClub: Club | null) {
 		club = accountClub;
-		if (!accountClub?.is_club_admin) return;
+		if (!accountClub?.is_club_admin || data.initialFinanceSessions) return;
 		try {
 			await refreshAdminFund();
 		} catch (error) {
@@ -130,21 +126,24 @@
 	}
 
 	async function toggleSession(sessionId: string) {
+		if (!club || openingSession) return;
 		if (expandedSession === sessionId) {
 			expandedSession = '';
 			return;
 		}
-		expandedSession = sessionId;
-		if (club && !attendees[sessionId]) {
+		if (!attendees[sessionId]) {
+			openingSession = sessionId;
 			try {
-				attendees = {
-					...attendees,
-					[sessionId]: await getFinanceSessionAttendees(club.id, sessionId)
-				};
+				const rows = await getFinanceSessionAttendees(club.id, sessionId);
+				attendees = { ...attendees, [sessionId]: rows };
 			} catch (error) {
 				notice = error instanceof Error ? error.message : 'Daftar hadir gagal dimuat.';
+				return;
+			} finally {
+				openingSession = '';
 			}
 		}
+		expandedSession = sessionId;
 	}
 
 	async function togglePaid(sessionId: string, person: FinanceSessionAttendee) {
@@ -185,7 +184,12 @@
 </script>
 
 <svelte:head><title>Dana klub — Courtside</title></svelte:head>
-<AppShell current="/fund" {clubName} onaccesschange={handleAccessChange}>
+<AppShell
+	initialClubAccess={data.clubAccess}
+	current="/fund"
+	{clubName}
+	onaccesschange={handleAccessChange}
+>
 	<QueryNotice
 		failed={fundQuery.isError}
 		hasData={Boolean(fundQuery.data)}
@@ -303,6 +307,7 @@
 											class="flex min-h-16 w-full items-center justify-between gap-3 rounded-md px-4 py-3 text-left"
 											onclick={() => void toggleSession(session.session_id)}
 											aria-expanded={expandedSession === session.session_id}
+											aria-busy={openingSession === session.session_id}
 										>
 											<span
 												><b class="block">{date(session.started_at)}</b><span
@@ -311,8 +316,12 @@
 														session.fee_per_person
 													)} per orang</span
 												></span
-											><span aria-hidden="true"
-												>{expandedSession === session.session_id ? '−' : '+'}</span
+											><span class="w-5 shrink-0 text-center" aria-hidden="true"
+												>{openingSession === session.session_id
+													? '…'
+													: expandedSession === session.session_id
+														? '−'
+														: '+'}</span
 											>
 										</button>
 										{#if expandedSession === session.session_id}<ul

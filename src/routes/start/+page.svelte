@@ -146,7 +146,7 @@
 	/></svelte:head
 >
 <AuthFrame>
-	{#if loading}
+	{#if loading}<span data-page-loading hidden></span>
 		<div
 			class="grid gap-4 py-2"
 			role="status"

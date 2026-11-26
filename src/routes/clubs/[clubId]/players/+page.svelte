@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { rosterOptions } from '$lib/data/navigation-queries';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { untrack } from 'svelte';
 
-	import { publicSurfaceKey } from '$lib/data/query-client';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
@@ -12,10 +12,9 @@
 	import AppButton from '$lib/components/ui/AppButton.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { ArrowRight } from '@lucide/svelte';
+	import type { PageProps } from './$types';
 	import {
 		addPlayer,
-		getPublicClub,
-		getPublicRoster,
 		getRoster,
 		invalidatePublicData,
 		prefetchPublicPlayer,
@@ -23,16 +22,14 @@
 		type Club
 	} from '$lib/data/dashboard';
 
-	let club = $state<Club | null>(null);
+	let { data }: PageProps = $props();
+	let club = $state<Club | null>(untrack(() => data.clubAccess));
 	const clubId = selectedClubId();
 	const rosterQuery = createQuery(() => ({
-		queryKey: publicSurfaceKey(clubId, 'roster'),
-		enabled: browser,
-		retry: false,
-		queryFn: async () => {
-			const publicClub = await getPublicClub(clubId);
-			return { publicClub, roster: publicClub ? await getPublicRoster(clubId) : [] };
-		}
+		...rosterOptions(clubId),
+		initialData: data.initialRoster,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
+		enabled: browser
 	}));
 	const queryClient = useQueryClient();
 	const adminRosterKey = ['admin-roster', clubId] as const;
@@ -40,6 +37,7 @@
 		queryKey: adminRosterKey,
 		enabled: browser && Boolean(club?.is_club_admin),
 		queryFn: () => getRoster(clubId),
+		initialData: club?.is_club_admin ? data.initialAdminRoster : undefined,
 		gcTime: 0,
 		retry: false
 	}));
@@ -53,7 +51,9 @@
 
 	let publicClub = $derived(rosterQuery.data?.publicClub ?? null);
 	let roster = $derived(
-		club?.is_club_admin ? (adminRosterQuery.data ?? []) : (rosterQuery.data?.roster ?? [])
+		club?.is_club_admin
+			? (adminRosterQuery.data ?? rosterQuery.data?.roster ?? [])
+			: (rosterQuery.data?.roster ?? [])
 	);
 	let pending = $state(false);
 
@@ -105,7 +105,12 @@
 </script>
 
 <svelte:head><title>Pemain — Courtside</title></svelte:head>
-<AppShell current="/players" clubName={displayName} onaccesschange={handleAccessChange}>
+<AppShell
+	initialClubAccess={data.clubAccess}
+	current="/players"
+	clubName={displayName}
+	onaccesschange={handleAccessChange}
+>
 	<QueryNotice
 		failed={rosterQuery.isError}
 		hasData={Boolean(rosterQuery.data)}

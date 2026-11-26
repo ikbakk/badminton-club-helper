@@ -20,11 +20,15 @@
 		type PublicPlayerProfile,
 		type PublicPlayerSessionSummary
 	} from '$lib/data/dashboard';
-	let { params }: { params: { id: string } } = $props();
+	import type { PageProps } from './$types';
+	let { params, data }: PageProps = $props();
 	const clubId = selectedClubId();
 	const profileQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'player', params.id),
+		meta: { navigationCritical: true },
 		enabled: browser,
+		initialData: data.initialPlayer,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		retry: false,
 		queryFn: async () => {
 			const playerId = params.id;
@@ -47,6 +51,8 @@
 	const summaryQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'player-summary', params.id),
 		enabled: browser && Boolean(profileQuery.data?.player),
+		initialData: data.initialSummaries,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		retry: false,
 		queryFn: () => getPublicPlayerSessionSummaries(params.id, clubId)
 	}));
@@ -60,7 +66,12 @@
 </script>
 
 <svelte:head><title>{player?.display_name ?? 'Pemain'} — Courtside</title></svelte:head>
-<AppShell current="/players" mode={player?.display_name ?? 'PEMAIN'} {clubName}>
+<AppShell
+	initialClubAccess={data.clubAccess}
+	current="/players"
+	mode={player?.display_name ?? 'PEMAIN'}
+	{clubName}
+>
 	<QueryNotice
 		failed={profileQuery.isError}
 		hasData={Boolean(profileQuery.data)}

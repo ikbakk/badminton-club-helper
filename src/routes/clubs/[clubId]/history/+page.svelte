@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { createQuery } from '@tanstack/svelte-query';
-	import { publicSurfaceKey } from '$lib/data/query-client';
+	import { historyOptions } from '$lib/data/navigation-queries';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
@@ -8,24 +8,15 @@
 	import AppShell from '$lib/components/ui/AppShell.svelte';
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { ArrowRight } from '@lucide/svelte';
-	import {
-		getPublicClub,
-		getPublicSessionHistory,
-		prefetchPublicSession,
-		type PublicSessionHistory
-	} from '$lib/data/dashboard';
+	import { prefetchPublicSession, type PublicSessionHistory } from '$lib/data/dashboard';
+	import type { PageProps } from './$types';
+	let { data }: PageProps = $props();
 	const clubId = selectedClubId();
 	const historyQuery = createQuery(() => ({
-		queryKey: publicSurfaceKey(clubId, 'history'),
-		enabled: browser,
-		retry: false,
-		queryFn: async () => {
-			const [club, history] = await Promise.all([
-				getPublicClub(clubId),
-				getPublicSessionHistory(clubId)
-			]);
-			return { club, history: history.filter((session) => session.closed_at) };
-		}
+		...historyOptions(clubId),
+		initialData: data.initialHistory,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
+		enabled: browser
 	}));
 	let clubName = $derived(historyQuery.data?.club?.name ?? 'Klub');
 	let history: PublicSessionHistory[] = $derived(historyQuery.data?.history ?? []);
@@ -62,7 +53,7 @@
 </script>
 
 <svelte:head><title>Riwayat — Courtside</title></svelte:head>
-<AppShell current="/history" {clubName}>
+<AppShell initialClubAccess={data.clubAccess} current="/history" {clubName}>
 	<QueryNotice
 		failed={historyQuery.isError}
 		hasData={Boolean(historyQuery.data)}

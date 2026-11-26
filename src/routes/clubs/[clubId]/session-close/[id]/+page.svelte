@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { publicSurfaceKey } from '$lib/data/query-client';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
@@ -31,13 +32,17 @@
 		suggestSessionFee
 	} from '$lib/data/live';
 
-	let { params }: { params: { id: string } } = $props();
-	let club = $state<Club | null>(null);
+	import type { PageProps } from './$types';
+	let { params, data }: PageProps = $props();
+	let club = $state<Club | null>(untrack(() => data.clubAccess));
 
 	const clubId = selectedClubId();
 	const closeQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'close', params.id),
+		meta: { navigationCritical: true },
 		enabled: browser,
+		initialData: data.initialCloseInfo,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		retry: false,
 		queryFn: async () => {
 			const sessionId = params.id;
@@ -324,7 +329,13 @@
 </script>
 
 <svelte:head><title>Tutup sesi — {clubName}</title></svelte:head>
-<AppShell current="" mode="REKAP SESI" {clubName} onaccesschange={handleAccessChange}>
+<AppShell
+	initialClubAccess={data.clubAccess}
+	current=""
+	mode="REKAP SESI"
+	{clubName}
+	onaccesschange={handleAccessChange}
+>
 	<QueryNotice
 		failed={closeQuery.isError}
 		hasData={Boolean(closeQuery.data)}

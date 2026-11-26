@@ -9,8 +9,6 @@
 	import { Toast } from 'sve-ui';
 
 	let { children } = $props();
-
-	// Query owns server state. Realtime handlers invalidate these queries rather than patching rows locally.
 	const queryClient = browser ? browserQueryClient : createQueryClient();
 </script>
 

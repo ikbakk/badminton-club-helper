@@ -141,6 +141,20 @@ select:focus-visible {
 body {
 	margin: 0;
 }
+@media (prefers-reduced-motion: no-preference) {
+	:is(a, button, summary) {
+		transition-property: background-color, border-color, color, box-shadow;
+		transition-duration: 160ms;
+		transition-timing-function: ease-out;
+	}
+}
+.club-content table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.club-content :is(th, td) {
+	border-bottom: 1px solid var(--court-line);
+}
 a,
 button,
 input,
@@ -288,4 +302,8 @@ textarea {
 .sve-tabs__trigger[data-state='active'] {
 	color: var(--court-action-deep) !important;
 	border-bottom-color: var(--court-action) !important;
+}
+
+html {
+	scrollbar-gutter: stable;
 }
