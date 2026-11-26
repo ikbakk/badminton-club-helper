@@ -4,12 +4,15 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import { selectedClubId } from '$lib/club-context';
 	import { getPublicClub } from '$lib/data/dashboard';
-	let { children } = $props();
+	import type { LayoutProps } from './$types';
+	let { children, data }: LayoutProps = $props();
 	const clubId = selectedClubId();
 	const club = createQuery(() => ({
 		queryKey: ['club', clubId],
 		meta: { navigationCritical: true },
 		queryFn: () => getPublicClub(clubId),
+		initialData: data.initialPublicClub,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		enabled: browser,
 		staleTime: 60_000
 	}));

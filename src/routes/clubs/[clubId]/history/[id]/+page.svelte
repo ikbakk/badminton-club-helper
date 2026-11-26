@@ -27,13 +27,16 @@
 		type PublicSessionHistory,
 		type PublicSessionMatch
 	} from '$lib/data/dashboard';
-	let { params }: { params: { id: string } } = $props();
+	import type { PageProps } from './$types';
+	let { params, data }: PageProps = $props();
 	const clubId = selectedClubId();
-	let club = $state<Club | null>(null);
+	let club = $state<Club | null>(untrack(() => data.clubAccess));
 	const detailQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'session', params.id),
 		meta: { navigationCritical: true },
 		enabled: browser,
+		initialData: data.initialDetail,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		retry: false,
 		queryFn: async () => {
 			const sessionId = params.id;
@@ -331,6 +334,7 @@
 
 <svelte:head><title>Detail sesi — Courtside</title></svelte:head>
 <AppShell
+	initialClubAccess={data.clubAccess}
 	current="/history"
 	mode={session ? watermarkDate(session.started_at) : 'ARSIP SESI'}
 	{clubName}

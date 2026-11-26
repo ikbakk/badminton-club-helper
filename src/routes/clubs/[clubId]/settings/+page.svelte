@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -19,6 +20,7 @@
 		type ClubSettingsInput
 	} from '$lib/data/club-settings';
 	import { supabase } from '$lib/supabase';
+	import type { PageProps } from './$types';
 
 	type SettingsForm = {
 		name: string;
@@ -43,10 +45,13 @@
 	};
 
 	const queryClient = useQueryClient();
+	let { data }: PageProps = $props();
 	const clubId = selectedClubId();
 	const accountQuery = createQuery(() => ({
 		queryKey: ['settings', 'account', clubId],
 		meta: { navigationCritical: true },
+		initialData: data.initialAccount,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		queryFn: async () => {
 			const [club, publicClub, user] = await Promise.all([
 				getClub(clubId),
@@ -64,6 +69,8 @@
 	const clubSettingsQuery = createQuery(() => ({
 		queryKey: ['settings', 'club', club?.id],
 		queryFn: () => getClubSettings(club!.id),
+		initialData: data.initialClubSettings,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		enabled: browser && isAdmin && Boolean(club?.id),
 		staleTime: 60_000
 	}));
@@ -83,9 +90,14 @@
 			notice = 'Pengaturan tersimpan.';
 		}
 	}));
-	let form = $state<SettingsForm>({ ...emptyForm });
-	let savedForm = $state<SettingsForm | null>(null);
-	let formClubId = $state('');
+	const initialSettings = untrack(() => data.initialClubSettings);
+	let form = $state<SettingsForm>(
+		initialSettings ? fromSettings(initialSettings) : { ...emptyForm }
+	);
+	let savedForm = $state<SettingsForm | null>(
+		initialSettings ? fromSettings(initialSettings) : null
+	);
+	let formClubId = $state(initialSettings?.club_id ?? '');
 	let notice = $state('');
 	let errorMessage = $state('');
 	let signOutPending = $state(false);
@@ -174,7 +186,7 @@
 </script>
 
 <svelte:head><title>Pengaturan — {clubName}</title></svelte:head>
-<AppShell current="/settings" {clubName}>
+<AppShell initialClubAccess={data.clubAccess} current="/settings" {clubName}>
 	<section class="border-b border-[#d6ddd3] pb-5">
 		<h1 class="text-3xl font-bold tracking-[-0.035em]">Pengaturan</h1>
 		<p class="mt-2 text-sm leading-6 text-[#527169]">

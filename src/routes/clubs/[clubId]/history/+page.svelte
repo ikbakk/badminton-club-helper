@@ -9,8 +9,15 @@
 	import LoadingSkeleton from '$lib/components/ui/LoadingSkeleton.svelte';
 	import { ArrowRight } from '@lucide/svelte';
 	import { prefetchPublicSession, type PublicSessionHistory } from '$lib/data/dashboard';
+	import type { PageProps } from './$types';
+	let { data }: PageProps = $props();
 	const clubId = selectedClubId();
-	const historyQuery = createQuery(() => ({ ...historyOptions(clubId), enabled: browser }));
+	const historyQuery = createQuery(() => ({
+		...historyOptions(clubId),
+		initialData: data.initialHistory,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
+		enabled: browser
+	}));
 	let clubName = $derived(historyQuery.data?.club?.name ?? 'Klub');
 	let history: PublicSessionHistory[] = $derived(historyQuery.data?.history ?? []);
 	let loading = $derived(historyQuery.isPending);
@@ -46,7 +53,7 @@
 </script>
 
 <svelte:head><title>Riwayat — Courtside</title></svelte:head>
-<AppShell current="/history" {clubName}>
+<AppShell initialClubAccess={data.clubAccess} current="/history" {clubName}>
 	<QueryNotice
 		failed={historyQuery.isError}
 		hasData={Boolean(historyQuery.data)}

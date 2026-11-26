@@ -1,9 +1,9 @@
-import { createServerClient } from '@supabase/ssr';
-import { env } from '$env/dynamic/public';
 import type { PageServerLoad } from './$types';
 import type { Club, RosterPlayer } from '$lib/data/dashboard';
 import { DEMO_CLUB_ID } from '$lib/features/demo/local-session';
 import { localDemoClub, localDemoRoster } from '$lib/features/demo/local-store';
+import { loadLiveSnapshot, loadPublicHistory, loadPublicRoster } from '$lib/server/public-data';
+import { createRequestSupabase } from '$lib/server/supabase';
 
 const emptyAccess = {
 	userEmail: null,
@@ -12,36 +12,46 @@ const emptyAccess = {
 	authAccessState: 'idle' as const
 };
 
-export const load: PageServerLoad = async ({ cookies, params, setHeaders }) => {
-	setHeaders({ 'cache-control': 'private, no-store' });
+export const load: PageServerLoad = async (event) => {
+	const { params } = event;
+	const [{ initialPublicClub }, initialLiveSnapshot, initialHistory, initialRoster] =
+		await Promise.all([
+			event.parent(),
+			loadLiveSnapshot(event, params.clubId),
+			loadPublicHistory(event, params.clubId),
+			loadPublicRoster(event, params.clubId)
+		]);
+	const initialPublic = { initialPublicClub, initialHistory, initialRoster };
 	if (params.clubId === DEMO_CLUB_ID)
 		return {
 			userEmail: 'demo@courtside.local',
 			club: localDemoClub() as Club,
 			roster: localDemoRoster() as RosterPlayer[],
-			authAccessState: 'ready' as const
+			authAccessState: 'ready' as const,
+			...initialPublic,
+			initialLiveSnapshot,
+			initialDataUpdatedAt: 0
 		};
 
-	const url = env.PUBLIC_SUPABASE_URL;
-	const key = env.PUBLIC_SUPABASE_ANON_KEY;
-	if (!url || !key) return emptyAccess;
-
-	const supabase = createServerClient(url, key, {
-		cookies: {
-			getAll: () => cookies.getAll(),
-			setAll: (cookiesToSet, headers) => {
-				cookiesToSet.forEach(({ name, value, options }) => {
-					cookies.set(name, value, { ...options, path: '/' });
-				});
-				setHeaders(headers);
-			}
-		}
-	});
+	const supabase = createRequestSupabase(event);
+	if (!supabase)
+		return {
+			...emptyAccess,
+			...initialPublic,
+			initialLiveSnapshot,
+			initialDataUpdatedAt: Date.now()
+		};
 
 	const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
 	const claims = claimsError ? null : claimsData?.claims;
 	const userId = typeof claims?.sub === 'string' ? claims.sub : null;
-	if (!userId) return emptyAccess;
+	if (!userId)
+		return {
+			...emptyAccess,
+			...initialPublic,
+			initialLiveSnapshot,
+			initialDataUpdatedAt: Date.now()
+		};
 
 	const userEmail = typeof claims?.email === 'string' ? claims.email : null;
 	const { data: clubRows, error: clubError } = await supabase.rpc('my_club');
@@ -52,7 +62,15 @@ export const load: PageServerLoad = async ({ cookies, params, setHeaders }) => {
 			(candidate) => candidate.id === params.clubId && candidate.is_club_admin
 		) ?? null;
 	if (!club) {
-		return { userEmail, club: null, roster: [], authAccessState: 'denied' as const };
+		return {
+			userEmail,
+			club: null,
+			roster: [],
+			authAccessState: 'denied' as const,
+			...initialPublic,
+			initialLiveSnapshot,
+			initialDataUpdatedAt: Date.now()
+		};
 	}
 
 	const { data: rosterRows, error: rosterError } = await supabase.rpc('club_roster', {
@@ -64,6 +82,9 @@ export const load: PageServerLoad = async ({ cookies, params, setHeaders }) => {
 		userEmail,
 		club,
 		roster: (rosterRows ?? []) as RosterPlayer[],
-		authAccessState: 'ready' as const
+		authAccessState: 'ready' as const,
+		...initialPublic,
+		initialLiveSnapshot,
+		initialDataUpdatedAt: Date.now()
 	};
 };

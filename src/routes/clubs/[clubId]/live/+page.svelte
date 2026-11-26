@@ -54,6 +54,8 @@
 	const scopedLiveQueryKey = [...liveSessionQueryKey, clubId];
 	const liveQuery = createQuery(() => ({
 		...liveOptions(clubId),
+		initialData: data.initialLiveSnapshot,
+		initialDataUpdatedAt: data.initialDataUpdatedAt,
 		enabled: browser,
 		staleTime: 15_000,
 		refetchInterval: 15_000,
@@ -94,9 +96,13 @@
 	let club = $state<Club | null>(untrack(() => data.club));
 	const initialUserEmail = untrack(() => data.userEmail);
 	const initialAuthAccessState = untrack(() => data.authAccessState);
-	let publicClub = $state<{ id: string; name: string } | null>(null);
-	let publicRoster = $state<{ id: string; display_name: string }[]>([]);
-	let publicHistory = $state<PublicSessionHistory[]>([]);
+	let publicClub = $state<{ id: string; name: string } | null>(
+		untrack(() => data.initialPublicClub)
+	);
+	let publicRoster = $state<{ id: string; display_name: string }[]>(
+		untrack(() => data.initialRoster)
+	);
+	let publicHistory = $state<PublicSessionHistory[]>(untrack(() => data.initialHistory));
 	let fundSummary = $state<PublicFundSummary | null>(null);
 	let roster = $state<RosterPlayer[]>(untrack(() => data.roster));
 	let live = new LiveController(
