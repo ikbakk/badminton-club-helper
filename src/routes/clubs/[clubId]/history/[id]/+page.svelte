@@ -32,6 +32,7 @@
 	let club = $state<Club | null>(null);
 	const detailQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'session', params.id),
+		meta: { navigationCritical: true },
 		enabled: browser,
 		retry: false,
 		queryFn: async () => {

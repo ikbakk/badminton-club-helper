@@ -24,6 +24,7 @@
 	const clubId = selectedClubId();
 	const profileQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'player', params.id),
+		meta: { navigationCritical: true },
 		enabled: browser,
 		retry: false,
 		queryFn: async () => {

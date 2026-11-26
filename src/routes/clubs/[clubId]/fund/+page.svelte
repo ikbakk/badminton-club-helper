@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { selectedClubId } from '$lib/club-context';
-	import { publicSurfaceKey } from '$lib/data/query-client';
+	import { fundOptions } from '$lib/data/navigation-queries';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { createQuery } from '@tanstack/svelte-query';
@@ -10,9 +10,6 @@
 	import {
 		getFinanceSessionAttendees,
 		getFinanceSessions,
-		getPublicClub,
-		getPublicFundActivity,
-		getPublicFundSummary,
 		invalidatePublicData,
 		recordExpense,
 		setSessionAttendeePaid,
@@ -27,19 +24,7 @@
 		publicPaymentDestinationsQueryKey
 	} from '$lib/data/club-settings';
 	const clubId = selectedClubId();
-	const fundQuery = createQuery(() => ({
-		queryKey: publicSurfaceKey(clubId, 'fund'),
-		enabled: browser,
-		retry: false,
-		queryFn: async () => {
-			const [club, summary, activity] = await Promise.all([
-				getPublicClub(clubId),
-				getPublicFundSummary(clubId),
-				getPublicFundActivity(clubId)
-			]);
-			return { club, summary, activity };
-		}
-	}));
+	const fundQuery = createQuery(() => ({ ...fundOptions(clubId), enabled: browser }));
 	let club = $state<Club | null>(null);
 	let publicClub = $derived(fundQuery.data?.club ?? null);
 	let clubName = $derived(club?.name ?? publicClub?.name ?? 'Klub');

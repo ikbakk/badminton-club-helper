@@ -3,7 +3,8 @@
 	import { clubHref, selectedClubId } from '$lib/club-context';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import { getClub, prefetchPublicSurface, type Club } from '$lib/data/dashboard';
+	import { getClub, type Club } from '$lib/data/dashboard';
+	import { prefetchNavigation } from '$lib/data/navigation-queries';
 	import { authState, loadCachedClub, setCachedClub } from '$lib/auth-state.svelte';
 	import { isDemoClub } from '$lib/features/demo/local-store';
 	import { History, Radio, Settings, UsersRound, Wallet, Share2, UserRound } from '@lucide/svelte';
@@ -43,6 +44,20 @@
 		{ href: '/settings', route: '/clubs/[clubId]/settings', label: 'Pengaturan', icon: Settings }
 	] as const;
 	let shareNotice = $state('');
+	function prefetchLink(route: (typeof links)[number]['route']) {
+		const connection = (
+			navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }
+		).connection;
+		if (
+			connection?.saveData ||
+			connection?.effectiveType === '2g' ||
+			connection?.effectiveType === 'slow-2g'
+		)
+			return;
+		void prefetchNavigation(
+			new URL(resolve(route, { clubId: selectedClubId() }), window.location.origin)
+		);
+	}
 	async function copyClubLink() {
 		try {
 			await navigator.clipboard.writeText(new URL(clubHref('/live'), window.location.origin).href);
@@ -120,8 +135,9 @@
 					<a
 						href={resolve(link.route, { clubId: selectedClubId() })}
 						data-sveltekit-preload-data="hover"
-						onmouseenter={() => void prefetchPublicSurface(link.href).catch(() => {})}
-						onfocus={() => void prefetchPublicSurface(link.href).catch(() => {})}
+						onmouseenter={() => prefetchLink(link.route)}
+						onfocus={() => prefetchLink(link.route)}
+						onpointerdown={() => prefetchLink(link.route)}
 						aria-current={current === link.href ? 'page' : undefined}
 						class:active={current === link.href}
 					>

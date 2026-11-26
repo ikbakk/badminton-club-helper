@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { liveOptions } from '$lib/data/navigation-queries';
 	import { browser } from '$app/environment';
 	import { onDestroy, untrack } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
@@ -36,7 +37,6 @@
 	import {
 		emptyLiveSessionSnapshot,
 		liveSessionQueryKey,
-		loadClubLiveSession,
 		subscribeToLiveUpdates,
 		type LiveSessionSnapshot
 	} from '$lib/data/live';
@@ -53,8 +53,7 @@
 	const clubId = selectedClubId();
 	const scopedLiveQueryKey = [...liveSessionQueryKey, clubId];
 	const liveQuery = createQuery(() => ({
-		queryKey: scopedLiveQueryKey,
-		queryFn: () => loadClubLiveSession(clubId),
+		...liveOptions(clubId),
 		enabled: browser,
 		staleTime: 15_000,
 		refetchInterval: 15_000,

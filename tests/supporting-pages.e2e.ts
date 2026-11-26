@@ -229,3 +229,39 @@ test('mobile navigation stays reachable after scrolling a long club page', async
 	await expect(page).toHaveURL(/\/players$/);
 	await expect(page.getByRole('link', { name: 'Pengaturan', exact: true })).toHaveCount(0);
 });
+
+test('navigation flight clears after the critical profile query settles', async ({ page }) => {
+	let releaseProfile!: () => void;
+	const delayedProfile = new Promise<void>((resolve) => (releaseProfile = resolve));
+	let profileRequestStarted!: () => void;
+	const requestStarted = new Promise<void>((resolve) => (profileRequestStarted = resolve));
+	await page.route('**/rest/v1/**', async (route) => {
+		const path = new URL(route.request().url()).pathname;
+		if (path.endsWith('/public_club_profile'))
+			return route.fulfill({ json: [{ id: 'club-e2e', name: 'Test Club' }] });
+		if (path.endsWith('/public_member_roster'))
+			return route.fulfill({
+				json: [{ id: 'player-1', display_name: 'Rafi', membership_type: 'MEMBER' }]
+			});
+		if (path.endsWith('/rpc/public_player_profile')) {
+			profileRequestStarted();
+			await delayedProfile;
+			return route.fulfill({
+				json: [{ id: 'player-1', display_name: 'Rafi', membership_type: 'MEMBER' }]
+			});
+		}
+		return route.fulfill({ json: [] });
+	});
+
+	await page.goto('/clubs/club-e2e/players');
+	await page.getByRole('link', { name: /Rafi/ }).click();
+	await requestStarted;
+	await expect(page).toHaveURL(/\/players\/player-1$/);
+	const flight = page.locator('.navigation-flight');
+	await expect(flight).toBeAttached();
+	await expect(page.getByLabel('Membuka profil pemain')).toBeVisible();
+
+	releaseProfile();
+	await expect(page.getByRole('heading', { name: 'Rafi', exact: true })).toBeVisible();
+	await expect(flight.locator('.shuttle-flight')).toHaveCSS('opacity', '0', { timeout: 3000 });
+});

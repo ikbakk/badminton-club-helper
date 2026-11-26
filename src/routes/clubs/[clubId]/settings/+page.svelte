@@ -46,6 +46,7 @@
 	const clubId = selectedClubId();
 	const accountQuery = createQuery(() => ({
 		queryKey: ['settings', 'account', clubId],
+		meta: { navigationCritical: true },
 		queryFn: async () => {
 			const [club, publicClub, user] = await Promise.all([
 				getClub(clubId),

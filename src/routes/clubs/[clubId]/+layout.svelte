@@ -8,6 +8,7 @@
 	const clubId = selectedClubId();
 	const club = createQuery(() => ({
 		queryKey: ['club', clubId],
+		meta: { navigationCritical: true },
 		queryFn: () => getPublicClub(clubId),
 		enabled: browser,
 		staleTime: 60_000

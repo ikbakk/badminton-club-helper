@@ -141,6 +141,67 @@ select:focus-visible {
 body {
 	margin: 0;
 }
+.navigation-flight {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	pointer-events: none;
+	overflow: hidden;
+	opacity: 0;
+}
+.navigation-trace {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.navigation-sweep {
+	fill: var(--court-deep);
+}
+.navigation-sweep-edge {
+	fill: none;
+	stroke: var(--court-action);
+	stroke-width: 0.6;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+.shuttle-trail {
+	fill: none;
+	stroke: var(--court-action);
+	stroke-width: 0.32;
+	stroke-linecap: round;
+	opacity: 0;
+}
+.shuttle-flight {
+	position: absolute;
+	left: 13%;
+	top: 78%;
+	width: 25px;
+	height: 25px;
+	object-fit: contain;
+	color: var(--court-action);
+	filter: drop-shadow(0 1px 1px rgb(22 54 48 / 14%));
+	opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	.navigation-flight {
+		display: none;
+	}
+}
+@media (prefers-reduced-motion: no-preference) {
+	:is(a, button, summary) {
+		transition-property: background-color, border-color, color, box-shadow;
+		transition-duration: 160ms;
+		transition-timing-function: ease-out;
+	}
+}
+.club-content table {
+	width: 100%;
+	border-collapse: collapse;
+}
+.club-content :is(th, td) {
+	border-bottom: 1px solid var(--court-line);
+}
 a,
 button,
 input,

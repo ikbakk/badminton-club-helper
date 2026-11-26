@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { rosterOptions } from '$lib/data/navigation-queries';
 	import Avatar from '$lib/components/ui/Avatar.svelte';
 	import { createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { untrack } from 'svelte';
 
-	import { publicSurfaceKey } from '$lib/data/query-client';
 	import QueryNotice from '$lib/components/ui/QueryNotice.svelte';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
@@ -14,8 +14,6 @@
 	import { ArrowRight } from '@lucide/svelte';
 	import {
 		addPlayer,
-		getPublicClub,
-		getPublicRoster,
 		getRoster,
 		invalidatePublicData,
 		prefetchPublicPlayer,
@@ -25,15 +23,7 @@
 
 	let club = $state<Club | null>(null);
 	const clubId = selectedClubId();
-	const rosterQuery = createQuery(() => ({
-		queryKey: publicSurfaceKey(clubId, 'roster'),
-		enabled: browser,
-		retry: false,
-		queryFn: async () => {
-			const publicClub = await getPublicClub(clubId);
-			return { publicClub, roster: publicClub ? await getPublicRoster(clubId) : [] };
-		}
-	}));
+	const rosterQuery = createQuery(() => ({ ...rosterOptions(clubId), enabled: browser }));
 	const queryClient = useQueryClient();
 	const adminRosterKey = ['admin-roster', clubId] as const;
 	const adminRosterQuery = createQuery(() => ({

@@ -37,6 +37,7 @@
 	const clubId = selectedClubId();
 	const closeQuery = createQuery(() => ({
 		queryKey: publicSurfaceKey(clubId, 'close', params.id),
+		meta: { navigationCritical: true },
 		enabled: browser,
 		retry: false,
 		queryFn: async () => {
